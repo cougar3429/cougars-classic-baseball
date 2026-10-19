@@ -839,13 +839,19 @@ function cpuDefense() {
     if (r && !r.safe && !r.out) {
       /* decide at once: throw if the bag is (or will be) covered before the ball gets there, else run it over if that's quicker */
       var bx = BASES[1][0], by = BASES[1][1], d1 = dist2(hp.x, hp.y, bx, by);
+      if (isOF(hid)) {
+        /* outfielder: throw to first only if it can beat the runner, otherwise to second (where the runner would go next) */
+        var tRun = (1 - r.p) * 90 / RSPD, tThrow = S.gatherT + WIND_OF + d1 / THROW;
+        requestThrow(tThrow < tRun - 5 ? 1 : 2); return;
+      }
       if (S.cpuRunning || d1 < 12) { S.cpuRunning = true; moveToward(hid, bx, by, FSPD); return; }
       var cov = coverFor(1), w = isOF(hid) ? WIND_OF : WIND_IF, tBall = S.gatherT + w + d1 / THROW;
       var tCov = cov ? dist2(S.F[cov].x, S.F[cov].y, bx, by) / FSPD + ACCEL_T / 2 : 1e9;
       if (baseCovered(1, hid) || tCov <= tBall) requestThrow(1);
       else if (d1 / FSPD < tCov) { S.cpuRunning = true; moveToward(hid, bx, by, FSPD); }
       /* otherwise hold the ball until the throw and the coverer will reach the bag together */
-    } else if (hid !== 'P') requestThrow('P');
+    } else if (isOF(hid)) requestThrow(2);
+    else if (hid !== 'P') requestThrow('P');
     return;
   }
   if (S.thr) return;
