@@ -1,1 +1,1 @@
-# Cougar-s-Classic-Baseball
+# Cougars-Classic-Baseball
