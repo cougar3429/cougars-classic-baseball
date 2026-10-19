@@ -1,0 +1,1151 @@
+<title>Cougar's Classic Baseball</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Archivo+Narrow:wght@500;600;700&display=swap">
+<style>
+/* Layout: one fixed 844x390 landscape stage, scaled to fit; HUD and controls overlay the canvas */
+:root {
+  --ink: #16202b;
+  --cream: #fbeee0;
+  --red: #e0413b;
+  --blue: #2f6fe0;
+  --gold: #ffd23f;
+  --font-display: "Bungee", "Arial Black", system-ui, sans-serif;
+  --font-body: "Archivo Narrow", "Arial Narrow", system-ui, sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  margin: 0; background: #12301d; color: var(--cream); font-family: var(--font-body);
+  overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  padding-left: max(0px, env(safe-area-inset-left, 0px)); padding-right: max(0px, env(safe-area-inset-right, 0px));
+}
+body.day { background: #4f9e44; }
+#stage { position: absolute; left: 50%; top: 50%; width: 844px; height: 390px; transform-origin: center; overflow: hidden; border-radius: 6px; }
+#cv { position: absolute; left: 0; top: 0; width: 844px; height: 390px; display: block; }
+
+.hud { position: absolute; transition: opacity 0.25s; }
+#sb { top: 6px; left: 50%; transform: translateX(-50%); display: flex; align-items: stretch; height: 36px; border-radius: 10px; overflow: hidden; border: 2px solid var(--ink); background: #1d4f3c; box-shadow: 0 3px 0 var(--ink); }
+#sb.hide, .por.hide { opacity: 0; }
+#sb .tm { display: flex; align-items: center; gap: 6px; padding: 0 10px; }
+#sb .tm small { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; }
+#sb .tm b { font-family: var(--font-display); font-weight: 400; font-size: 20px; line-height: 1; font-variant-numeric: tabular-nums; }
+#sb .vis { background: var(--red); }
+#sb .home { background: var(--blue); }
+#sb .inn { display: flex; align-items: center; padding: 0 10px; font-family: var(--font-display); font-size: 15px; }
+#sb .inn span { color: var(--gold); font-size: 11px; margin-right: 3px; }
+#sb .cnt { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 0 10px; border-left: 1px solid rgba(251,238,224,0.2); font-size: 9px; font-weight: 700; }
+#sb .cnt div { display: flex; align-items: center; gap: 3px; }
+#sb .cnt i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #2c4a3c; }
+#sb .cnt i.on.b { background: #5fd17a; } #sb .cnt i.on.s { background: var(--gold); } #sb .cnt i.on.o { background: var(--red); }
+
+.por { top: 8px; display: flex; align-items: center; gap: 8px; }
+#pl { left: 12px; } #pr { right: 12px; flex-direction: row-reverse; }
+.por .face { width: 56px; height: 56px; border-radius: 50%; border: 3px solid var(--ink); box-sizing: border-box; overflow: hidden; box-shadow: 0 3px 0 var(--ink); background: var(--cream); }
+.por .face svg { display: block; width: 100%; height: 100%; }
+.por .lab { display: flex; flex-direction: column; gap: 2px; }
+#pr .lab { align-items: flex-end; }
+.por .role { padding: 2px 8px; border-radius: 6px; background: var(--ink); color: var(--gold); font-family: var(--font-display); font-size: 11px; }
+.por .who { padding: 1px 6px; border-radius: 5px; background: var(--cream); color: var(--ink); font-size: 11px; font-weight: 700; border: 2px solid var(--ink); align-self: flex-start; }
+#pr .who { align-self: flex-end; }
+
+#toast { position: absolute; left: 50%; top: 104px; transform: translateX(-50%); text-align: center; pointer-events: none; opacity: 0; transition: opacity 0.15s; }
+#toast.on { opacity: 1; }
+#toast b { display: block; font-family: var(--font-display); font-weight: 400; font-size: 34px; color: var(--cream); -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; text-shadow: 0 3px 0 var(--ink); white-space: nowrap; }
+#toast b.big { font-size: 46px; color: var(--gold); }
+#toast span { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 6px; background: rgba(22,32,43,0.8); font-size: 13px; font-weight: 600; }
+#hint { position: absolute; left: 50%; top: 48px; transform: translateX(-50%); padding: 3px 10px; border-radius: 8px; background: rgba(22,32,43,0.72); font-size: 12px; font-weight: 600; white-space: nowrap; pointer-events: none; }
+
+#dpad { position: absolute; left: 18px; bottom: 14px; width: 136px; height: 136px; touch-action: none; }
+#dpad .arm { position: absolute; width: 46px; height: 46px; background: rgba(251,238,224,0.82); border: 3px solid var(--ink); box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: var(--ink); }
+#dpad .arm.on { background: var(--gold); }
+#dpad .u { left: 45px; top: 0; border-radius: 10px 10px 0 0; border-bottom: none; }
+#dpad .d { left: 45px; bottom: 0; border-radius: 0 0 10px 10px; border-top: none; }
+#dpad .l { left: 0; top: 45px; border-radius: 10px 0 0 10px; border-right: none; }
+#dpad .r { right: 0; top: 45px; border-radius: 0 10px 10px 0; border-left: none; }
+#dpad .c { position: absolute; left: 45px; top: 45px; width: 46px; height: 46px; background: rgba(251,238,224,0.82); }
+#btn { position: absolute; right: 26px; bottom: 26px; width: 88px; height: 88px; border-radius: 50%; border: 3px solid var(--ink); background: var(--red); box-shadow: inset 0 -6px 0 #a52520, 0 4px 0 var(--ink); touch-action: none; padding: 0; }
+#btn.on { transform: translateY(3px); box-shadow: inset 0 -3px 0 #a52520, 0 1px 0 var(--ink); }
+#menu { position: absolute; right: 54px; top: 74px; height: 34px; padding: 0 10px; border-radius: 8px; border: 2px solid var(--ink); background: var(--cream); color: var(--ink); font: 700 13px var(--font-body); letter-spacing: 0.06em; }
+#mute { position: absolute; right: 12px; top: 74px; width: 34px; height: 34px; border-radius: 8px; border: 2px solid var(--ink); background: var(--cream); color: var(--ink); padding: 0; display: flex; align-items: center; justify-content: center; }
+
+.screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: rgba(10,22,16,0.86); text-align: center; padding: 16px; box-sizing: border-box; }
+.screen[hidden] { display: none; }
+.screen h1 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 38px; line-height: 1.05; color: var(--gold); -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; text-shadow: 0 4px 0 var(--ink); text-wrap: balance; }
+.screen p { margin: 0; font-size: 14px; color: #cfdccf; max-width: 56ch; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.row label { font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-size: 12px; min-width: 76px; text-align: right; }
+.seg { display: flex; border: 2px solid var(--ink); border-radius: 10px; overflow: hidden; box-shadow: 0 3px 0 var(--ink); }
+.seg button { border: none; background: var(--cream); color: var(--ink); font: 700 14px var(--font-body); padding: 8px 14px; min-height: 40px; cursor: pointer; }
+.seg button + button { border-left: 2px solid var(--ink); }
+.seg button[aria-pressed="true"] { background: var(--gold); }
+.seg button:disabled { opacity: 0.45; cursor: default; }
+.big-btn { font-family: var(--font-display); font-size: 20px; padding: 10px 28px; min-height: 48px; border-radius: 12px; border: 3px solid var(--ink); background: var(--red); color: #fff; box-shadow: 0 4px 0 var(--ink); cursor: pointer; }
+.big-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.stepper { display: flex; align-items: center; gap: 0; border: 2px solid var(--ink); border-radius: 10px; overflow: hidden; box-shadow: 0 3px 0 var(--ink); background: var(--cream); color: var(--ink); }
+.stepper button { border: none; background: var(--cream); font: 700 18px var(--font-body); width: 40px; min-height: 40px; cursor: pointer; color: var(--ink); }
+.stepper output { font-family: var(--font-display); font-size: 18px; width: 34px; text-align: center; }
+#final table { border-collapse: collapse; font-size: 15px; }
+#final td, #final th { padding: 4px 12px; border-bottom: 1px solid rgba(251,238,224,0.2); font-variant-numeric: tabular-nums; }
+
+#rotate { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: #12301d; color: var(--cream); text-align: center; padding: 24px; font-size: 18px; z-index: 50; }
+#rotate b { font-family: var(--font-display); font-weight: 400; font-size: 24px; color: var(--gold); }
+@media (orientation: portrait) and (max-width: 900px) { #rotate { display: flex; } }
+@media (prefers-reduced-motion: reduce) { .hud, #toast { transition: none; } }
+</style>
+
+<div id="stage">
+  <canvas id="cv" width="844" height="390"></canvas>
+
+  <div id="pl" class="hud por"><div class="face" id="fl"></div><div class="lab"><div class="role" id="rl">AT BAT</div><div class="who" id="wl">YOU</div></div></div>
+  <div id="pr" class="hud por"><div class="face" id="fr"></div><div class="lab"><div class="role" id="rr">PITCHING</div><div class="who" id="wr">CPU</div></div></div>
+  <div id="sb" class="hud">
+    <div class="tm vis"><small>VIS</small><b id="sv">0</b></div>
+    <div class="inn"><span id="ih">▲</span><b id="in">1</b></div>
+    <div class="cnt">
+      <div>B <i class="b"></i><i class="b"></i><i class="b"></i></div>
+      <div>S <i class="s"></i><i class="s"></i></div>
+      <div>O <i class="o"></i><i class="o"></i></div>
+    </div>
+    <div class="tm home"><b id="sh">0</b><small>HOME</small></div>
+  </div>
+  <button id="menu" type="button" hidden>MENU</button>
+  <button id="mute" type="button" aria-label="Mute sound" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M4 9h4l5-4v14l-5-4H4z"/><path id="mutewave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+
+  <div id="toast"><b id="tt">PLAY BALL</b><span id="ts" hidden></span></div>
+  <div id="hint">Hold a direction, then tap the button to pitch</div>
+
+  <div id="dpad" aria-label="Direction pad">
+    <div class="arm u" data-d="u"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 6l7 9H5z"/></svg></div>
+    <div class="arm l" data-d="l"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M6 12l9-7v14z"/></svg></div>
+    <div class="c"></div>
+    <div class="arm r" data-d="r"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M18 12l-9 7V5z"/></svg></div>
+    <div class="arm d" data-d="d"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 18l-7-9h14z"/></svg></div>
+  </div>
+  <button id="btn" type="button" aria-label="Action button"></button>
+
+  <section class="screen" id="title">
+    <h1>Cougar's Classic<br>Baseball</h1>
+    <p>Pitch &amp; Bat Test: pitching and hitting against the computer. Fielding, throws and base running come in a later build.</p>
+    <div class="seg" role="group" aria-label="Players">
+      <button type="button" id="p1" aria-pressed="true">1 PLAYER</button>
+      <button type="button" id="p2" aria-pressed="false" disabled>2 PLAYER (LATER)</button>
+    </div>
+    <button class="big-btn" id="start" type="button">START</button>
+  </section>
+
+  <section class="screen" id="setup" hidden>
+    <h1>Game Setup</h1>
+    <div class="row"><label>Innings</label>
+      <div class="stepper"><button type="button" id="inm" aria-label="Fewer innings">−</button><output id="inv">3</output><button type="button" id="inp" aria-label="More innings">+</button></div>
+    </div>
+    <div class="row"><label>Game</label>
+      <div class="seg" role="group" aria-label="Day or night"><button type="button" id="gday" aria-pressed="true">DAY</button><button type="button" id="gnight" aria-pressed="false">NIGHT</button></div>
+    </div>
+    <div class="row"><label>You</label>
+      <div class="seg" role="group" aria-label="Bat or pitch first"><button type="button" id="bf" aria-pressed="true">BAT FIRST</button><button type="button" id="pf" aria-pressed="false">PITCH FIRST</button></div>
+    </div>
+    <div class="row"><label>Murmur</label>
+      <div class="seg" role="group" aria-label="Crowd murmur"><button type="button" id="mon" aria-pressed="true">ON</button><button type="button" id="moff" aria-pressed="false">OFF</button></div>
+    </div>
+    <p>Selfie and coin flip are skipped in this test; default coaches are used. The murmur choice is remembered on this device.</p>
+    <button class="big-btn" id="go" type="button">PLAY BALL</button>
+  </section>
+
+  <section class="screen" id="quit" hidden>
+    <h1>Quit This Game?</h1>
+    <p>The score will be lost. The game is paused while you decide.</p>
+    <div class="row"><button class="big-btn" id="qyes" type="button">QUIT TO MENU</button><button class="big-btn" id="qno" type="button" style="background:#2f6fe0">KEEP PLAYING</button></div>
+  </section>
+
+  <section class="screen" id="final" hidden>
+    <h1 id="fh">Final</h1>
+    <table><thead><tr><th></th><th>R</th><th>H</th><th>HR</th><th>K</th><th>BB</th></tr></thead><tbody id="fb"></tbody></table>
+    <button class="big-btn" id="again" type="button">PLAY AGAIN</button>
+  </section>
+</div>
+
+<div id="rotate"><svg width="64" height="64" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M3 14a9 9 0 0 0 7 7"/><path d="M3 18v-4h4"/></svg><b>Turn your phone sideways</b><span>Cougar's Classic Baseball plays in landscape.</span></div>
+
+<script>
+(function () {
+'use strict';
+/* ============ constants ============ */
+var W = 844, H = 390, HX = 422, HY = 356, KX = 2.635, KY = 1.55;
+var SPR = 0.792; /* overall player size */
+function spriteScale(py) { return (0.55 + 0.45 * (py / HY) * 1.1) * SPR; }
+var TICK = 1000 / 60;
+var RELEASE_FY = 57, HALF_FY = 28.5;
+var SP_MIN = 0.6825, SP_MAX = 2.34, SP_ACC = 0.0197;
+var START_SP = { u: 0.8125, d: 1.6575, l: 1.25, r: 1.25 };
+var LACC = 0.022, LV_HUMAN = 2.6, LV_CPU = 0.9;
+var PLATE_HALF = 2.4, BALL_R = 0.7, BAT_REACH = 4.9;
+var CONTACT_T = 6, POWER_CT = 4, SWING_LEN = 16, POWER_LEN = 12, BUNT_LEN = 26, IDEAL_FY = 3.0, SWING_W = 7.5, LATE_W = 12; /* late contact allowed further past the sweet spot (it goes foul to the right) */
+var BALLMAX = 4.0, DECAY = 0.997, FRICTION = 0.004;
+var WINDUP_T = 40;
+/* batter placement: at contact the level bat sits on the plate's top edge (y 352) and its tip reaches past the plate (x 433) */
+var BAT_S = 0.873, BAT_LEN = 33, BAT_X = 398, BAT_Y = 347.5 + 22.3 * 0.873;
+var PI = 3.141592653589793;
+
+/* deterministic helpers (sim uses only these + basic arithmetic + sqrt) */
+function dsin(x) {
+  var TP = 6.283185307179586;
+  x = x - TP * Math.floor((x + PI) / TP);
+  var x2 = x * x;
+  return x * (1 - x2 / 6 * (1 - x2 / 20 * (1 - x2 / 42 * (1 - x2 / 72 * (1 - x2 / 110)))));
+}
+function dcos(x) { return dsin(x + PI / 2); }
+function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function fenceR(u) { return 203 - 42 * u * u; }
+function proj(fx, fy) { return [HX + fx * KX, HY - fy * KY]; }
+function segDist(ax, ay, bx, by, px, py) {
+  var dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy, t = L ? ((px - ax) * dx + (py - ay) * dy) / L : 0;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  var x = ax + dx * t - px, y = ay + dy * t - py; return Math.sqrt(x * x + y * y);
+}
+
+var FIELDERS = [
+  { id: 'P', x: 0, y: 61.6, r: 3.5, inf: true },
+  { id: 'C', x: 0, y: -21, r: 4, inf: true },
+  { id: '1B', x: 50, y: 86, r: 4.2, inf: true },
+  { id: '2B', x: 20, y: 118, r: 4.2, inf: true },
+  { id: '3B', x: -50, y: 86, r: 4.2, inf: true },
+  { id: 'LF', x: -79, y: 137, r: 6, inf: false },
+  { id: 'CF', x: 0, y: 163, r: 6, inf: false },
+  { id: 'RF', x: 79, y: 137, r: 6, inf: false }
+];
+var BASES = { 1: [63.6, 63.6], 2: [0, 127.3], 3: [-63.6, 63.6], 4: [0, -1] };
+var DIR_BASE = { r: 1, u: 2, l: 3, d: 4 };
+var PAIRS = { r: ['1B', 'RF'], u: ['2B', 'CF'], l: ['3B', 'LF'], d: ['C', 'C'] };
+var COVER = { '1B': 1, '2B': 2, '3B': 3, 'C': 4 };
+var FSPD = 0.32, RSPD = 0.459, THROW = 1.2;
+function homePos() { var o = {}; FIELDERS.forEach(function (f) { o[f.id] = { x: f.x, y: f.y, mv: 0 }; }); return o; }
+function dist2(ax, ay, bx, by) { var x = ax - bx, y = ay - by; return Math.sqrt(x * x + y * y); }
+var FNAME = { P: 'pitcher', C: 'catcher', '1B': 'first baseman', '2B': 'second baseman', '3B': 'third baseman', LF: 'left fielder', CF: 'center fielder', RF: 'right fielder' };
+
+/* ============ themes ============ */
+var THEMES = {
+  night: { night: true, sky: null, crowdBg: '#0f1830', crowd: ['#3b4c78', '#6a3f52', '#2d5f6a', '#77735a'], upper: '#0a1124', eye: '#0b2a20', foul: '#225430', grass: '#2e7a3a', stripe: '#378a45', track: '#a8693d', dirt: '#c07f4c', dirtDot: '#a96c3e', infGrass: '#317f3d', chalk: '#f7f4ec', fence: '#153a2a', fenceTop: '#f2c94c', red: '#cf3838', blue: '#2d61d4', skin: '#d2a07a', pants: '#eef1f6', dark: '#141821', outline: null, glove: '#8a5a2b', bat: '#d8b07a' },
+  day: { night: false, sky: '#8fd0ef', crowdBg: '#2f8f9d', crowd: ['#f2b880', '#8a5a3c', '#f6d2a8', '#26778a'], upper: '#e8743b', eye: '#1d4f3c', foul: '#4f9e44', grass: '#5bb04e', stripe: '#68bd59', track: '#d6905a', dirt: '#e0985f', dirtDot: '#cf8750', infGrass: '#5bb04e', chalk: '#ffffff', fence: '#2457a6', fenceTop: '#ffd23f', red: '#e0413b', blue: '#2f6fe0', skin: '#e8b48a', pants: '#ffffff', dark: '#16202b', outline: '#16202b', glove: '#a0652f', bat: '#e9c27e' }
+};
+
+/* ============ DOM ============ */
+var $ = function (id) { return document.getElementById(id); };
+var stage = $('stage'), cv = $('cv'), ctx = cv.getContext('2d');
+var K = 1, DPR = 1, fieldCache = null, theme = THEMES.day, themeName = 'day';
+
+function layout() {
+  var vw = window.innerWidth, vh = window.innerHeight;
+  K = Math.min(vw / W, vh / H);
+  stage.style.transform = 'translate(-50%,-50%) scale(' + K + ')';
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = Math.max(1, Math.round(W * K * DPR)); cv.height = Math.max(1, Math.round(H * K * DPR));
+  fieldCache = null;
+}
+window.addEventListener('resize', layout);
+
+/* ============ field rendering (cached) ============ */
+function fencePts(inset) {
+  var pts = [];
+  for (var i = 0; i <= 60; i++) {
+    var th = PI / 4 + (PI / 2) * (i / 60);
+    var u = Math.cos(th), r = fenceR(u) - inset;
+    pts.push(proj(r * Math.cos(th), r * Math.sin(th)));
+  }
+  return pts;
+}
+function crowdPattern(c, T, upper) {
+  var p = document.createElement('canvas'); p.width = 10; p.height = 8; var g = p.getContext('2d');
+  g.fillStyle = upper ? T.upper : T.crowdBg; g.fillRect(0, 0, 10, 8);
+  var cols = T.crowd;
+  [[2, 2.4, 1.4, 0], [7, 2.6, 1.3, 1], [4.5, 6, 1.3, 2], [8.6, 6.2, 1, 3]].forEach(function (d) { g.fillStyle = cols[d[3]]; g.beginPath(); g.arc(d[0], d[1], d[2], 0, 7); g.fill(); });
+  return c.createPattern(p, 'repeat');
+}
+function buildField() {
+  var T = theme, fc = document.createElement('canvas'); fc.width = cv.width; fc.height = cv.height;
+  var c = fc.getContext('2d'); c.setTransform(K * DPR, 0, 0, K * DPR, 0, 0);
+  // stands
+  c.fillStyle = crowdPattern(c, T, false); c.fillRect(0, 0, W, H);
+  if (T.sky) {
+    c.fillStyle = T.sky; c.fillRect(0, 0, W, 30);
+    c.fillStyle = 'rgba(255,255,255,0.9)';
+    [[120, 13, 26, 7], [140, 9, 16, 7], [700, 15, 30, 7], [720, 10, 15, 6]].forEach(function (e) { c.beginPath(); c.ellipse(e[0], e[1], e[2], e[3], 0, 0, 7); c.fill(); });
+    c.fillStyle = '#d9dee6'; c.fillRect(0, 22, W, 8);
+    c.fillStyle = crowdPattern(c, T, true); c.fillRect(0, 30, W, 20);
+    c.fillStyle = T.dark; c.fillRect(0, 50, W, 3);
+  } else {
+    c.fillStyle = crowdPattern(c, T, true); c.fillRect(0, 0, W, 26);
+    c.fillStyle = '#1b2744'; c.fillRect(0, 26, W, 3);
+  }
+  c.fillStyle = T.eye; c.fillRect(352, 0, 140, 72);
+  if (T.night) {
+    [[199, 10], [645, 10]].forEach(function (l) {
+      var g = c.createRadialGradient(l[0], l[1], 0, l[0], l[1], 90); g.addColorStop(0, 'rgba(255,244,210,0.6)'); g.addColorStop(1, 'rgba(255,244,210,0)');
+      c.fillStyle = g; c.fillRect(l[0] - 90, 0, 180, 100);
+      c.fillStyle = '#2a2f3a'; c.fillRect(l[0] - 19, 2, 38, 12); c.fillStyle = '#fff6d6'; c.fillRect(l[0] - 16, 4, 32, 8);
+    });
+  }
+  var poleL = proj(-182 * 0.70711, 182 * 0.70711), poleR = proj(182 * 0.70711, 182 * 0.70711);
+  // foul ground
+  c.fillStyle = T.foul; c.beginPath(); c.moveTo(0, H); c.lineTo(0, poleL[1] + 24); c.lineTo(poleL[0], poleL[1]); c.lineTo(HX, HY); c.lineTo(poleR[0], poleR[1]); c.lineTo(W, poleR[1] + 24); c.lineTo(W, H); c.closePath(); c.fill();
+  // fair territory
+  var fp = fencePts(0);
+  c.save(); c.beginPath(); c.moveTo(HX, HY); fp.forEach(function (p) { c.lineTo(p[0], p[1]); }); c.closePath(); c.clip();
+  c.fillStyle = T.grass; c.fillRect(0, 0, W, H);
+  c.fillStyle = T.stripe;
+  if (T.night) {
+    c.strokeStyle = T.stripe; c.lineWidth = 16;
+    for (var r = 166; r < 560; r += 64) { c.beginPath(); c.ellipse(HX, HY, r, r * 0.6, 0, 0, 7); c.stroke(); }
+  } else {
+    for (var by = 36, bh = 12; by < H; by += bh * 2, bh += 3) c.fillRect(0, by, W, bh);
+  }
+  var tp = fencePts(5); c.strokeStyle = T.track; c.lineWidth = 18; c.beginPath(); tp.forEach(function (p, i) { if (i) c.lineTo(p[0], p[1]); else c.moveTo(p[0], p[1]); }); c.stroke();
+  var mdp = proj(0, 61.6); c.fillStyle = T.dirt; c.beginPath(); c.ellipse(HX, mdp[1] - 6, 236 * KX / 2.99 * 1.05, 100 * KY / 1.46, 0, 0, 7); c.fill();
+  c.restore();
+  var b1 = proj(63.6, 63.6), b2 = proj(0, 127.3), b3 = proj(-63.6, 63.6), md = proj(0, 61.6);
+  function shrink(p, k) { return [md[0] + (p[0] - md[0]) * k, md[1] + (p[1] - md[1]) * k]; }
+  var g1 = shrink(b1, 0.8), g2 = shrink(b2, 0.8), g3 = shrink(b3, 0.8), gh = shrink([HX, HY], 0.74);
+  c.fillStyle = T.infGrass; c.beginPath(); c.moveTo(gh[0], gh[1]); c.lineTo(g1[0], g1[1]); c.lineTo(g2[0], g2[1]); c.lineTo(g3[0], g3[1]); c.closePath(); c.fill();
+  if (T.outline) { c.strokeStyle = T.outline; c.lineWidth = 1.2; c.stroke(); }
+  c.fillStyle = T.dirt;
+  [b1, b2, b3].forEach(function (b) { c.beginPath(); c.ellipse(b[0], b[1], 16, 6.5, 0, 0, 7); c.fill(); });
+  c.beginPath(); c.ellipse(HX, HY, 52, 22, 0, 0, 7); c.fill(); if (T.outline) c.stroke();
+  c.beginPath(); c.ellipse(md[0], md[1] + 2, 27, 10, 0, 0, 7); c.fill(); if (T.outline) c.stroke();
+  c.fillStyle = T.chalk; c.fillRect(md[0] - 6.5, md[1] - 1, 13, 2.4);
+  // chalk
+  c.strokeStyle = T.chalk; c.lineCap = 'round';
+  c.lineWidth = T.night ? 1.8 : 2.4; c.beginPath(); c.moveTo(HX, HY); c.lineTo(poleL[0], poleL[1]); c.moveTo(HX, HY); c.lineTo(poleR[0], poleR[1]); c.stroke();
+  c.lineWidth = 1.2; c.globalAlpha = T.night ? 0.6 : 1;
+  c.beginPath(); c.moveTo(384, 338); c.lineTo(411, 338); c.lineTo(409, 377); c.lineTo(380, 377); c.closePath(); c.stroke();
+  c.beginPath(); c.moveTo(433, 338); c.lineTo(460, 338); c.lineTo(464, 377); c.lineTo(435, 377); c.closePath(); c.stroke();
+  c.globalAlpha = 1;
+  c.fillStyle = '#ffffff';
+  function poly(pts) { c.beginPath(); pts.forEach(function (p, i) { if (i) c.lineTo(p[0], p[1]); else c.moveTo(p[0], p[1]); }); c.closePath(); c.fill(); if (T.outline) { c.strokeStyle = T.outline; c.lineWidth = 0.9; c.stroke(); } }
+  poly([[HX - 7, HY - 5], [HX + 7, HY - 5], [HX + 7, HY - 1], [HX, HY + 3], [HX - 7, HY - 1]]);
+  [b1, b2, b3].forEach(function (b) { poly([[b[0], b[1] - 4], [b[0] + 10, b[1]], [b[0], b[1] + 4], [b[0] - 10, b[1]]]); });
+  // fence wall
+  function wall(off) { c.beginPath(); c.moveTo(0, poleL[1] + 24 + off); c.lineTo(poleL[0], poleL[1] + off); for (var i = fp.length - 1; i >= 0; i--) c.lineTo(fp[i][0], fp[i][1] + off); c.lineTo(W, poleR[1] + 24 + off); }
+  c.lineJoin = 'round';
+  if (T.outline) { c.strokeStyle = T.outline; c.lineWidth = 14; wall(-2); c.stroke(); }
+  c.strokeStyle = T.fence; c.lineWidth = T.outline ? 11 : 10; wall(-2); c.stroke();
+  c.strokeStyle = T.fenceTop; c.lineWidth = T.outline ? 2.4 : 1.6; wall(-7); c.stroke();
+  [poleL, poleR].forEach(function (p) { if (T.outline) { c.strokeStyle = T.outline; c.lineWidth = 5; c.beginPath(); c.moveTo(p[0], p[1]); c.lineTo(p[0], p[1] - 62); c.stroke(); } c.strokeStyle = T.fenceTop; c.lineWidth = 3; c.beginPath(); c.moveTo(p[0], p[1]); c.lineTo(p[0], p[1] - 62); c.stroke(); });
+  c.fillStyle = '#ffffff'; c.font = '9px Bungee, sans-serif'; c.textAlign = 'center';
+  [[0.06, '330'], [0.27, '375'], [0.5, '400'], [0.73, '375'], [0.94, '330']].forEach(function (m) { var p = fp[Math.round(m[0] * 60)]; c.fillText(m[1], p[0], p[1] + 1); });
+  if (T.night) {
+    var pool = c.createRadialGradient(HX, 250, 0, HX, 250, 330); pool.addColorStop(0, 'rgba(255,251,232,0.16)'); pool.addColorStop(1, 'rgba(255,251,232,0)');
+    c.fillStyle = pool; c.fillRect(0, 0, W, H);
+    var vg = c.createRadialGradient(HX, 215, 200, HX, 215, 560); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.5)');
+    c.fillStyle = vg; c.fillRect(0, 0, W, H);
+  }
+  fieldCache = fc;
+}
+
+/* ============ sprites ============ */
+function F(c, fill) { c.fillStyle = fill; c.fill(); if (theme.outline) { c.strokeStyle = theme.outline; c.lineWidth = 0.9; c.stroke(); } }
+function rr(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+function circ(c, x, y, r) { c.beginPath(); c.arc(x, y, r, 0, 7); }
+function shadow(c, rx, ry) { c.fillStyle = 'rgba(0,0,0,' + (theme.night ? 0.38 : 0.2) + ')'; c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, 7); c.fill(); }
+function limb(c, x1, y1, x2, y2, w, col) {
+  if (theme.outline) { c.strokeStyle = theme.outline; c.lineWidth = w + 1.6; c.lineCap = 'round'; c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); }
+  c.strokeStyle = col; c.lineWidth = w; c.lineCap = 'round'; c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke();
+}
+/* front-facing fielder; o: {hand:[x,y], glove:[x,y], lift:n, ball:bool} — right-handed: glove on his left (viewer's right) */
+function drawFielder(c, x, y, s, col, o) {
+  var T = theme; o = o || {};
+  c.save(); c.translate(x, y); c.scale(s, s);
+  shadow(c, 9, 2.8);
+  if (o.sy) c.scale(1, o.sy); if (o.rot) c.rotate(o.rot);
+  var lift = o.lift || 0;
+  rr(c, -5.2, -3, 4.4, 3, 1); F(c, T.dark);
+  rr(c, 0.8, -3 - lift, 4.4, 3, 1); F(c, T.dark);
+  c.beginPath(); c.rect(-4.9, -8.4, 3.9, 5.8); F(c, col);
+  c.beginPath(); c.rect(1, -8.4 - lift, 3.9, 5.8); F(c, col);
+  c.beginPath(); c.moveTo(-5.3, -16.4); c.lineTo(5.3, -16.4); c.lineTo(5.3, -8 - lift); c.lineTo(1.5, -8 - lift); c.lineTo(0, -12.6); c.lineTo(-1.5, -8); c.lineTo(-5.3, -8); c.closePath(); F(c, T.pants);
+  var hand = o.hand || [-8.1, -16.4], glove = o.glove || [8.1, -16.2];
+  limb(c, -6.5, -24.5, hand[0], hand[1], 3.2, col);
+  limb(c, 6.5, -24.5, glove[0], glove[1], 3.2, col);
+  rr(c, -6.6, -27.6, 13.2, 12, 3.8); F(c, col);
+  c.fillStyle = T.dark; c.fillRect(-5.6, -17.2, 11.2, 1.6);
+  circ(c, glove[0], glove[1], 2.6); F(c, T.glove);
+  circ(c, hand[0], hand[1], 1.6); F(c, T.skin);
+  if (o.ball) { circ(c, hand[0], hand[1] - 1, 1.5); F(c, '#ffffff'); }
+  circ(c, 0, -32, 4.9); F(c, T.skin);
+  c.beginPath(); c.arc(0, -32.8, 5.1, PI, 0); c.closePath(); F(c, col);
+  c.beginPath(); c.ellipse(0, -32.6, 5.9, 1.3, 0, 0, 7); F(c, col);
+  c.restore();
+}
+/* side-on right-handed batter facing the plate (screen right), head toward pitcher */
+function drawBatter(c, x, y, s, col, pose) {
+  var T = theme;
+  c.save(); c.translate(x, y); c.scale(s, s);
+  shadow(c, 10, 3);
+  c.beginPath(); c.moveTo(1.5, -15.5); c.lineTo(5, -4.5); c.lineTo(8.8, -4.5); c.lineTo(5.5, -15.5); c.closePath(); F(c, T.night ? '#d9dee8' : '#eef0f3');
+  rr(c, 4.6, -6.4, 7.4, 2.6, 1.2); F(c, T.dark);
+  c.beginPath(); c.moveTo(-3, -15.5); c.lineTo(-5, -1.5); c.lineTo(-1.2, -1.5); c.lineTo(1.5, -15.5); c.closePath(); F(c, T.pants);
+  rr(c, -5.6, -2.8, 7.7, 2.8, 1.3); F(c, T.dark);
+  c.beginPath(); c.moveTo(-4.6, -29); c.bezierCurveTo(-5.4, -24, -4.8, -19, -3.6, -15.5); c.lineTo(5.4, -15.5); c.bezierCurveTo(6.8, -20, 6.8, -25, 4.6, -29); c.closePath(); F(c, col);
+  c.fillStyle = T.dark; c.fillRect(-3.9, -17.2, 9.4, 1.6);
+  var hx = pose.hx, hy = pose.hy, a = pose.a;
+  var tx = hx + Math.cos(a) * BAT_LEN, ty = hy + Math.sin(a) * BAT_LEN;
+  var mx = hx + Math.cos(a) * (BAT_LEN - 8), my = hy + Math.sin(a) * (BAT_LEN - 8);
+  if (theme.outline) limb(c, hx, hy, tx, ty, 2.2, T.bat);
+  c.strokeStyle = T.bat; c.lineCap = 'round'; c.lineWidth = 2.1; c.beginPath(); c.moveTo(hx, hy); c.lineTo(tx, ty); c.stroke();
+  c.lineWidth = 3.3; c.beginPath(); c.moveTo(mx, my); c.lineTo(tx, ty); c.stroke();
+  limb(c, 3.5, -26, hx, hy, 3.4, col);
+  limb(c, -1.5, -25, hx, hy, 3.4, col);
+  circ(c, hx, hy, 1.9); F(c, T.dark);
+  c.fillStyle = T.skin; c.fillRect(-1, -31, 3, 2.6);
+  circ(c, 0.6, -34.2, 5.4); F(c, col);
+  c.beginPath(); c.rect(-5, -34.6, 3.2, 4.4); F(c, 'rgba(0,0,0,0.3)');
+  c.restore();
+}
+function drawCatcher(c, x, y, col) {
+  var T = theme;
+  c.save(); c.translate(x, y); c.scale(0.81, 0.81);
+  shadow(c, 14, 3.4);
+  c.beginPath(); c.moveTo(-12, -2); c.lineTo(-8, -11); c.lineTo(-3, -11); c.lineTo(-6, -2); c.closePath(); F(c, '#22324f');
+  c.beginPath(); c.moveTo(12, -2); c.lineTo(8, -11); c.lineTo(3, -11); c.lineTo(6, -2); c.closePath(); F(c, '#22324f');
+  rr(c, -10, -22, 20, 13, 5); F(c, col);
+  c.fillStyle = '#ffffff'; c.font = '8px Bungee, sans-serif'; c.textAlign = 'center'; c.fillText('22', 0, -12.5);
+  circ(c, 0, -26, 5.6); F(c, '#22324f');
+  c.restore();
+}
+function drawBall(c, fx, fy, h, shade) {
+  var p = proj(fx, fy);
+  if (shade) { c.fillStyle = 'rgba(0,0,0,0.3)'; c.beginPath(); c.ellipse(p[0], p[1], 3, 1.1, 0, 0, 7); c.fill(); }
+  c.beginPath(); c.arc(p[0], p[1] - h, 3.1, 0, 7); c.fillStyle = '#ffffff'; c.fill();
+  c.strokeStyle = theme.outline || 'rgba(0,0,0,0.35)'; c.lineWidth = 0.7; c.stroke();
+}
+
+/* ============ coach faces ============ */
+function coachSVG(team, mood) {
+  var red = team === 'red';
+  var C = red ? { bg: '#f6d2c4', jk: '#c8372f', ear: '#dc9c76', face: '#eab48e', cap: '#c8372f', brim: '#9e2a24', brow: '#6d6d74', eye: '#2a1d18', nose: '#d9946c', mouth: '#5a2a20' }
+              : { bg: '#d3e2f7', jk: '#2457a6', ear: '#b07a52', face: '#c68b62', cap: '#2457a6', brim: '#183d7a', brow: '#3b2a1f', eye: '#21160f', nose: '#a8704b', mouth: '#2e1c12' };
+  var s = '<svg viewBox="0 0 80 80" role="img" aria-label="' + (red ? 'Red' : 'Blue') + ' coach, ' + mood + '">';
+  s += '<rect width="80" height="80" fill="' + C.bg + '"/>';
+  s += '<path d="M9 80 C13 62 27 57 40 57 C53 57 67 62 71 80 Z" fill="' + C.jk + '"/><path d="M33 57 L40 66 L47 57 Z" fill="#fff"/>';
+  s += '<circle cx="22" cy="43" r="4.5" fill="' + C.ear + '"/><circle cx="58" cy="43" r="4.5" fill="' + C.ear + '"/>';
+  s += '<ellipse cx="40" cy="42" rx="18" ry="20" fill="' + C.face + '"/>';
+  if (mood === 'mad') s += '<ellipse cx="40" cy="43" rx="18" ry="18" fill="#e0413b" opacity="0.22"/>';
+  if (red) s += '<path d="M22 40 L22 48 L25 46 Z M58 40 L58 48 L55 46 Z" fill="#8f8f96"/>';
+  else s += '<path d="M22 46 C23 62 32 66 40 66 C48 66 57 62 58 46 C55 54 48 58 40 58 C32 58 25 54 22 46 Z" fill="#5c3f2b"/>';
+  s += '<path d="M21 36 C21 16 59 16 59 36 Z" fill="' + C.cap + '"/><path d="M18 37 C26 32 54 32 62 37 C54 40 26 40 18 37 Z" fill="' + C.brim + '"/>';
+  if (mood === 'happy') {
+    s += '<path d="M28 37 Q32 35 37 37 M43 37 Q48 35 52 37" stroke="' + C.brow + '" stroke-width="2.4" stroke-linecap="round" fill="none"/>';
+    s += '<path d="M30.5 45 Q33 41.5 35.5 45 M44.5 45 Q47 41.5 49.5 45" stroke="' + C.eye + '" stroke-width="2" fill="none" stroke-linecap="round"/>';
+  } else if (mood === 'mad') {
+    s += '<path d="M28 38 L37 42 M52 38 L43 42" stroke="' + C.brow + '" stroke-width="2.8" stroke-linecap="round"/>';
+    s += '<circle cx="33" cy="45" r="2.2" fill="' + C.eye + '"/><circle cx="47" cy="45" r="2.2" fill="' + C.eye + '"/>';
+  } else {
+    s += '<path d="M28 39 L37 39 M43 39 L52 39" stroke="' + C.brow + '" stroke-width="2.4" stroke-linecap="round"/>';
+    s += '<circle cx="33" cy="44" r="2.2" fill="' + C.eye + '"/><circle cx="47" cy="44" r="2.2" fill="' + C.eye + '"/>';
+  }
+  if (!red) s += '<g fill="none" stroke="#1d2433" stroke-width="1.6"><circle cx="33" cy="44" r="5"/><circle cx="47" cy="44" r="5"/><path d="M38 44 h4"/></g>';
+  s += '<ellipse cx="40" cy="' + (red ? 49 : 50) + '" rx="3.1" ry="2.5" fill="' + C.nose + '"/>';
+  if (mood === 'happy') s += red ? '<path d="M32 54 Q40 66 48 54 Z" fill="' + C.mouth + '"/>' : '<path d="M32 53 Q40 64 48 53 Z" fill="' + C.mouth + '"/><path d="M34 54 h12 v2 h-12 z" fill="#fff"/>';
+  else if (mood === 'mad') s += '<path d="' + (red ? 'M34 60 Q40 55 46 60' : 'M34 57 Q40 52 46 57') + '" stroke="' + C.mouth + '" stroke-width="2" fill="none" stroke-linecap="round"/>';
+  else s += '<path d="' + (red ? 'M36 57.5 Q40 58.5 44 57.5' : 'M36 55 Q40 56 44 55') + '" stroke="' + C.mouth + '" stroke-width="1.8" fill="none" stroke-linecap="round"/>';
+  if (red) s += '<path d="M31 53 C35 50 39 51 40 52 C41 51 45 50 49 53 C46 56 42 55 40 54 C38 55 34 56 31 53 Z" fill="#8f8f96"/>';
+  if (mood === 'mad') s += '<path d="M63 17 l5 5 M68 17 l-5 5 M66 14 v3 M66 22 v3" stroke="#e0413b" stroke-width="2" stroke-linecap="round"/>';
+  return s + '</svg>';
+}
+
+/* ============ sound ============ */
+var A = null, master = null, muted = false, murmurNode = null;
+function audio() {
+  if (!A) {
+    var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
+    A = new AC(); var comp = A.createDynamicsCompressor(); comp.connect(A.destination);
+    master = A.createGain(); master.gain.value = muted ? 0 : 0.85; master.connect(comp);
+  }
+  if (A.state === 'suspended') A.resume();
+  return A;
+}
+function env(g, t, peak, a, hold, rel) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.setValueAtTime(peak, t + a + hold); g.gain.exponentialRampToValueAtTime(0.0001, t + a + hold + rel); return t + a + hold + rel; }
+function osc(type, f, t, end, dest, detune) { var o = A.createOscillator(); o.type = type; o.frequency.setValueAtTime(f, t); if (detune) o.detune.setValueAtTime(detune, t); o.connect(dest); o.start(t); o.stop(end + 0.05); return o; }
+function noise(dur) { var b = A.createBuffer(1, Math.ceil(A.sampleRate * dur), A.sampleRate), d = b.getChannelData(0); for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; var s = A.createBufferSource(); s.buffer = b; return s; }
+function gain(dest) { var g = A.createGain(); g.connect(dest || master); return g; }
+function boom(t, from, to, dur, peak) { var g = gain(); env(g, t, peak, 0.004, 0.02, dur); var o = osc('sine', from, t, t + dur + 0.05, g); o.frequency.exponentialRampToValueAtTime(to, t + dur); }
+function crack(t, freq, dur, peak) { var n = noise(dur + 0.05); var bp = A.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = 1.2; var g = gain(); n.connect(bp); bp.connect(g); env(g, t, peak, 0.002, 0.005, dur); n.start(t); }
+function brass(f, t, d, peak) {
+  var g = gain(); var lp = A.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 2;
+  lp.frequency.setValueAtTime(700, t); lp.frequency.exponentialRampToValueAtTime(4200, t + 0.05); lp.frequency.exponentialRampToValueAtTime(1600, t + d);
+  lp.connect(g); var end = env(g, t, peak || 0.3, 0.02, d * 0.75, 0.12);
+  osc('sawtooth', f, t, end, lp, -7); osc('sawtooth', f, t, end, lp, 7); osc('sawtooth', f / 2, t, end, lp); return end;
+}
+function organNote(f, t, d, peak) {
+  var g = gain(); var end = env(g, t, peak || 0.1, 0.01, d * 0.85, 0.06);
+  var lfo = A.createOscillator(); var lg = A.createGain(); lfo.frequency.value = 6.2; lg.gain.value = 5; lfo.connect(lg); lfo.start(t); lfo.stop(end + 0.05);
+  [[1, 1], [2, 0.5], [3, 0.22], [4, 0.2], [0.5, 0.35]].forEach(function (h) { var hg = A.createGain(); hg.gain.value = h[1]; hg.connect(g); var o = osc('sine', f * h[0], t, end, hg); lg.connect(o.detune); });
+  return end;
+}
+function midi(n) { return 440 * Math.pow(2, (n - 69) / 12); }
+function seq(list, bpm, t, peak) { var beat = 60 / bpm; list.forEach(function (n) { n[0].forEach(function (m) { organNote(midi(m), t + n[1] * beat, n[2] * beat, peak); }); }); }
+function clap(t) { [0, 0.009, 0.018].forEach(function (o, i) { crack(t + o, 1200, i === 2 ? 0.09 : 0.012, 0.45); }); }
+function cheerSnd(t, dur, peak) {
+  var end = t + dur;
+  [700, 1200, 2000].forEach(function (f, i) {
+    var n = noise(dur + 0.1); var bp = A.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = 0.7;
+    var g = gain(); n.connect(bp); bp.connect(g); var pk = peak * (1 - i * 0.2);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(pk, t + 0.3); g.gain.setValueAtTime(pk, t + dur * 0.35); g.gain.exponentialRampToValueAtTime(0.0001, end); n.start(t);
+  });
+  [0.25, 0.6].forEach(function (o, i) { var g = gain(); var s = t + o; env(g, s, 0.05, 0.03, 0.25, 0.1); var w = osc('sine', 1900 + i * 300, s, s + 0.45, g); w.frequency.exponentialRampToValueAtTime(2600 + i * 200, s + 0.3); });
+}
+var SFX = {
+  fanfare: function (t) { brass(587.33, t, 0.14); brass(369.99, t + 0.28, 0.11); brass(392.0, t + 0.405, 1.0); },
+  bark: function (t) {
+    var g = gain(); var end = env(g, t + 0.02, 1.4, 0.012, 0.2, 0.12); var src = A.createGain();
+    var o = osc('sawtooth', 150, t + 0.02, end, src); o.frequency.exponentialRampToValueAtTime(105, end);
+    [[750, 420, 7, 1], [1150, 820, 8, 0.6], [2500, 2300, 10, 0.25]].forEach(function (fm) { var bp = A.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = fm[2]; bp.frequency.setValueAtTime(fm[0], t + 0.02); bp.frequency.exponentialRampToValueAtTime(fm[1], end); var fg = A.createGain(); fg.gain.value = fm[3] * 4; src.connect(bp); bp.connect(fg); fg.connect(g); });
+    crack(t, 1800, 0.04, 0.25);
+  },
+  cheer: function (t) { cheerSnd(t, 3.8, 0.4); },
+  boo: function (t) {
+    var dur = 3.0, end = t + dur; var lp = A.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 650;
+    var pk = A.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 320; pk.gain.value = 8; pk.Q.value = 1;
+    var g = gain(); lp.connect(pk); pk.connect(g); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.32, t + 0.35); g.gain.setValueAtTime(0.32, t + dur * 0.6); g.gain.exponentialRampToValueAtTime(0.0001, end);
+    for (var i = 0; i < 12; i++) { var f = 95 + Math.random() * 70; var s = t + Math.random() * 0.15; var o = osc('sawtooth', f, s, end, lp, (Math.random() - 0.5) * 30); o.frequency.setValueAtTime(f, s + dur * 0.5); o.frequency.exponentialRampToValueAtTime(f * 0.88, end); }
+  },
+  slide: function (t) {
+    var n = noise(1.2); var bp = A.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.8; bp.frequency.setValueAtTime(1800, t); bp.frequency.exponentialRampToValueAtTime(450, t + 1.0);
+    var g = gain(); n.connect(bp); bp.connect(g); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.55, t + 0.12); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1); n.start(t);
+  },
+  whoosh: function (t, sp) {
+    var n = noise(0.4); var bp = A.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.5; var f0 = 600 + sp * 900;
+    bp.frequency.setValueAtTime(f0, t); bp.frequency.exponentialRampToValueAtTime(f0 * 2.2, t + 0.25);
+    var g = gain(); n.connect(bp); bp.connect(g); env(g, t, 0.25, 0.04, 0.05, 0.2); n.start(t);
+  },
+  whiff: function (t) {
+    var n = noise(0.3); var bp = A.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 2; bp.frequency.setValueAtTime(400, t); bp.frequency.exponentialRampToValueAtTime(1600, t + 0.15);
+    var g = gain(); n.connect(bp); bp.connect(g); env(g, t, 0.35, 0.03, 0.03, 0.14); n.start(t);
+  },
+  crack: function (t, ev) { var k = Math.min(1, ev / 3); crack(t, 2600, 0.05 + k * 0.05, 0.4 + 0.6 * k); crack(t, 900, 0.08, 0.3 + 0.4 * k); boom(t, 240, 120, 0.08, 0.3 + 0.3 * k); },
+  thud: function (t) { boom(t, 160, 70, 0.12, 0.6); crack(t, 500, 0.05, 0.2); },
+  mitt: function (t) { crack(t, 1500, 0.035, 0.7); boom(t, 180, 90, 0.06, 0.5); },
+  glove: function (t) { crack(t, 1300, 0.03, 0.45); },
+  wall: function (t) { boom(t, 95, 40, 0.3, 0.8); crack(t, 300, 0.1, 0.3); },
+  strike: function (t) { var g = gain(); env(g, t, 0.16, 0.005, 0.07, 0.04); osc('square', 660, t, t + 0.12, g); var g2 = gain(); env(g2, t + 0.12, 0.16, 0.005, 0.1, 0.06); osc('square', 880, t + 0.12, t + 0.3, g2); },
+  ball: function (t) { var g = gain(); env(g, t, 0.18, 0.005, 0.08, 0.1); osc('triangle', 440, t, t + 0.2, g); },
+  foul: function (t) { var g = gain(); env(g, t, 0.14, 0.005, 0.06, 0.04); osc('square', 740, t, t + 0.12, g); var g2 = gain(); env(g2, t + 0.1, 0.14, 0.005, 0.08, 0.05); osc('square', 494, t + 0.1, t + 0.25, g2); },
+  toss: function (t) { var n = noise(0.2); var bp = A.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 2.5; bp.frequency.setValueAtTime(900, t); bp.frequency.exponentialRampToValueAtTime(1800, t + 0.12); var g = gain(); n.connect(bp); bp.connect(g); env(g, t, 0.2, 0.02, 0.03, 0.1); n.start(t); },
+  click: function (t) { var g = gain(); env(g, t, 0.12, 0.002, 0.02, 0.04); osc('square', 1200, t, t + 0.08, g); },
+  organ: function (t) {
+    var pick = Math.floor(Math.random() * 3);
+    if (pick === 0) { seq([[[72], 0, 0.5], [[74], 0.5, 0.5], [[76], 1, 0.5], [[79], 1.5, 0.5], [[81], 2, 0.5], [[84, 79, 76, 60], 2.5, 3]], 168, t); cheerSnd(t + 2.6 * 60 / 168, 1.6, 0.22); }
+    else if (pick === 1) { var b = 60 / 140; seq([[[76, 72], 0, 0.45], [[76, 72], 1, 0.45], [[79, 76], 3, 0.4], [[79, 76], 3.5, 0.4], [[81, 77], 4, 0.9]], 140, t); [5.5, 6.5, 8.5, 9, 9.5].forEach(function (x) { clap(t + x * b); }); }
+    else { var bars = [[48, [64, 67, 72]], [53, [65, 69, 72]], [55, [65, 67, 71]], [48, [64, 67, 72]]], list = []; bars.forEach(function (bb, i) { var s = i * 3; list.push([[bb[0]], s, 0.9]); list.push([bb[1], s + 1, 0.6]); list.push([bb[1], s + 2, 0.6]); }); seq(list, 150, t, 0.06); seq([[[76], 0, 3], [[77], 3, 2], [[81], 5, 1], [[79], 6, 3], [[72], 9, 3]], 150, t, 0.1); }
+  }
+};
+function sfx(name, arg, delay) { if (!audio() || muted) return; try { SFX[name](A.currentTime + 0.02 + (delay || 0), arg); } catch (e) { } }
+function murmur(on) {
+  if (!audio()) return;
+  if (!on) { if (murmurNode) { var m = murmurNode; m.g.gain.setTargetAtTime(0.0001, A.currentTime, 0.3); setTimeout(function () { try { m.n.stop(); m.l.stop(); } catch (e) { } }, 1500); murmurNode = null; } return; }
+  if (murmurNode) return;
+  var n = noise(3); n.loop = true; var lp = A.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900;
+  var pk = A.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 450; pk.gain.value = 6;
+  var g = gain(); n.connect(lp); lp.connect(pk); pk.connect(g);
+  var l = A.createOscillator(); var lg = A.createGain(); l.frequency.value = 0.27; lg.gain.value = 0.008; l.connect(lg); lg.connect(g.gain); l.start();
+  g.gain.setValueAtTime(0.0001, A.currentTime); g.gain.setTargetAtTime(0.02, A.currentTime, 0.6); n.start();
+  murmurNode = { n: n, g: g, l: l };
+}
+
+/* ============ input ============ */
+var human = { dir: null, btn: false, keyDir: [], padDir: null, vx: 0, vy: 0 };
+var dpad = $('dpad'), btnEl = $('btn'), padPointer = null;
+function padFromEvent(e) {
+  var r = dpad.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, dx = e.clientX - cx, dy = e.clientY - cy;
+  if (dx * dx + dy * dy < (r.width * 0.12) * (r.width * 0.12)) return null;
+  var ax = Math.abs(dx), ay = Math.abs(dy), diag = Math.min(ax, ay) > 0.41 * Math.max(ax, ay);
+  var d = ax > ay ? (dx < 0 ? 'l' : 'r') : (dy < 0 ? 'u' : 'd');
+  var vx = diag || ax > ay ? (dx < 0 ? -1 : 1) : 0, vy = diag || ay >= ax ? (dy < 0 ? 1 : -1) : 0;
+  return { d: d, vx: vx, vy: vy };
+}
+function showPad() {
+  var d = null, vx = 0, vy = 0;
+  if (human.padDir) { d = human.padDir.d; vx = human.padDir.vx; vy = human.padDir.vy; }
+  else {
+    var k = human.keyDir; d = k[k.length - 1] || null;
+    for (var i = k.length - 1; i >= 0; i--) { if (!vy && (k[i] === 'u' || k[i] === 'd')) vy = k[i] === 'u' ? 1 : -1; if (!vx && (k[i] === 'l' || k[i] === 'r')) vx = k[i] === 'l' ? -1 : 1; }
+  }
+  human.dir = d; human.vx = vx; human.vy = vy;
+  Array.prototype.forEach.call(dpad.querySelectorAll('.arm'), function (a) { var ad = a.dataset.d; a.classList.toggle('on', (ad === 'u' && vy > 0) || (ad === 'd' && vy < 0) || (ad === 'l' && vx < 0) || (ad === 'r' && vx > 0)); });
+}
+dpad.addEventListener('pointerdown', function (e) { e.preventDefault(); padPointer = e.pointerId; try { dpad.setPointerCapture(e.pointerId); } catch (x) { } human.padDir = padFromEvent(e); showPad(); });
+dpad.addEventListener('pointermove', function (e) { if (e.pointerId !== padPointer) return; human.padDir = padFromEvent(e); showPad(); });
+function padUp(e) { if (e.pointerId !== padPointer) return; padPointer = null; human.padDir = null; showPad(); }
+dpad.addEventListener('pointerup', padUp); dpad.addEventListener('pointercancel', padUp);
+btnEl.addEventListener('pointerdown', function (e) { e.preventDefault(); human.btn = true; btnEl.classList.add('on'); audio(); });
+['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { btnEl.addEventListener(ev, function () { btnEl.classList.remove('on'); }); });
+var KEYS = { ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r' };
+window.addEventListener('keydown', function (e) {
+  if (KEYS[e.code]) { e.preventDefault(); if (human.keyDir.indexOf(KEYS[e.code]) < 0) human.keyDir.push(KEYS[e.code]); showPad(); }
+  else if ((e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyJ') && S && !e.repeat && !document.activeElement.closest('.screen')) { e.preventDefault(); human.btn = true; btnEl.classList.add('on'); }
+});
+window.addEventListener('keyup', function (e) {
+  if (KEYS[e.code]) { var i = human.keyDir.indexOf(KEYS[e.code]); if (i >= 0) human.keyDir.splice(i, 1); showPad(); }
+  if (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyJ') btnEl.classList.remove('on');
+});
+function readHuman() { var r = { dir: human.dir, btn: human.btn, vx: human.vx, vy: human.vy }; human.btn = false; return r; }
+
+/* ============ game state ============ */
+var S = null, opts = { innings: 3, night: false, batFirst: true, murmur: true };
+try { if (localStorage.getItem('ccb-murmur') === 'off') opts.murmur = false; } catch (e) { }
+function newGame() {
+  S = {
+    t: 0, rng: mulberry(Date.now() & 0x7fffffff), half: 0, outs: 0, b: 0, s: 0,
+    score: { you: 0, cpu: 0 }, stats: { you: { h: 0, hr: 0, k: 0, bb: 0 }, cpu: { h: 0, hr: 0, k: 0, bb: 0 } },
+    vis: opts.batFirst ? 'you' : 'cpu', phase: 'ready', pt: 0, wt: 0, rt: 0, ball: null, bb: null, sw: null,
+    cpuP: null, cpuB: null, follow: 0, faces: null, faceT: 0, fielded: null, over: false, after: null, F: homePos(), ctl: 'P', run: null, holder: null, thr: null, playT: 0
+  };
+  startHalf();
+}
+function batSide() { return (S.half % 2 === 0) ? S.vis : (S.vis === 'you' ? 'cpu' : 'you'); }
+function teamColor(side) { return side === S.vis ? 'red' : 'blue'; }
+function startHalf() {
+  S.outs = 0; S.b = 0; S.s = 0; S.phase = 'ready'; S.pt = 0; S.sw = null; S.ball = null; S.bb = null; S.fielded = null; S.cpuP = null; resetPlay();
+  updatePortraits(); updateHUD();
+  toast(batSide() === 'you' ? 'YOU ARE UP' : 'YOU PITCH', (S.half % 2 === 0 ? 'Top ' : 'Bottom ') + ordinal(Math.floor(S.half / 2) + 1), 70);
+  S.phase = 'result'; S.rt = 70; S.after = 'ready';
+}
+function ordinal(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+
+/* ============ CPU ============ */
+function cpuPitcher() {
+  var inp = { dir: null, btn: false };
+  if (S.phase === 'ready') {
+    if (!S.cpuP) {
+      var r = S.rng();
+      S.cpuP = { delay: 45 + Math.floor(S.rng() * 40), type: r < 0.34 ? 'fast' : r < 0.6 ? 'slow' : 'curve', sign: S.rng() < 0.5 ? -1 : 1, target: (S.rng() * 2 - 1) * 4.8 };
+    }
+    if (S.pt >= S.cpuP.delay) { var p = S.cpuP; inp.dir = p.type === 'fast' ? 'd' : p.type === 'slow' ? 'u' : (p.sign < 0 ? 'l' : 'r'); inp.btn = true; }
+  } else if (S.phase === 'pitch' && S.cpuP) {
+    var b = S.ball, p2 = S.cpuP, prog = 1 - b.fy / RELEASE_FY, left = Math.max(1, b.fy / b.sp);
+    var aim = p2.target + ((p2.type === 'curve' && prog < 0.45) ? p2.sign * 9 : 0);
+    var want = (aim - b.fx) / left, eps = 0.012;
+    if (b.lv < want - eps) inp.dir = 'r';
+    else if (b.lv > want + eps) inp.dir = 'l';
+    else inp.dir = p2.type === 'fast' ? 'd' : p2.type === 'slow' ? 'u' : null;
+  }
+  return inp;
+}
+function cpuBatter() {
+  var inp = { dir: null, btn: false };
+  if (S.phase !== 'pitch' || S.sw) return inp;
+  var b = S.ball; if (b.fy > HALF_FY) return inp;
+  if (!S.cpuB) {
+    var r = S.rng(), type = (r < 0.04 && S.s < 2) ? 'bunt' : (S.b > S.s && S.rng() < 0.35) ? 'power' : 'normal';
+    var aimUnits = (S.rng() * 2 - 1) * 4.6;
+    S.cpuB = { roll: S.rng(), err: (S.rng() + S.rng() + S.rng() - 1.5) * 2.0 + aimUnits / b.sp, type: type, decided: false };
+  }
+  var cb = S.cpuB; if (cb.decided) return inp;
+  var ct = cb.type === 'power' ? POWER_CT : cb.type === 'bunt' ? 0 : CONTACT_T;
+  /* decide at the moment the swing must start, using where the pitch is heading now (it can still be curving) */
+  if ((b.fy - IDEAL_FY) / b.sp - ct <= cb.err) {
+    cb.decided = true;
+    var pred = b.fx + b.lv * (b.fy / b.sp), ap = Math.abs(pred), two = S.s >= 2;
+    var sw = ap <= 3.2 ? cb.roll < (two ? 0.95 : 0.84) : ap <= BAT_REACH + 0.6 ? cb.roll < (two ? 0.6 : 0.25) : cb.roll < 0.03;
+    if (sw) { inp.btn = true; inp.dir = cb.type === 'bunt' ? 'd' : cb.type === 'power' ? 'u' : null; }
+  }
+  return inp;
+}
+
+/* ============ simulation ============ */
+function tick() {
+  S.t++;
+  if (S.faceT > 0) { S.faceT--; if (S.faceT === 0) { S.faces = null; updatePortraits(); } }
+  if (S.follow > 0) S.follow--;
+  var youBat = batSide() === 'you';
+  var hum = readHuman();
+  var pIn = youBat ? cpuPitcher() : hum;
+  var bIn = youBat ? hum : cpuBatter();
+  if (S.sw && (S.phase === 'batted' || S.phase === 'result')) { S.sw.t++; if (S.sw.t > BUNT_LEN + 4) S.sw = null; }
+  if ((S.phase === 'ready' || S.phase === 'windup') && bIn.btn && bIn.dir === 'd' && !S.sw) S.sw = { t: 0, type: 'bunt', hit: false, miss: false };
+  switch (S.phase) {
+    case 'ready':
+      S.pt++;
+      if (pIn.btn && pIn.dir) { S.phase = 'windup'; S.wt = 0; S.startDir = pIn.dir; setLive(true); }
+      break;
+    case 'windup':
+      S.wt++; if (S.wt >= WINDUP_T) release(); break;
+    case 'pitch': pitchStep(pIn, bIn); break;
+    case 'batted': battedStep(hum); break;
+    case 'result':
+      if (S.bb && S.bb.gone) { S.bb.x += S.bb.ux * S.bb.v; S.bb.y += S.bb.uy * S.bb.v; }
+      if (S.freePlay && S.bb && !S.bb.gone && !S.bb.foul) { S.bb.t++; FIELDERS.forEach(function (f) { if (S.F[f.id].mv) S.F[f.id].mv--; }); playMotion(hum, true); }
+      S.rt--; if (S.rt <= 0) afterResult(); break;
+  }
+}
+function release() {
+  S.phase = 'pitch'; S.follow = 18; S.cpuB = null; if (!(S.sw && S.sw.type === 'bunt')) S.sw = null;
+  S.ball = { fx: -1.5, fy: RELEASE_FY, sp: START_SP[S.startDir], lv: 0, crossed: false, crossFx: 0 };
+  sfx('whoosh', S.ball.sp);
+}
+function pitchStep(pIn, bIn) {
+  var b = S.ball, lvMax = batSide() === 'you' ? LV_CPU : LV_HUMAN;
+  if (pIn.dir === 'u') b.sp = Math.max(SP_MIN, b.sp - SP_ACC);
+  else if (pIn.dir === 'd') b.sp = Math.min(SP_MAX, b.sp + SP_ACC);
+  else if (pIn.dir === 'l') b.lv = Math.max(-lvMax, b.lv - LACC);
+  else if (pIn.dir === 'r') b.lv = Math.min(lvMax, b.lv + LACC);
+  var pfy = b.fy, pfx = b.fx;
+  b.fy -= b.sp; b.fx += b.lv;
+  if (!b.crossed && pfy > 0 && b.fy <= 0) { b.crossed = true; b.crossFx = pfx + (b.fx - pfx) * (pfy / (pfy - b.fy)); }
+  if (bIn.btn && !S.sw && (b.fy <= HALF_FY || bIn.dir === 'd')) {
+    var stype = bIn.dir === 'd' ? 'bunt' : bIn.dir === 'u' ? 'power' : 'normal';
+    S.sw = { t: 0, type: stype, hit: false, miss: false, ct: stype === 'power' ? POWER_CT : CONTACT_T, len: stype === 'power' ? POWER_LEN : SWING_LEN };
+  }
+  if (S.sw) {
+    S.sw.t++;
+    if (S.sw.type === 'bunt') {
+      if (!S.sw.hit && !S.sw.miss && b.fy <= 1.5) { tryContact(); if (S.phase !== 'pitch') return; }
+    } else if (S.sw.t === S.sw.ct) { tryContact(); if (S.phase !== 'pitch') return; }
+  }
+  if (b.fy <= -17 || Math.abs(b.fx) > 225) pitchEnd();
+}
+function tryContact() {
+  var b = S.ball, sw = S.sw, Wd = sw.type === 'bunt' ? 99 : SWING_W;
+  var off = b.fy - IDEAL_FY;
+  if (Math.abs(b.fx) > BAT_REACH) { sw.miss = true; sw.why = 'Out of reach'; if (sw.type !== 'bunt') sfx('whiff'); return; }
+  if (off > Wd || off < -LATE_W) { sw.miss = true; sw.why = off > 0 ? 'Too early' : 'Too late'; sfx('whiff'); return; }
+  sw.hit = true;
+  var q = sw.type === 'bunt' ? 1 : 1 - Math.abs(off) / Wd, r = S.rng(), pf = (b.sp - SP_MIN) / (SP_MAX - SP_MIN), ev, ang;
+  if (sw.type === 'bunt') { ev = 0.45 + 0.35 * r; ang = Math.max(-4, Math.min(4, off)) / 4 * 30; }
+  else {
+    var base = 1.5 + 1.2 * pf, m = sw.type === 'power' ? (r < 0.15 ? 0.62 + r : 0.95 + 0.3 * ((r - 0.15) / 0.85)) : (0.9 + 0.14 * r);
+    /* direction: 90% batter timing (early = left, late = right), 10% pitch location (inside pulls left) */
+    ev = Math.min(BALLMAX, base * m);
+    ang = 0.9 * (off / Wd * 62) + 0.1 * (-b.fx / BAT_REACH * 62);
+  }
+  var rad = ang * PI / 180, ux = -dsin(rad), uy = dcos(rad);
+  var foul = Math.abs(ang) > 53; /* clearly foul at contact; balls near the line are judged by where they roll */
+  S.bb = { bunt: sw.type === 'bunt', x: b.fx * 0.4, y: 1, ux: ux, uy: uy, v: ev, ev: ev, dist: 0, h: 0, hPeak: Math.max(0, ev - 1.6) * 14, foul: foul, wall: false, t: 0, gone: false };
+  S.phase = 'batted'; setLive(true); resetPlay(); S.ctl = 'P'; S.run = foul ? null : { p: 0, safe: false, out: false };
+  sfx(sw.type === 'bunt' ? 'thud' : 'crack', ev); hint();
+}
+function pitchEnd() {
+  var b = S.ball, swung = !!S.sw, strike = swung || Math.abs(b.crossFx) <= PLATE_HALF + BALL_R;
+  if (!b.crossed) strike = swung;
+  sfx(Math.abs(b.crossFx) <= 9 && b.crossed ? 'mitt' : 'wall');
+  var side = batSide();
+  if (strike) {
+    S.s++;
+    if (S.s >= 3) { S.outs++; S.stats[side].k++; S.ball = null; S.F = homePos(); S.F.C.y = -21; S.bb = { x: 0, y: -21, ux: 0, uy: 1, v: 0, ev: 0, dist: 0, h: 0, foul: false, wall: true, t: 99, gone: false }; S.holder = 'C'; S.ctl = 'C'; result('STRIKEOUT', null, 'out'); sfx('bark', null, 0.15); sfx(side === 'you' ? 'boo' : 'cheer', null, 0.6); return; }
+    result('STRIKE ' + S.s, swung ? ((S.sw && S.sw.why) || 'Swing and a miss') : 'Caught looking', 'pitch'); sfx('strike', null, 0.12);
+  } else {
+    S.b++;
+    if (S.b >= 4) { S.stats[side].bb++; result('WALK', 'No base runners in this test', 'ab'); sfx('ball', null, 0.12); return; }
+    result('BALL ' + S.b, null, 'pitch'); sfx('ball', null, 0.12);
+  }
+}
+function resetPlay() { S.cpuRunning = false; S.animStart = null; S.gatherT = 0; S.windT = 0; S.queued = null; S.followT = 0; S.followId = null; S.freePlay = false; S.autoRun = 0; S.safeHold = 0; S.F = homePos(); S.ctl = 'P'; S.run = null; S.holder = null; S.thr = null; S.playT = 0; S.cpuChase = null; S.cpuThrow = 0; S.thrFrom = null; S.thrT = 0; }
+function defenseHuman() { return batSide() === 'cpu'; }
+function runnerPos() { var r = S.run; return [BASES[1][0] * r.p, BASES[1][1] * r.p]; }
+var CATCHER_WAIT = 30;
+function catcherFrozen(id) { return id === 'C' && S.bb && S.bb.t < CATCHER_WAIT; }
+var ACCEL_T = 12;
+function ramp(f, spd) { if (f.lastT !== S.t - 1 && f.lastT !== S.t) f.cur = 0; f.lastT = S.t; f.cur = Math.min(spd, (f.cur || 0) + spd / ACCEL_T); return f.cur; }
+function moveToward(id, tx, ty, spd) {
+  if (catcherFrozen(id) || holderBusy(id) || awaitingThrow(id)) return;
+  spd = ramp(S.F[id], spd);
+  var f = S.F[id], dx = tx - f.x, dy = ty - f.y, d = Math.sqrt(dx * dx + dy * dy);
+  if (d < 0.05) return;
+  var k = d <= spd ? 1 : spd / d; f.x += dx * k; f.y += dy * k; f.mv = 2;
+}
+function moveVec(id, vx, vy) {
+  if (catcherFrozen(id) || holderBusy(id) || awaitingThrow(id)) return;
+  var f = S.F[id], sp = ramp(f, FSPD), l = Math.sqrt(vx * vx + vy * vy) || 1;
+  f.x += vx / l * sp; f.y += vy / l * sp;
+  f.x = Math.max(-150, Math.min(150, f.x)); f.y = Math.max(-22, Math.min(205, f.y)); f.mv = 2;
+}
+function moveDir(id, dir) {
+  if (catcherFrozen(id) || holderBusy(id) || awaitingThrow(id)) return;
+  var f = S.F[id], sp = ramp(f, FSPD);
+  if (dir === 'u') f.y += sp; else if (dir === 'd') f.y -= sp; else if (dir === 'l') f.x -= sp; else if (dir === 'r') f.x += sp;
+  f.x = Math.max(-150, Math.min(150, f.x)); f.y = Math.max(-22, Math.min(205, f.y)); f.mv = 2;
+}
+/* outfielders gather (crouch) then wind; infielders just wind. A throw pressed early is held until he is set. */
+var GATHER_OF = 18, WIND_OF = 14, WIND_IF = 9, FOLLOW_T = 22;
+function isOF(id) { return id === 'LF' || id === 'CF' || id === 'RF'; }
+function requestThrow(base) {
+  if (!S.holder) return;
+  if (S.animStart == null) {
+    var w = isOF(S.holder) ? WIND_OF : WIND_IF;
+    S.animStart = S.t; S.animRel = S.t - 1 + (S.gatherT > 0 ? S.gatherT + 1 + w : (S.windT > 0 ? S.windT : w));
+  }
+  S.queued = base;
+  if (S.gatherT > 0 || S.windT > 0) return;
+  S.windT = isOF(S.holder) ? WIND_OF : WIND_IF;
+}
+function throwSteps() {
+  if (!S.holder) return;
+  S.holdT = (S.holdT || 0) + 1;
+  if (S.gatherT > 0) { S.gatherT--; return; }
+  if (S.windT > 0) { S.windT--; if (S.windT === 0 && S.queued != null) { var q = S.queued; S.queued = null; S.followId = S.holder; S.followT = FOLLOW_T; S.followStart = S.t; S.animStart = null; throwTo(q); } return; }
+  if (S.queued != null) S.windT = isOF(S.holder) ? WIND_OF : WIND_IF;
+}
+function holderBusy(id) { return id === S.holder && (S.gatherT > 0 || S.windT > 0); }
+function awaitingThrow(id) { return id === 'P' && S.holder !== 'P' && (S.queued === 'P' || (S.thr && S.thr.base === 'P')); }
+function throwTo(base) {
+  var h = S.F[S.holder], tx, ty;
+  if (base === 'P') { tx = S.F.P.x; ty = S.F.P.y; } else { tx = BASES[base][0]; ty = BASES[base][1]; }
+  var d0 = dist2(h.x, h.y, tx, ty);
+  S.cpuThrow = 0;
+  S.thr = { x: h.x, y: h.y, sx: h.x, sy: h.y, tx: tx, ty: ty, base: base, d0: d0, peak: Math.min(30, 4 + d0 * 0.2) }; S.thrFrom = S.holder; S.thrT = 12; S.holder = null; sfx('toss');
+}
+function baseCovered(base, exceptId) {
+  var b = BASES[base], hit = false;
+  FIELDERS.forEach(function (f) { if (f.id === exceptId) return; var p = S.F[f.id]; if (dist2(p.x, p.y, b[0], b[1]) < 4.5) hit = true; });
+  return hit;
+}
+function giveBall(id) { S.cpuRunning = false; S.holdT = 0; S.animStart = null; if (S.bb) S.bb.touched = true; S.gatherT = isOF(id) ? GATHER_OF : 0; S.windT = 0; S.queued = null; S.holder = id; S.ctl = id; S.thr = null; var bb = S.bb; bb.v = 0; bb.h = 0; sfx('glove'); }
+function coverFor(base) { var c = coverers(), who = null; Object.keys(c).forEach(function (id) { if (c[id] === base && id !== S.holder) who = id; }); return who; }
+function coverers() {
+  var c = {}; Object.keys(COVER).forEach(function (id) { c[id] = COVER[id]; });
+  if (S.ctl === '1B' || S.holder === '1B' || S.cpuChase === '1B') { delete c['1B']; c.P = 1; }
+  return c;
+}
+function defense(inp) {
+  var cov = (S.holder || S.thr) ? coverers() : {};
+  Object.keys(cov).forEach(function (id) {
+    if (id === S.ctl || id === S.holder || id === S.cpuChase) return;
+    var b = BASES[cov[id]]; moveToward(id, b[0], b[1], FSPD * 0.9);
+  });
+  if (!defenseHuman()) { cpuDefense(); return; }
+  var ctl = S.ctl;
+  if (inp.btn) {
+    if (S.holder === ctl) {
+      if (!inp.dir) requestThrow('P');
+      else { var bs = DIR_BASE[inp.dir]; if (baseCovered(bs, ctl)) { S.autoRun = 0; requestThrow(bs); } else S.autoRun = bs; }
+    }
+    else if (inp.dir) { var pr = PAIRS[inp.dir]; S.ctl = ctl === pr[0] ? pr[1] : ctl === pr[1] ? pr[0] : pr[0]; }
+  } else if (inp.vx || inp.vy) { S.autoRun = 0; moveVec(ctl, inp.vx, inp.vy); }
+  else if (S.autoRun && S.holder === ctl) { var ab = BASES[S.autoRun]; moveToward(ctl, ab[0], ab[1], FSPD); }
+}
+/* earliest point on the ball's path this fielder can reach in time */
+function intercept(id) {
+  var bb = S.bb, f = S.F[id], r = 3, x = bb.x, y = bb.y, v = bb.v, wait = id === 'C' ? Math.max(0, CATCHER_WAIT - bb.t) : 0;
+  for (var t = 0; t < 240; t++) {
+    if (dist2(f.x, f.y, x, y) <= FSPD * Math.max(0, t - wait) + r) return { x: x, y: y, t: t };
+    v = v * DECAY - FRICTION; if (v < 0) v = 0; x += bb.ux * v; y += bb.uy * v;
+  }
+  return { x: x, y: y, t: 240 + dist2(f.x, f.y, x, y) / FSPD };
+}
+function cpuDefense() {
+  var bb = S.bb, r = S.run;
+  if (S.holder) {
+    var hid = S.holder, hp = S.F[hid]; S.ctl = hid;
+    if (S.queued != null || S.animStart != null) return; /* already throwing */
+    if (r && !r.safe && !r.out) {
+      /* decide at once: throw if the bag is (or will be) covered before the ball gets there, else run it over if that's quicker */
+      var bx = BASES[1][0], by = BASES[1][1], d1 = dist2(hp.x, hp.y, bx, by);
+      if (S.cpuRunning || d1 < 12) { S.cpuRunning = true; moveToward(hid, bx, by, FSPD); return; }
+      var cov = coverFor(1), w = isOF(hid) ? WIND_OF : WIND_IF, tBall = S.gatherT + w + d1 / THROW;
+      var tCov = cov ? dist2(S.F[cov].x, S.F[cov].y, bx, by) / FSPD + ACCEL_T / 2 : 1e9;
+      if (baseCovered(1, hid) || tCov <= tBall) requestThrow(1);
+      else if (d1 / FSPD < tCov) { S.cpuRunning = true; moveToward(hid, bx, by, FSPD); }
+      /* otherwise hold the ball until the throw and the coverer will reach the bag together */
+    } else if (hid !== 'P') requestThrow('P');
+    return;
+  }
+  if (S.thr) return;
+  if (!S.cpuChase || S.playT % 20 === 0) {
+    var best = null, bt = 1e9;
+    /* anyone who can reach the ball goes for it; infielders only while it is still in the infield, beyond that it's the outfield's ball */
+    var slow = bb.v < 0.35;
+    FIELDERS.forEach(function (f) {
+      var it = intercept(f.id);
+      if (f.inf && !slow && Math.sqrt(it.x * it.x + it.y * it.y) > 112) return;
+      if (f.id === 'P' && !slow) { var mx = it.x / 10.5, my = (it.y - 61.6) / 7; if (mx * mx + my * my > 1) return; } /* pitcher covers the mound's dirt */
+      if (it.t < bt) { bt = it.t; best = f.id; }
+    });
+    if (!best) FIELDERS.forEach(function (f) { var it = intercept(f.id); if (it.t < bt) { bt = it.t; best = f.id; } });
+    S.cpuChase = best;
+  }
+  var ip = intercept(S.cpuChase);
+  S.ctl = S.cpuChase; if (S.playT > 12) moveToward(S.cpuChase, ip.x, ip.y, FSPD); /* about 0.2 s to react */
+}
+function battedStep(dIn) {
+  var bb = S.bb; bb.t++;
+  if (bb.foul) {
+    bb.x += bb.ux * bb.v; bb.y += bb.uy * bb.v; bb.v *= 0.985; bb.dist += bb.v;
+    bb.h = 0;
+    if (bb.t > 40) {
+      if (bb.bunt && S.s >= 2) { var ks = batSide(); S.outs++; S.stats[ks].k++; result('STRIKEOUT', 'Foul bunt with two strikes', 'out'); sfx('bark', null, 0.1); sfx(ks === 'you' ? 'boo' : 'cheer', null, 0.5); return; }
+      if (S.s < 2) S.s++; result('FOUL BALL', null, 'pitch'); sfx('foul');
+    }
+    return;
+  }
+  S.playT++;
+  FIELDERS.forEach(function (f) { if (S.F[f.id].mv) S.F[f.id].mv--; });
+  var r = S.run;
+  if (r && !r.safe && !r.out) { r.p += RSPD / 90; if (r.p >= 1) { r.p = 1; r.safe = true; } }
+  if (playMotion(dIn, false) === 'stop') return;
+  var side = batSide();
+  if (S.holder && r && !r.safe && !r.out) {
+    var h = S.F[S.holder], rp = runnerPos();
+    if (dist2(h.x, h.y, BASES[1][0], BASES[1][1]) < 3.5) { r.out = true; r.how = 'Forced out at first'; }
+    else if (dist2(h.x, h.y, rp[0], rp[1]) < 2.6) { r.out = true; r.how = 'Tagged out'; }
+  }
+  if (r && r.out) { S.outs++; result('OUT', r.how + (S.holder ? ' by the ' + FNAME[S.holder] : ''), 'out'); sfx('bark', null, 0.1); return; }
+  if (r && r.safe && S.holder && !S.thr) S.safeHold = (S.safeHold || 0) + 1;
+  if (r && r.safe && ((S.holder === 'P' && S.safeHold > 20) || S.safeHold > 300 || S.playT > 1800)) {
+    S.stats[side].h++;
+    result('SINGLE', 'Safe at first' + (bb.wall ? ' (off the wall)' : '') + '. Base running comes next', 'ab');
+    sfx('slide', null, 0); sfx('cheer', null, 0.3); return;
+  }
+}
+/* fielders move and throw; also runs after the call (free = true) until the next batter */
+function playMotion(dIn, free) {
+  var bb = S.bb;
+  defense(dIn);
+  throwSteps(); if (S.followT > 0) S.followT--;
+  if (S.thrT > 0) S.thrT--;
+  if (S.holder) { var hp = S.F[S.holder]; bb.x = hp.x; bb.y = hp.y; }
+  else if (S.thr) {
+    var t = S.thr;
+    if (t.base === 'P') { t.tx = S.F.P.x; t.ty = S.F.P.y; } /* a throw to the pitcher goes to the man, wherever he is */
+    var dx = t.tx - t.x, dy = t.ty - t.y, d = Math.sqrt(dx * dx + dy * dy);
+    if (d <= THROW) {
+      t.x = t.tx; t.y = t.ty; bb.x = t.x; bb.y = t.y; bb.h = 0; S.thr = null;
+      var got = null, gd = 5;
+      if (t.base === 'P') { got = 'P'; } else FIELDERS.forEach(function (f) { var fp = S.F[f.id], dd = dist2(fp.x, fp.y, t.x, t.y); if (dd < gd) { gd = dd; got = f.id; } });
+      if (got) giveBall(got);
+      else { /* nobody there: it hits the ground and keeps rolling the way it was thrown */
+        var tdx = t.tx - t.sx, tdy = t.ty - t.sy, tl = Math.sqrt(tdx * tdx + tdy * tdy) || 1;
+        bb.ux = tdx / tl; bb.uy = tdy / tl; bb.v = THROW * 0.55; bb.touched = true; sfx('thud');
+      }
+    } else { t.x += dx / d * THROW; t.y += dy / d * THROW; bb.x = t.x; bb.y = t.y; var pp = t.d0 ? 1 - (d - THROW) / t.d0 : 1; if (pp < 0) pp = 0; bb.h = 6 + t.peak * 4 * pp * (1 - pp); }
+  } else {
+    var px = bb.x, py = bb.y;
+    bb.v = bb.v * DECAY - FRICTION; if (bb.v < 0) bb.v = 0;
+    bb.x += bb.ux * bb.v; bb.y += bb.uy * bb.v; bb.dist += bb.v;
+    bb.h = 0;
+    /* fair/foul: foul if fully outside the line (ball + chalk) before passing first or third base; fair for good once past the bag */
+    if (!free && !bb.fairLocked && !bb.wall && !bb.touched) {
+      var rr2 = Math.sqrt(bb.x * bb.x + bb.y * bb.y), outside = bb.y < Math.abs(bb.x) - 1.0;
+      if (outside && (rr2 > 3 || bb.v === 0)) { bb.foul = true; bb.t = 0; S.run = null; S.holder = null; setLive(true); return 'stop'; }
+      if (rr2 >= 90 && !outside) bb.fairLocked = true;
+      if (bb.v === 0 && !outside) bb.fairLocked = true;
+    }
+    if (bb.h < 9) {
+      for (var i = 0; i < FIELDERS.length; i++) {
+        var f = FIELDERS[i], fp = S.F[f.id];
+        if (f.id === 'C' && bb.t < CATCHER_WAIT) continue;
+        if (f.id === S.thrFrom && S.thrT > 0) continue;
+        /* hard-hit balls need an infielder nearly in line with them to be stopped */
+        var reach = f.inf ? Math.max(1.6, f.r - Math.max(0, bb.v - 1.2) * 2.2) : f.r;
+        if (segDist(px, py, bb.x, bb.y, fp.x, fp.y) < reach) { giveBall(f.id); break; }
+      }
+    }
+    if (!S.holder) {
+      var dd2 = Math.sqrt(bb.x * bb.x + bb.y * bb.y);
+      if (bb.y > 0 && dd2 >= fenceR(bb.x / dd2)) { if (free) bb.wall = true; wallHit(dd2); if (!free && S.phase !== 'batted') return 'stop'; }
+      if (bb.y < -22) { bb.y = -22; bb.v = 0; }
+      if (Math.abs(bb.x) > 150) { bb.x = bb.x < 0 ? -150 : 150; bb.v = 0; }
+    }
+  }
+}
+function wallHit(d) {
+  var bb = S.bb, frac = bb.v / BALLMAX, ch = frac * 100 + 20, u = Math.abs(bb.x / d), side = batSide();
+  if (u >= 0.5) ch += 10; if (ch > 100) ch = 100;
+  if (!bb.wall && S.rng() * 100 < ch) {
+    bb.gone = true; bb.h = 0; S.run = null;
+    S.score[side]++; S.stats[side].h++; S.stats[side].hr++;
+    result('HOME RUN!', Math.round(ch) + '% chance: ' + Math.round(frac * 100) + '% speed + 20' + (u >= 0.5 ? ' + 10 near the line' : ''), 'ab', true);
+    sfx('fanfare'); sfx('cheer', null, 0.3);
+    S.faces = { bat: 'happy', pit: 'mad' }; S.faceT = 300; updatePortraits(); updateHUD();
+    return;
+  }
+  var nx = bb.x / d, ny = bb.y / d, vx = bb.ux * bb.v, vy = bb.uy * bb.v, dot = vx * nx + vy * ny;
+  vx = (vx - 2 * dot * nx) * 0.6; vy = (vy - 2 * dot * ny) * 0.6;
+  var v = Math.sqrt(vx * vx + vy * vy); if (v < 0.0001) { v = 0.0001; vx = -nx; vy = -ny; }
+  if (v < 0.55) { var kk = 0.55 / v; vx *= kk; vy *= kk; v = 0.55; }
+  bb.ux = vx / v; bb.uy = vy / v; bb.v = v; if (!bb.wall) bb.wallCh = ch; bb.wall = true;
+  var back = fenceR(nx) - 1.5; bb.x = nx * back; bb.y = ny * back;
+  sfx('wall');
+}
+function result(text, sub, kind, big) {
+  S.phase = 'result'; S.rt = kind === 'pitch' ? 55 : big ? 170 : (kind === 'out' || kind === 'ab') ? 160 : 100; S.after = kind;
+  if ((kind === 'out' || kind === 'ab') && S.bb && !S.bb.gone && !S.bb.foul) S.freePlay = true;
+  setLive(false); toast(text, sub, S.rt, big); updateHUD();
+}
+function afterResult() {
+  var kind = S.after; S.sw = null; S.fielded = null; S.ball = null; resetPlay();
+  if (S.bb && !S.bb.gone) S.bb = null;
+  if (kind === 'ready') { S.bb = null; S.phase = 'ready'; S.pt = 0; S.cpuP = null; hint(); return; }
+  S.bb = null;
+  if (kind === 'out' || kind === 'ab') { S.b = 0; S.s = 0; if (Math.random() < 0.12) sfx('organ'); }
+  if (S.outs >= 3) {
+    if (kind !== 'side') { S.after = 'side'; S.phase = 'result'; S.rt = 80; toast('SIDE RETIRED', null, 80); if (Math.random() < 0.5) sfx('organ', null, 0.6); return; }
+  }
+  if (kind === 'side') { S.half++; if (gameOver()) return endGame(); startHalf(); return; }
+  S.phase = 'ready'; S.pt = 0; S.cpuP = null; updateHUD(); hint();
+}
+function homeSide() { return S.vis === 'you' ? 'cpu' : 'you'; }
+function gameOver() {
+  var N = opts.innings, h = S.half, vis = S.score[S.vis], home = S.score[homeSide()];
+  if (h === 2 * N - 1 && home > vis) return true;
+  if (h >= 2 * N && h % 2 === 0 && vis !== home) return true;
+  return false;
+}
+
+/* ============ HUD ============ */
+var toastTimer = null;
+function toast(text, sub, ticks, big) {
+  var tt = $('tt'), ts = $('ts'); tt.textContent = text; tt.className = big ? 'big' : '';
+  if (sub) { ts.textContent = sub; ts.hidden = false; } else ts.hidden = true;
+  $('toast').classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { $('toast').classList.remove('on'); }, ticks * TICK);
+}
+function setLive(live) { $('sb').classList.toggle('hide', live); if (live) $('hint').style.opacity = 0; }
+function hint() {
+  var h = $('hint'); h.style.opacity = (S && S.phase === 'batted' && !defenseHuman()) ? 0 : 1;
+  if (!S || S.over) { h.textContent = ''; return; }
+  if (S.phase === 'batted' && S.run) { h.textContent = defenseHuman() ? 'Arrows move · Arrow + button: pick fielder, or throw to that base · Button: throw to pitcher' : 'Your runner heads to first'; return; }
+  h.textContent = batSide() === 'you' ? 'Tap to swing · Down + tap to square around and bunt (any time) · Up + tap for power' : 'Hold a direction, then tap to pitch · Steer and change speed in flight';
+}
+function updateHUD() {
+  $('sv').textContent = S.score[S.vis]; $('sh').textContent = S.score[homeSide()];
+  $('in').textContent = Math.floor(S.half / 2) + 1; $('ih').textContent = S.half % 2 === 0 ? '▲' : '▼';
+  var bs = document.querySelectorAll('#sb i.b'), ss = document.querySelectorAll('#sb i.s'), os = document.querySelectorAll('#sb i.o');
+  Array.prototype.forEach.call(bs, function (e, i) { e.classList.toggle('on', i < S.b); });
+  Array.prototype.forEach.call(ss, function (e, i) { e.classList.toggle('on', i < S.s); });
+  Array.prototype.forEach.call(os, function (e, i) { e.classList.toggle('on', i < S.outs); });
+}
+function updatePortraits() {
+  var bat = batSide(), pit = bat === 'you' ? 'cpu' : 'you';
+  $('fl').innerHTML = coachSVG(teamColor(bat), S.faces ? S.faces.bat : 'neutral');
+  $('fr').innerHTML = coachSVG(teamColor(pit), S.faces ? S.faces.pit : 'neutral');
+  $('wl').textContent = bat === 'you' ? 'YOU' : 'CPU'; $('wr').textContent = pit === 'you' ? 'YOU' : 'CPU';
+}
+function endGame() {
+  S.over = true; S.phase = 'over'; murmur(false); hint(); $('menu').hidden = true;
+  var you = S.score.you, cpu = S.score.cpu;
+  $('fh').textContent = you > cpu ? 'You Win!' : 'CPU Wins';
+  var rows = [['YOU', 'you'], ['CPU', 'cpu']].map(function (r) { var st = S.stats[r[1]]; return '<tr><th>' + r[0] + '</th><td>' + S.score[r[1]] + '</td><td>' + st.h + '</td><td>' + st.hr + '</td><td>' + st.k + '</td><td>' + st.bb + '</td></tr>'; });
+  $('fb').innerHTML = rows.join('');
+  $('final').hidden = false;
+  if (you > cpu) { sfx('fanfare'); sfx('cheer', null, 0.3); } else sfx('boo');
+}
+
+/* ============ render ============ */
+function throwPose(u) {
+  var L = function (a, b, k) { return a + (b - a) * k; }, ez = function (k) { return k * k * (3 - 2 * k); };
+  if (u < 0.7) { var k = ez(u / 0.7); return { rot: -0.3 * k, glove: [L(6, 11, k), L(-22, -25, k)], hand: [L(-1, -15, k), L(-21, -40, k)], lift: 4 * k, ball: true }; }
+  if (u < 1) { var k2 = (u - 0.7) / 0.3; k2 = k2 * k2; return { rot: L(-0.3, 0.12, k2), glove: [L(11, 7, k2), L(-25, -20, k2)], hand: [L(-15, 3, k2), L(-40, -30, k2)], lift: L(4, 0, k2), ball: true }; }
+  var k3 = Math.min(1, (u - 1) / 0.6), e3 = ez(k3);
+  return { rot: L(0.12, 0, e3) + 0.16 * Math.sin(k3 * PI), glove: [L(7, 6, e3), L(-20, -16, e3)], hand: [L(3, 5, e3), L(-30, -9, e3)], lift: 0 };
+}
+function ring(c, x, y, sc) { c.save(); c.strokeStyle = '#ffd23f'; c.lineWidth = 2; c.beginPath(); c.ellipse(x, y, 13 * sc, 4.4 * sc, 0, 0, 7); c.stroke(); c.restore(); }
+function render() {
+  if (!fieldCache) buildField();
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(fieldCache, 0, 0);
+  ctx.setTransform(K * DPR, 0, 0, K * DPR, 0, 0);
+  if (!S) { drawIdle(); return; }
+  var bat = batSide(), pit = bat === 'you' ? 'cpu' : 'you';
+  var batCol = teamColor(bat) === 'red' ? theme.red : theme.blue, pitCol = teamColor(pit) === 'red' ? theme.red : theme.blue;
+  var playing = (!!S.run || S.freePlay) && (S.phase === 'batted' || S.phase === 'result');
+  var list = [];
+  FIELDERS.forEach(function (f) {
+    if (f.id === 'C' && !playing) return;
+    var pos = S.F[f.id], p = proj(pos.x, pos.y);
+    var sc = f.id === 'P' ? 0.98 * SPR : f.id === 'C' ? SPR : spriteScale(p[1]);
+    if (playing && f.id === 'P') sc = spriteScale(p[1]) * 1.05;
+    var hold = S.holder === f.id;
+    var o = (f.id === 'P' && !playing) ? pitcherPose() : { lift: pos.mv ? 3 * Math.abs(Math.sin(S.t / 4)) : 0, glove: hold ? [8.1, -25] : undefined };
+    var ballAt = [8.1, -25];
+    /* one continuous throw motion: starts on the throw, release lands on the real release tick, then follow-through */
+    if (hold && S.animStart != null) o = throwPose(Math.min(1, (S.t - S.animStart) / Math.max(1, S.animRel - S.animStart)));
+    else if (hold && isOF(f.id) && S.gatherT > 0) { var gk = 1 - S.gatherT / GATHER_OF; o = { sy: 1 - 0.24 * Math.sin(gk * PI), glove: [4, -8 - 8 * gk], hand: [-4, -9 - 8 * gk], ball: true }; }
+    else if (hold) o = { glove: [6, -22], hand: [-1, -21], ball: true, lift: o.lift };
+    else if (S.followId === f.id && S.followT > 0) o = throwPose(1 + 0.6 * (S.t - S.followStart) / FOLLOW_T);
+    list.push({ y: p[1], d: function () {
+      if (playing && S.ctl === f.id && defenseHuman()) ring(ctx, p[0], p[1], sc);
+      drawFielder(ctx, p[0], p[1], sc, pitCol, o);
+      if (hold && !o.ball) { circ(ctx, p[0] + ballAt[0] * sc, p[1] + ballAt[1] * sc, 1.9); ctx.fillStyle = '#fff'; ctx.fill(); }
+    } });
+  });
+  if (S.run) {
+    var rp = runnerPos(), q = proj(rp[0], rp[1]), rs = spriteScale(q[1]);
+    list.push({ y: q[1], d: function () { drawFielder(ctx, q[0], q[1], rs, batCol, { lift: (S.run.safe || S.run.out) ? 0 : 3.5 * Math.abs(Math.sin(S.t / 3.5)), hand: [-9, -20], glove: [9, -20] }); } });
+  } else {
+    if (!S.freePlay || S.run) list.push({ y: BAT_Y, d: function () { drawBatter(ctx, BAT_X, BAT_Y, BAT_S, batCol, batterPose()); } });
+  }
+  if (!playing) list.push({ y: HY + 37, d: function () { drawCatcher(ctx, 428, HY + 37, pitCol); } });
+  list.sort(function (a, b) { return a.y - b.y; }).forEach(function (o) { o.d(); });
+  if (S.ball && !S.bb && (S.phase === 'pitch' || S.phase === 'result')) {
+    if (S.phase === 'pitch' || S.ball.fy > -17) drawBall(ctx, S.ball.fx, Math.max(S.ball.fy, -19), 7);
+  }
+  if (S.bb && !S.holder && !S.bb.gone) drawBall(ctx, S.bb.x, S.bb.y, S.thr ? (S.bb.h || 0) + 4 : 3, !!S.thr);
+}
+function pitcherPose() {
+  if (S.phase === 'windup') {
+    var w = S.wt / WINDUP_T;
+    if (w < 0.55) { var k = w / 0.55; return { hand: [-3 + 2 * k, -20 - 18 * k], glove: [3 - 2 * k, -20 - 18 * k], lift: 7 * Math.sin(k * PI) }; }
+    var k2 = (w - 0.55) / 0.45; return { hand: [-8 - 6 * k2, -38 + 4 * k2], glove: [8 + 2 * k2, -26 + 6 * k2], lift: 7 * (1 - k2) };
+  }
+  if (S.follow > 0 && S.phase === 'pitch') { var f = S.follow / 18; return { hand: [-2 + 4 * (1 - f), -8], glove: [9, -20] }; }
+  if (S.phase === 'ready' && S.ball === null) return { hand: [-3, -20], glove: [3, -20], ball: true };
+  return { ball: S.phase === 'ready' };
+}
+function batterPose() {
+  var sw = S.sw;
+  if (sw && sw.type === 'bunt') return { hx: 4, hy: -22.3, a: 0 };
+  if (sw) {
+    var ct = sw.ct || CONTACT_T, ln = sw.len || SWING_LEN, t = Math.min(sw.t, ln), a;
+    if (t <= ct) a = (-107 - (253 * t / ct)) * PI / 180; else a = (-360 - 170 * (t - ct) / (ln - ct)) * PI / 180;
+    var k = Math.min(1, t / ct); return { hx: -4.8 + 10 * k, hy: -28.6 + 6.3 * k, a: a };
+  }
+  var wag = Math.sin(S.t / 9) * 0.06;
+  return { hx: -4.8, hy: -28.6, a: (-107 * PI / 180) + wag };
+}
+function drawIdle() {
+  var c = ctx;
+  FIELDERS.forEach(function (f) { if (f.id === 'C') return; var p = proj(f.x, f.y); drawFielder(c, p[0], p[1], f.id === 'P' ? 0.98 * SPR : spriteScale(p[1]), theme.blue, f.id === 'P' ? { hand: [-3, -20], glove: [3, -20], ball: true } : null); });
+  drawBatter(c, BAT_X, BAT_Y, BAT_S, theme.red, { hx: -4.8, hy: -28.6, a: -107 * PI / 180 });
+  drawCatcher(c, 428, HY + 37, theme.blue);
+}
+
+/* ============ loop ============ */
+var acc = 0, last = 0;
+function frame(now) {
+  if (!last) last = now; acc += Math.min(250, now - last); last = now;
+  if (S && !S.over && !S.paused) { while (acc >= TICK) { tick(); acc -= TICK; } } else acc = 0;
+  render();
+  requestAnimationFrame(frame);
+}
+
+/* ============ screens ============ */
+function setTheme(name) { themeName = name; theme = THEMES[name]; document.body.classList.toggle('day', name === 'day'); fieldCache = null; }
+function pressGroup(a, b, first) { $(a).setAttribute('aria-pressed', String(first)); $(b).setAttribute('aria-pressed', String(!first)); }
+$('start').addEventListener('click', function () {
+  audio(); sfx('click');
+  try { if (document.documentElement.requestFullscreen && window.matchMedia('(pointer: coarse)').matches) document.documentElement.requestFullscreen().then(function () { if (screen.orientation && screen.orientation.lock) return screen.orientation.lock('landscape'); }).catch(function () { }); } catch (e) { }
+  $('title').hidden = true; $('setup').hidden = false;
+});
+$('inm').addEventListener('click', function () { opts.innings = Math.max(1, opts.innings - 1); $('inv').textContent = opts.innings; sfx('click'); });
+$('inp').addEventListener('click', function () { opts.innings = Math.min(9, opts.innings + 1); $('inv').textContent = opts.innings; sfx('click'); });
+$('gday').addEventListener('click', function () { opts.night = false; pressGroup('gday', 'gnight', true); setTheme('day'); sfx('click'); });
+$('gnight').addEventListener('click', function () { opts.night = true; pressGroup('gday', 'gnight', false); setTheme('night'); sfx('click'); });
+function setMurmur(on) { opts.murmur = on; pressGroup('mon', 'moff', on); try { localStorage.setItem('ccb-murmur', on ? 'on' : 'off'); } catch (e) { } sfx('click'); }
+$('mon').addEventListener('click', function () { setMurmur(true); });
+$('moff').addEventListener('click', function () { setMurmur(false); });
+$('bf').addEventListener('click', function () { opts.batFirst = true; pressGroup('bf', 'pf', true); sfx('click'); });
+$('pf').addEventListener('click', function () { opts.batFirst = false; pressGroup('bf', 'pf', false); sfx('click'); });
+$('go').addEventListener('click', function () { $('go').blur(); $('setup').hidden = true; audio(); if (opts.murmur) murmur(true); $('menu').hidden = false; newGame(); hint(); });
+$('again').addEventListener('click', function () { $('final').hidden = true; S = null; $('menu').hidden = true; $('setup').hidden = false; $('hint').textContent = ''; });
+$('menu').addEventListener('click', function () { if (!S || S.over) return; S.paused = true; $('quit').hidden = false; sfx('click'); });
+$('qno').addEventListener('click', function () { $('quit').hidden = true; if (S) S.paused = false; $('menu').blur(); sfx('click'); });
+$('qyes').addEventListener('click', function () { $('quit').hidden = true; S = null; murmur(false); $('menu').hidden = true; $('hint').textContent = ''; $('toast').classList.remove('on'); $('sb').classList.remove('hide'); $('title').hidden = false; sfx('click'); });
+$('mute').addEventListener('click', function () {
+  muted = !muted; $('mute').setAttribute('aria-pressed', String(muted)); $('mutewave').style.display = muted ? 'none' : '';
+  if (audio()) master.gain.setTargetAtTime(muted ? 0 : 0.85, A.currentTime, 0.05);
+});
+
+layout(); setTheme('day'); pressGroup('mon', 'moff', opts.murmur);
+$('fl').innerHTML = coachSVG('red', 'neutral'); $('fr').innerHTML = coachSVG('blue', 'neutral');
+$('hint').textContent = '';
+requestAnimationFrame(frame);
+window.__ccb = { get S() { return S; }, tick: function () { tick(); }, newGame: function (o) { if (o) for (var k in o) opts[k] = o[k]; newGame(); } };
+})();
+</script>
