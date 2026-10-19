@@ -176,8 +176,8 @@ var SPR = 0.792; /* overall player size */
 function spriteScale(py) { return (0.55 + 0.45 * (py / HY) * 1.1) * SPR; }
 var TICK = 1000 / 60;
 var RELEASE_FY = 57, HALF_FY = 28.5;
-var SP_MIN = 0.6825, SP_MAX = 2.34, SP_ACC = 0.0197;
-var START_SP = { u: 0.8125, d: 1.6575, l: 1.25, r: 1.25 };
+var SP_MIN = 0.819, SP_MAX = 2.34, SP_ACC = 0.0197;
+var START_SP = { u: 0.975, d: 1.6575, l: 1.25, r: 1.25 };
 var LACC = 0.022, LV_HUMAN = 2.6, LV_CPU = 0.9;
 var PLATE_HALF = 2.4, BALL_R = 0.7, BAT_REACH = 4.9;
 var CONTACT_T = 6, POWER_CT = 4, SWING_LEN = 16, POWER_LEN = 12, BUNT_LEN = 26, IDEAL_FY = 3.0, SWING_W = 7.5, LATE_W = 12; /* late contact allowed further past the sweet spot (it goes foul to the right) */
@@ -210,7 +210,7 @@ var FIELDERS = [
   { id: '1B', x: 50, y: 86, r: 4.2, inf: true },
   { id: '2B', x: 20, y: 118, r: 4.2, inf: true },
   { id: '3B', x: -50, y: 86, r: 4.2, inf: true },
-  { id: 'LF', x: -79, y: 137, r: 6, inf: false },
+  { id: 'LF', x: -66, y: 146, r: 6, inf: false },
   { id: 'CF', x: 0, y: 163, r: 6, inf: false },
   { id: 'RF', x: 79, y: 137, r: 6, inf: false }
 ];
@@ -356,18 +356,21 @@ function drawFielder(c, x, y, s, col, o) {
   c.save(); c.translate(x, y); c.scale(s, s);
   shadow(c, 9, 2.8);
   if (o.sy) c.scale(1, o.sy); if (o.rot) c.rotate(o.rot);
-  var lift = o.lift || 0;
-  rr(c, -5.2, -3, 4.4, 3, 1); F(c, T.dark);
-  rr(c, 0.8, -3 - lift, 4.4, 3, 1); F(c, T.dark);
-  c.beginPath(); c.rect(-4.9, -8.4, 3.9, 5.8); F(c, col);
-  c.beginPath(); c.rect(1, -8.4 - lift, 3.9, 5.8); F(c, col);
-  c.beginPath(); c.moveTo(-5.3, -16.4); c.lineTo(5.3, -16.4); c.lineTo(5.3, -8 - lift); c.lineTo(1.5, -8 - lift); c.lineTo(0, -12.6); c.lineTo(-1.5, -8); c.lineTo(-5.3, -8); c.closePath(); F(c, T.pants);
-  var hand = o.hand || [-8.1, -16.4], glove = o.glove || [8.1, -16.2];
+  var lift = o.lift || 0, L = 0, R = lift, sx = 0, a = 0;
+  if (o.run != null) { a = Math.sin(o.run); L = Math.max(0, a) * 4; R = Math.max(0, -a) * 4; sx = a * 1.3; c.translate(0, -Math.abs(a) * 1.2); }
+  rr(c, -5.2 - sx, -3 - L, 4.4, 3, 1); F(c, T.dark);
+  rr(c, 0.8 + sx, -3 - R, 4.4, 3, 1); F(c, T.dark);
+  c.beginPath(); c.rect(-4.9 - sx, -8.4 - L, 3.9, 5.8); F(c, col);
+  c.beginPath(); c.rect(1 + sx, -8.4 - R, 3.9, 5.8); F(c, col);
+  c.beginPath(); c.rect(-5.3 - sx * 0.5, -12.2, 4.6, 4.2 - L); F(c, T.pants);
+  c.beginPath(); c.rect(0.7 + sx * 0.5, -12.2, 4.6, 4.2 - R); F(c, T.pants);
+  c.beginPath(); c.rect(-5.3, -16.4, 10.6, 4.6); F(c, T.pants);
+  var hand = o.hand || [-8.1, -16.4 + (o.run != null ? 3.5 * a : 0)], glove = o.glove || [8.1, -16.2 - (o.run != null ? 3.5 * a : 0)];
   limb(c, -6.5, -24.5, hand[0], hand[1], 3.2, col);
   limb(c, 6.5, -24.5, glove[0], glove[1], 3.2, col);
   rr(c, -6.6, -27.6, 13.2, 12, 3.8); F(c, col);
   c.fillStyle = T.dark; c.fillRect(-5.6, -17.2, 11.2, 1.6);
-  circ(c, glove[0], glove[1], 2.6); F(c, T.glove);
+  if (o.noGlove) { circ(c, glove[0], glove[1], 1.6); F(c, T.skin); } else { circ(c, glove[0], glove[1], 2.6); F(c, T.glove); }
   circ(c, hand[0], hand[1], 1.6); F(c, T.skin);
   if (o.ball) { circ(c, hand[0], hand[1] - 1, 1.5); F(c, '#ffffff'); }
   circ(c, 0, -32, 4.9); F(c, T.skin);
@@ -594,7 +597,7 @@ var S = null, opts = { innings: 3, night: false, batFirst: true, murmur: true };
 try { if (localStorage.getItem('ccb-murmur') === 'off') opts.murmur = false; } catch (e) { }
 function newGame() {
   S = {
-    t: 0, rng: mulberry(Date.now() & 0x7fffffff), half: 0, outs: 0, b: 0, s: 0,
+    t: 0, rng: mulberry(Date.now() & 0x7fffffff), half: 0, outs: 0, b: 0, s: 0, pOff: 0, bOff: { x: 0, y: 0 },
     score: { you: 0, cpu: 0 }, stats: { you: { h: 0, hr: 0, k: 0, bb: 0 }, cpu: { h: 0, hr: 0, k: 0, bb: 0 } },
     vis: opts.batFirst ? 'you' : 'cpu', phase: 'ready', pt: 0, wt: 0, rt: 0, ball: null, bb: null, sw: null,
     cpuP: null, cpuB: null, follow: 0, faces: null, faceT: 0, fielded: null, over: false, after: null, F: homePos(), ctl: 'P', run: null, holder: null, thr: null, playT: 0
@@ -604,6 +607,7 @@ function newGame() {
 function batSide() { return (S.half % 2 === 0) ? S.vis : (S.vis === 'you' ? 'cpu' : 'you'); }
 function teamColor(side) { return side === S.vis ? 'red' : 'blue'; }
 function startHalf() {
+  S.pOff = 0; S.bOff = { x: 0, y: 0 };
   S.outs = 0; S.b = 0; S.s = 0; S.phase = 'ready'; S.pt = 0; S.sw = null; S.ball = null; S.bb = null; S.fielded = null; S.cpuP = null; resetPlay();
   updatePortraits(); updateHUD();
   toast(batSide() === 'you' ? 'YOU ARE UP' : 'YOU PITCH', (S.half % 2 === 0 ? 'Top ' : 'Bottom ') + ordinal(Math.floor(S.half / 2) + 1), 70);
@@ -617,7 +621,7 @@ function cpuPitcher() {
   if (S.phase === 'ready') {
     if (!S.cpuP) {
       var r = S.rng();
-      S.cpuP = { delay: 45 + Math.floor(S.rng() * 40), type: r < 0.34 ? 'fast' : r < 0.6 ? 'slow' : 'curve', sign: S.rng() < 0.5 ? -1 : 1, target: (S.rng() * 2 - 1) * 4.8 };
+      S.cpuP = { slide: (S.rng() * 2 - 1) * 5, delay: 45 + Math.floor(S.rng() * 40), type: r < 0.34 ? 'fast' : r < 0.6 ? 'slow' : 'curve', sign: S.rng() < 0.5 ? -1 : 1, target: (S.rng() * 2 - 1) * 4.8 };
     }
     if (S.pt >= S.cpuP.delay) { var p = S.cpuP; inp.dir = p.type === 'fast' ? 'd' : p.type === 'slow' ? 'u' : (p.sign < 0 ? 'l' : 'r'); inp.btn = true; }
   } else if (S.phase === 'pitch' && S.cpuP) {
@@ -665,6 +669,11 @@ function tick() {
   switch (S.phase) {
     case 'ready':
       S.pt++;
+      /* pitcher slides along the rubber; batter moves inside the box (both before the wind-up) */
+      if (!youBat && !pIn.btn && (pIn.dir === 'l' || pIn.dir === 'r')) S.pOff = Math.max(-6, Math.min(6, S.pOff + (pIn.dir === 'l' ? -0.2 : 0.2)));
+      if (youBat && S.cpuP && S.cpuP.slide != null) { var sd = S.cpuP.slide - S.pOff; S.pOff += Math.max(-0.2, Math.min(0.2, sd)); }
+      if (youBat && !bIn.btn && (bIn.vx || bIn.vy) && !S.sw) { S.bOff.x = Math.max(-4, Math.min(3, S.bOff.x + bIn.vx * 0.15)); S.bOff.y = Math.max(-4, Math.min(6, S.bOff.y + bIn.vy * 0.15)); }
+      S.F.P.x = S.pOff;
       if (pIn.btn && pIn.dir) { S.phase = 'windup'; S.wt = 0; S.startDir = pIn.dir; setLive(true); }
       break;
     case 'windup':
@@ -679,7 +688,7 @@ function tick() {
 }
 function release() {
   S.phase = 'pitch'; S.follow = 18; S.cpuB = null; if (!(S.sw && S.sw.type === 'bunt')) S.sw = null;
-  S.ball = { fx: -1.5, fy: RELEASE_FY, sp: START_SP[S.startDir], lv: 0, crossed: false, crossFx: 0 };
+  S.ball = { fx: S.pOff - 1.5, fy: RELEASE_FY, sp: START_SP[S.startDir], lv: 0, crossed: false, crossFx: 0 };
   sfx('whoosh', S.ball.sp);
 }
 function pitchStep(pIn, bIn) {
@@ -698,21 +707,21 @@ function pitchStep(pIn, bIn) {
   if (S.sw) {
     S.sw.t++;
     if (S.sw.type === 'bunt') {
-      if (!S.sw.hit && !S.sw.miss && b.fy <= 1.5) { tryContact(); if (S.phase !== 'pitch') return; }
+      if (!S.sw.hit && !S.sw.miss && b.fy <= 1.5 + S.bOff.y) { tryContact(); if (S.phase !== 'pitch') return; }
     } else if (S.sw.t === S.sw.ct) { tryContact(); if (S.phase !== 'pitch') return; }
   }
   if (b.fy <= -17 || Math.abs(b.fx) > 225) pitchEnd();
 }
 function tryContact() {
   var b = S.ball, sw = S.sw, Wd = sw.type === 'bunt' ? 99 : SWING_W;
-  var off = b.fy - IDEAL_FY;
-  if (Math.abs(b.fx) > BAT_REACH) { sw.miss = true; sw.why = 'Out of reach'; if (sw.type !== 'bunt') sfx('whiff'); return; }
+  var off = b.fy - (IDEAL_FY + S.bOff.y);
+  if (Math.abs(b.fx - S.bOff.x) > BAT_REACH) { sw.miss = true; sw.why = 'Out of reach'; if (sw.type !== 'bunt') sfx('whiff'); return; }
   if (off > Wd || off < -LATE_W) { sw.miss = true; sw.why = off > 0 ? 'Too early' : 'Too late'; sfx('whiff'); return; }
   sw.hit = true;
   var q = sw.type === 'bunt' ? 1 : 1 - Math.abs(off) / Wd, r = S.rng(), pf = (b.sp - SP_MIN) / (SP_MAX - SP_MIN), ev, ang;
-  if (sw.type === 'bunt') { ev = 0.45 + 0.35 * r; ang = Math.max(-4, Math.min(4, off)) / 4 * 30; }
+  if (sw.type === 'bunt') { ev = 0.3 + 0.42 * r; ang = Math.max(-4, Math.min(4, off)) / 4 * 30; }
   else {
-    var base = 1.5 + 1.2 * pf, m = sw.type === 'power' ? (r < 0.15 ? 0.62 + r : 0.95 + 0.3 * ((r - 0.15) / 0.85)) : (0.9 + 0.14 * r);
+    var base = 1.5 + 1.2 * pf, m = sw.type === 'power' ? (r < 0.15 ? 0.6 + r : 1.15 + 0.3 * ((r - 0.15) / 0.85)) : (0.9 + 0.14 * r);
     /* direction: 90% batter timing (early = left, late = right), 10% pitch location (inside pulls left) */
     ev = Math.min(BALLMAX, base * m);
     ang = 0.9 * (off / Wd * 62) + 0.1 * (-b.fx / BAT_REACH * 62);
@@ -738,11 +747,12 @@ function pitchEnd() {
     result('BALL ' + S.b, null, 'pitch'); sfx('ball', null, 0.12);
   }
 }
-function resetPlay() { S.cpuRunning = false; S.animStart = null; S.gatherT = 0; S.windT = 0; S.queued = null; S.followT = 0; S.followId = null; S.freePlay = false; S.autoRun = 0; S.safeHold = 0; S.F = homePos(); S.ctl = 'P'; S.run = null; S.holder = null; S.thr = null; S.playT = 0; S.cpuChase = null; S.cpuThrow = 0; S.thrFrom = null; S.thrT = 0; }
+function resetPlay() { S.cpuRunning = false; S.animStart = null; S.gatherT = 0; S.windT = 0; S.queued = null; S.followT = 0; S.followId = null; S.freePlay = false; S.autoRun = 0; S.safeHold = 0; S.F = homePos(); S.F.P.x = S.pOff || 0; S.ctl = 'P'; S.run = null; S.holder = null; S.thr = null; S.playT = 0; S.cpuChase = null; S.cpuThrow = 0; S.thrFrom = null; S.thrT = 0; }
 function defenseHuman() { return batSide() === 'cpu'; }
 function runnerPos() { var r = S.run; return [BASES[1][0] * r.p, BASES[1][1] * r.p]; }
 var CATCHER_WAIT = 30;
-function catcherFrozen(id) { return id === 'C' && S.bb && S.bb.t < CATCHER_WAIT; }
+function catcherWait() { return S.bb && S.bb.bunt ? 8 : CATCHER_WAIT; }
+function catcherFrozen(id) { return id === 'C' && S.bb && S.bb.t < catcherWait(); }
 var ACCEL_T = 12;
 function ramp(f, spd) { if (f.lastT !== S.t - 1 && f.lastT !== S.t) f.cur = 0; f.lastT = S.t; f.cur = Math.min(spd, (f.cur || 0) + spd / ACCEL_T); return f.cur; }
 function moveToward(id, tx, ty, spd) {
@@ -765,10 +775,11 @@ function moveDir(id, dir) {
   f.x = Math.max(-150, Math.min(150, f.x)); f.y = Math.max(-22, Math.min(205, f.y)); f.mv = 2;
 }
 /* outfielders gather (crouch) then wind; infielders just wind. A throw pressed early is held until he is set. */
-var GATHER_OF = 18, WIND_OF = 14, WIND_IF = 9, FOLLOW_T = 22;
+var GATHER_OF = 22, WIND_OF = 17, WIND_IF = 11, FOLLOW_T = 22;
 function isOF(id) { return id === 'LF' || id === 'CF' || id === 'RF'; }
 function requestThrow(base) {
   if (!S.holder) return;
+  if (base === 'P' && S.holder === 'P') return; /* he already has it */
   if (S.animStart == null) {
     var w = isOF(S.holder) ? WIND_OF : WIND_IF;
     S.animStart = S.t; S.animRel = S.t - 1 + (S.gatherT > 0 ? S.gatherT + 1 + w : (S.windT > 0 ? S.windT : w));
@@ -787,11 +798,12 @@ function throwSteps() {
 function holderBusy(id) { return id === S.holder && (S.gatherT > 0 || S.windT > 0); }
 function awaitingThrow(id) { return id === 'P' && S.holder !== 'P' && (S.queued === 'P' || (S.thr && S.thr.base === 'P')); }
 function throwTo(base) {
-  var h = S.F[S.holder], tx, ty;
-  if (base === 'P') { tx = S.F.P.x; ty = S.F.P.y; } else { tx = BASES[base][0]; ty = BASES[base][1]; }
+  var h = S.F[S.holder], tx, ty, who = base === 'P' ? 'P' : coverFor(base);
+  if (who === S.holder) who = null;
+  if (who) { tx = S.F[who].x; ty = S.F[who].y; } else if (BASES[base]) { tx = BASES[base][0]; ty = BASES[base][1]; } else return;
   var d0 = dist2(h.x, h.y, tx, ty);
   S.cpuThrow = 0;
-  S.thr = { x: h.x, y: h.y, sx: h.x, sy: h.y, tx: tx, ty: ty, base: base, d0: d0, peak: Math.min(30, 4 + d0 * 0.2) }; S.thrFrom = S.holder; S.thrT = 12; S.holder = null; sfx('toss');
+  S.thr = { player: who, x: h.x, y: h.y, sx: h.x, sy: h.y, tx: tx, ty: ty, base: base, d0: d0, peak: Math.min(30, 4 + d0 * 0.2) }; S.thrFrom = S.holder; S.thrT = 12; S.holder = null; sfx('toss');
 }
 function baseCovered(base, exceptId) {
   var b = BASES[base], hit = false;
@@ -802,13 +814,14 @@ function giveBall(id) { S.cpuRunning = false; S.holdT = 0; S.animStart = null; i
 function coverFor(base) { var c = coverers(), who = null; Object.keys(c).forEach(function (id) { if (c[id] === base && id !== S.holder) who = id; }); return who; }
 function coverers() {
   var c = {}; Object.keys(COVER).forEach(function (id) { c[id] = COVER[id]; });
-  if (S.ctl === '1B' || S.holder === '1B' || S.cpuChase === '1B') { delete c['1B']; c.P = 1; }
+  if (S.holder === '1B') { delete c['1B']; c.P = 1; }
   return c;
 }
 function defense(inp) {
-  var cov = (S.holder || S.thr) ? coverers() : {};
+  var cov = coverers(), live = !!(S.holder || S.thr);
   Object.keys(cov).forEach(function (id) {
     if (id === S.ctl || id === S.holder || id === S.cpuChase) return;
+    if (!live && id !== '1B') return; /* first baseman heads to the bag at once; others wait until someone has the ball */
     var b = BASES[cov[id]]; moveToward(id, b[0], b[1], FSPD * 0.9);
   });
   if (!defenseHuman()) { cpuDefense(); return; }
@@ -816,15 +829,16 @@ function defense(inp) {
   if (inp.btn) {
     if (S.holder === ctl) {
       if (!inp.dir) requestThrow('P');
-      else { var bs = DIR_BASE[inp.dir]; if (baseCovered(bs, ctl)) { S.autoRun = 0; requestThrow(bs); } else S.autoRun = bs; }
+      else { var bs = DIR_BASE[inp.dir], cw = coverFor(bs); if (baseCovered(bs, ctl) || (cw && cw !== ctl)) { S.autoRun = 0; requestThrow(bs); } else S.autoRun = bs; }
     }
     else if (inp.dir) { var pr = PAIRS[inp.dir]; S.ctl = ctl === pr[0] ? pr[1] : ctl === pr[1] ? pr[0] : pr[0]; }
+    else S.ctl = 'P';
   } else if (inp.vx || inp.vy) { S.autoRun = 0; moveVec(ctl, inp.vx, inp.vy); }
   else if (S.autoRun && S.holder === ctl) { var ab = BASES[S.autoRun]; moveToward(ctl, ab[0], ab[1], FSPD); }
 }
 /* earliest point on the ball's path this fielder can reach in time */
 function intercept(id) {
-  var bb = S.bb, f = S.F[id], r = 3, x = bb.x, y = bb.y, v = bb.v, wait = id === 'C' ? Math.max(0, CATCHER_WAIT - bb.t) : 0;
+  var bb = S.bb, f = S.F[id], r = 3, x = bb.x, y = bb.y, v = bb.v, wait = id === 'C' ? Math.max(0, catcherWait() - bb.t) : 0;
   for (var t = 0; t < 240; t++) {
     if (dist2(f.x, f.y, x, y) <= FSPD * Math.max(0, t - wait) + r) return { x: x, y: y, t: t };
     v = v * DECAY - FRICTION; if (v < 0) v = 0; x += bb.ux * v; y += bb.uy * v;
@@ -847,9 +861,8 @@ function cpuDefense() {
       if (S.cpuRunning || d1 < 12) { S.cpuRunning = true; moveToward(hid, bx, by, FSPD); return; }
       var cov = coverFor(1), w = isOF(hid) ? WIND_OF : WIND_IF, tBall = S.gatherT + w + d1 / THROW;
       var tCov = cov ? dist2(S.F[cov].x, S.F[cov].y, bx, by) / FSPD + ACCEL_T / 2 : 1e9;
-      if (baseCovered(1, hid) || tCov <= tBall) requestThrow(1);
-      else if (d1 / FSPD < tCov) { S.cpuRunning = true; moveToward(hid, bx, by, FSPD); }
-      /* otherwise hold the ball until the throw and the coverer will reach the bag together */
+      if (baseCovered(1, hid) || (cov && cov !== hid)) requestThrow(1);
+      else { S.cpuRunning = true; moveToward(hid, bx, by, FSPD); }
     } else if (isOF(hid)) requestThrow(2);
     else if (hid !== 'P') requestThrow('P');
     return;
@@ -866,17 +879,18 @@ function cpuDefense() {
       if (it.t < bt) { bt = it.t; best = f.id; }
     });
     if (!best) FIELDERS.forEach(function (f) { var it = intercept(f.id); if (it.t < bt) { bt = it.t; best = f.id; } });
+    if (bb.bunt) best = 'C'; /* catcher takes every bunt (no runner on third in this build) */
     S.cpuChase = best;
   }
   var ip = intercept(S.cpuChase);
-  S.ctl = S.cpuChase; if (S.playT > 12) moveToward(S.cpuChase, ip.x, ip.y, FSPD); /* about 0.2 s to react */
+  S.ctl = S.cpuChase; if (S.playT > 12) moveToward(S.cpuChase, ip.x, ip.y, FSPD * (bb.bunt && S.cpuChase === 'C' ? 1.35 : 1)); /* about 0.2 s to react; catcher pounces on bunts */
 }
 function battedStep(dIn) {
   var bb = S.bb; bb.t++;
   if (bb.foul) {
-    bb.x += bb.ux * bb.v; bb.y += bb.uy * bb.v; bb.v *= 0.985; bb.dist += bb.v;
-    bb.h = 0;
-    if (bb.t > 40) {
+    bb.v = bb.v * DECAY - FRICTION; if (bb.v < 0) bb.v = 0;
+    bb.x += bb.ux * bb.v; bb.y += bb.uy * bb.v; bb.dist += bb.v; bb.h = 0; backstops(bb);
+    if (bb.v < 0.05 || bb.t > 240) {
       if (bb.bunt && S.s >= 2) { var ks = batSide(); S.outs++; S.stats[ks].k++; result('STRIKEOUT', 'Foul bunt with two strikes', 'out'); sfx('bark', null, 0.1); sfx(ks === 'you' ? 'boo' : 'cheer', null, 0.5); return; }
       if (S.s < 2) S.s++; result('FOUL BALL', null, 'pitch'); sfx('foul');
     }
@@ -910,12 +924,12 @@ function playMotion(dIn, free) {
   if (S.holder) { var hp = S.F[S.holder]; bb.x = hp.x; bb.y = hp.y; }
   else if (S.thr) {
     var t = S.thr;
-    if (t.base === 'P') { t.tx = S.F.P.x; t.ty = S.F.P.y; } /* a throw to the pitcher goes to the man, wherever he is */
+    if (t.player) { t.tx = S.F[t.player].x; t.ty = S.F[t.player].y; } /* throws go to the man, wherever he is */
     var dx = t.tx - t.x, dy = t.ty - t.y, d = Math.sqrt(dx * dx + dy * dy);
     if (d <= THROW) {
       t.x = t.tx; t.y = t.ty; bb.x = t.x; bb.y = t.y; bb.h = 0; S.thr = null;
       var got = null, gd = 5;
-      if (t.base === 'P') { got = 'P'; } else FIELDERS.forEach(function (f) { var fp = S.F[f.id], dd = dist2(fp.x, fp.y, t.x, t.y); if (dd < gd) { gd = dd; got = f.id; } });
+      if (t.player) { got = t.player; } else FIELDERS.forEach(function (f) { var fp = S.F[f.id], dd = dist2(fp.x, fp.y, t.x, t.y); if (dd < gd) { gd = dd; got = f.id; } });
       if (got) giveBall(got);
       else { /* nobody there: it hits the ground and keeps rolling the way it was thrown */
         var tdx = t.tx - t.sx, tdy = t.ty - t.sy, tl = Math.sqrt(tdx * tdx + tdy * tdy) || 1;
@@ -930,14 +944,15 @@ function playMotion(dIn, free) {
     /* fair/foul: foul if fully outside the line (ball + chalk) before passing first or third base; fair for good once past the bag */
     if (!free && !bb.fairLocked && !bb.wall && !bb.touched) {
       var rr2 = Math.sqrt(bb.x * bb.x + bb.y * bb.y), outside = bb.y < Math.abs(bb.x) - 1.0;
-      if (outside && (rr2 > 3 || bb.v === 0)) { bb.foul = true; bb.t = 0; S.run = null; S.holder = null; setLive(true); return 'stop'; }
+      if (dist2(bb.x, bb.y, BASES[1][0], BASES[1][1]) < 2.5 || dist2(bb.x, bb.y, BASES[3][0], BASES[3][1]) < 2.5) bb.fairLocked = true; /* over the bag = fair */
+      if (!bb.fairLocked && outside && (rr2 > 3 || bb.v === 0)) { bb.foul = true; bb.t = 0; S.run = null; S.holder = null; setLive(true); return 'stop'; }
       if (rr2 >= 90 && !outside) bb.fairLocked = true;
       if (bb.v === 0 && !outside) bb.fairLocked = true;
     }
     if (bb.h < 9) {
       for (var i = 0; i < FIELDERS.length; i++) {
         var f = FIELDERS[i], fp = S.F[f.id];
-        if (f.id === 'C' && bb.t < CATCHER_WAIT) continue;
+        if (f.id === 'C' && bb.t < catcherWait()) continue;
         if (f.id === S.thrFrom && S.thrT > 0) continue;
         /* hard-hit balls need an infielder nearly in line with them to be stopped */
         var reach = f.inf ? Math.max(1.6, f.r - Math.max(0, bb.v - 1.2) * 2.2) : f.r;
@@ -947,10 +962,23 @@ function playMotion(dIn, free) {
     if (!S.holder) {
       var dd2 = Math.sqrt(bb.x * bb.x + bb.y * bb.y);
       if (bb.y > 0 && dd2 >= fenceR(bb.x / dd2)) { if (free) bb.wall = true; wallHit(dd2); if (!free && S.phase !== 'batted') return 'stop'; }
-      if (bb.y < -22) { bb.y = -22; bb.v = 0; }
+      backstops(bb);
       if (Math.abs(bb.x) > 150) { bb.x = bb.x < 0 ? -150 : 150; bb.v = 0; }
     }
   }
+}
+/* invisible backstops: a wall in foul ground parallel to each line, and one behind home */
+function backstops(bb) {
+  var BS = 26, k = 0.45, nx = 0, ny = 0;
+  if (bb.x >= 0 && bb.y < bb.x - BS) { nx = -0.70711; ny = 0.70711; }
+  else if (bb.x < 0 && bb.y < -bb.x - BS) { nx = 0.70711; ny = 0.70711; }
+  else if (bb.y < -26) { nx = 0; ny = 1; }
+  else if (Math.abs(bb.x) > 148) { nx = bb.x > 0 ? -1 : 1; ny = 0; }
+  else { var dd = Math.sqrt(bb.x * bb.x + bb.y * bb.y); if (bb.y < Math.abs(bb.x) && dd > 186) { nx = -bb.x / dd; ny = -bb.y / dd; } } /* stands wall past the foul poles */
+  if (!nx && !ny) return;
+  var vx = bb.ux * bb.v, vy = bb.uy * bb.v, dot = vx * nx + vy * ny;
+  if (dot < 0) { vx = (vx - 2 * dot * nx) * k; vy = (vy - 2 * dot * ny) * k; var v = Math.sqrt(vx * vx + vy * vy) || 0.0001; bb.ux = vx / v; bb.uy = vy / v; bb.v = v; sfx('thud'); }
+  bb.x += nx * 0.6; bb.y += ny * 0.6;
 }
 function wallHit(d) {
   var bb = S.bb, frac = bb.v / BALLMAX, ch = frac * 100 + 20, u = Math.abs(bb.x / d), side = batSide();
@@ -981,7 +1009,7 @@ function afterResult() {
   if (S.bb && !S.bb.gone) S.bb = null;
   if (kind === 'ready') { S.bb = null; S.phase = 'ready'; S.pt = 0; S.cpuP = null; hint(); return; }
   S.bb = null;
-  if (kind === 'out' || kind === 'ab') { S.b = 0; S.s = 0; if (Math.random() < 0.12) sfx('organ'); }
+  if (kind === 'out' || kind === 'ab') { S.b = 0; S.s = 0; S.bOff = { x: 0, y: 0 }; if (Math.random() < 0.12) sfx('organ'); }
   if (S.outs >= 3) {
     if (kind !== 'side') { S.after = 'side'; S.phase = 'result'; S.rt = 80; toast('SIDE RETIRED', null, 80); if (Math.random() < 0.5) sfx('organ', null, 0.6); return; }
   }
@@ -1058,12 +1086,12 @@ function render() {
     var sc = f.id === 'P' ? 0.98 * SPR : f.id === 'C' ? SPR : spriteScale(p[1]);
     if (playing && f.id === 'P') sc = spriteScale(p[1]) * 1.05;
     var hold = S.holder === f.id;
-    var o = (f.id === 'P' && !playing) ? pitcherPose() : { lift: pos.mv ? 3 * Math.abs(Math.sin(S.t / 4)) : 0, glove: hold ? [8.1, -25] : undefined };
+    var o = (f.id === 'P' && !playing) ? pitcherPose() : { run: pos.mv ? S.t / 3.2 : null, glove: hold ? [8.1, -25] : undefined };
     var ballAt = [8.1, -25];
     /* one continuous throw motion: starts on the throw, release lands on the real release tick, then follow-through */
     if (hold && S.animStart != null) o = throwPose(Math.min(1, (S.t - S.animStart) / Math.max(1, S.animRel - S.animStart)));
     else if (hold && isOF(f.id) && S.gatherT > 0) { var gk = 1 - S.gatherT / GATHER_OF; o = { sy: 1 - 0.24 * Math.sin(gk * PI), glove: [4, -8 - 8 * gk], hand: [-4, -9 - 8 * gk], ball: true }; }
-    else if (hold) o = { glove: [6, -22], hand: [-1, -21], ball: true, lift: o.lift };
+    else if (hold) o = { glove: [6, -22], hand: [-1, -21], ball: true, run: o.run };
     else if (S.followId === f.id && S.followT > 0) o = throwPose(1 + 0.6 * (S.t - S.followStart) / FOLLOW_T);
     list.push({ y: p[1], d: function () {
       if (playing && S.ctl === f.id && defenseHuman()) ring(ctx, p[0], p[1], sc);
@@ -1073,9 +1101,9 @@ function render() {
   });
   if (S.run) {
     var rp = runnerPos(), q = proj(rp[0], rp[1]), rs = spriteScale(q[1]);
-    list.push({ y: q[1], d: function () { drawFielder(ctx, q[0], q[1], rs, batCol, { lift: (S.run.safe || S.run.out) ? 0 : 3.5 * Math.abs(Math.sin(S.t / 3.5)), hand: [-9, -20], glove: [9, -20] }); } });
+    list.push({ y: q[1], d: function () { drawFielder(ctx, q[0], q[1], rs, batCol, { noGlove: true, run: (S.run.safe || S.run.out) ? null : S.t / 2.8 }); } });
   } else {
-    if (!S.freePlay || S.run) list.push({ y: BAT_Y, d: function () { drawBatter(ctx, BAT_X, BAT_Y, BAT_S, batCol, batterPose()); } });
+    if (!S.freePlay || S.run) list.push({ y: BAT_Y, d: function () { drawBatter(ctx, BAT_X + S.bOff.x * KX, BAT_Y - S.bOff.y * KY, BAT_S, batCol, batterPose()); } });
   }
   if (!playing) list.push({ y: HY + 37, d: function () { drawCatcher(ctx, 428, HY + 37, pitCol); } });
   list.sort(function (a, b) { return a.y - b.y; }).forEach(function (o) { o.d(); });
