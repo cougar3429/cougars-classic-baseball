@@ -126,7 +126,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 
   <section class="screen" id="title">
     <h1>Cougar's Classic<br>Baseball</h1>
-    <p>Pitch &amp; Bat Test: pitching and hitting against the computer. Fielding, throws and base running come in a later build.</p>
+    <p>Base Running Test: pitching, hitting, fielding and base running against the computer. Selfies, the coin flip and 2-player come in a later build.</p>
     <div class="seg" role="group" aria-label="Players">
       <button type="button" id="p1" aria-pressed="true">1 PLAYER</button>
       <button type="button" id="p2" aria-pressed="false" disabled>2 PLAYER (LATER)</button>
@@ -356,6 +356,7 @@ function drawFielder(c, x, y, s, col, o) {
   c.save(); c.translate(x, y); c.scale(s, s);
   shadow(c, 9, 2.8);
   if (o.sy) c.scale(1, o.sy); if (o.rot) c.rotate(o.rot);
+  if (o.side) { c.save(); c.scale(0.62, 1); }
   var lift = o.lift || 0, L = 0, R = lift, sx = 0, a = 0;
   if (o.run != null) { a = Math.sin(o.run); L = Math.max(0, a) * 4; R = Math.max(0, -a) * 4; sx = a * 1.3; c.translate(0, -Math.abs(a) * 1.2); }
   rr(c, -5.2 - sx, -3 - L, 4.4, 3, 1); F(c, T.dark);
@@ -373,6 +374,7 @@ function drawFielder(c, x, y, s, col, o) {
   if (o.noGlove) { circ(c, glove[0], glove[1], 1.6); F(c, T.skin); } else { circ(c, glove[0], glove[1], 2.6); F(c, T.glove); }
   circ(c, hand[0], hand[1], 1.6); F(c, T.skin);
   if (o.ball) { circ(c, hand[0], hand[1] - 1, 1.5); F(c, '#ffffff'); }
+  if (o.side) c.restore();
   circ(c, 0, -32, 4.9); F(c, T.skin);
   c.beginPath(); c.arc(0, -32.8, 5.1, PI, 0); c.closePath(); F(c, col);
   c.beginPath(); c.ellipse(0, -32.6, 5.9, 1.3, 0, 0, 7); F(c, col);
@@ -599,15 +601,16 @@ function newGame() {
   S = {
     t: 0, rng: mulberry(Date.now() & 0x7fffffff), half: 0, outs: 0, b: 0, s: 0, pOff: 0, bOff: { x: 0, y: 0 },
     score: { you: 0, cpu: 0 }, stats: { you: { h: 0, hr: 0, k: 0, bb: 0 }, cpu: { h: 0, hr: 0, k: 0, bb: 0 } },
-    vis: opts.batFirst ? 'you' : 'cpu', phase: 'ready', pt: 0, wt: 0, rt: 0, ball: null, bb: null, sw: null,
-    cpuP: null, cpuB: null, follow: 0, faces: null, faceT: 0, fielded: null, over: false, after: null, F: homePos(), ctl: 'P', run: null, holder: null, thr: null, playT: 0
+    vis: opts.batFirst ? 'you' : 'cpu', phase: 'ready', pt: 0, wt: 0, wlen: WINDUP_T, rt: 0, ball: null, bb: null, sw: null,
+    cpuP: null, cpuB: null, follow: 0, faces: null, faceT: 0, fielded: null, over: false, after: null, F: homePos(), ctl: 'P', holder: null, thr: null, playT: 0,
+    runners: [], live: null, lock: false, pick: false, playRuns: 0, playOuts: 0, batR: null, batterGone: false, abOver: false, stretch: false, cat: null
   };
   startHalf();
 }
 function batSide() { return (S.half % 2 === 0) ? S.vis : (S.vis === 'you' ? 'cpu' : 'you'); }
 function teamColor(side) { return side === S.vis ? 'red' : 'blue'; }
 function startHalf() {
-  S.pOff = 0; S.bOff = { x: 0, y: 0 };
+  S.pOff = 0; S.bOff = { x: 0, y: 0 }; S.runners = []; S.batR = null; S.batterGone = false; S.abOver = false; S.lock = false; S.pick = false; S.playRuns = 0; S.freezeR = false; S.wo = false;
   S.outs = 0; S.b = 0; S.s = 0; S.phase = 'ready'; S.pt = 0; S.sw = null; S.ball = null; S.bb = null; S.fielded = null; S.cpuP = null; resetPlay();
   updatePortraits(); updateHUD();
   toast(batSide() === 'you' ? 'YOU ARE UP' : 'YOU PITCH', (S.half % 2 === 0 ? 'Top ' : 'Bottom ') + ordinal(Math.floor(S.half / 2) + 1), 70);
@@ -615,16 +618,195 @@ function startHalf() {
 }
 function ordinal(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
 
+/* ============ runners ============
+   A runner stands on base `at` (to == null) or is on the way from `at` to `to` (an adjacent base), p = 0..1 along that leg.
+   Bases 1-3; 0 is home as the batter leaves it, 4 is home as a runner scores. */
+var TAG_R = 2.6, TAG_PX = 9, FORCE_R = 3.5, SHORT = 6, TROT_K = 2.5; /* a tag: fielder with the ball within 9 screen pixels of the runner */
+var BNAME = { 1: 'first', 2: 'second', 3: 'third', 4: 'home' };
+var FDEF = {}; FIELDERS.forEach(function (f) { FDEF[f.id] = f; });
+function basePos(k) { return (k === 0 || k === 4) ? BASES[4] : BASES[k]; }
+function legLen(r) { var a = basePos(r.at), b = basePos(r.to); return dist2(a[0], a[1], b[0], b[1]) || 1; }
+function rPos(r) { var a = basePos(r.at); if (r.to == null) return [a[0], a[1]]; var b = basePos(r.to); return [a[0] + (b[0] - a[0]) * r.p, a[1] + (b[1] - a[1]) * r.p]; }
+function alive(r) { return !r.out && !r.scored; }
+function origin(r) { return r.to == null ? r.at : (r.to > r.at ? r.at : r.to); }
+/* a runner taking his lead still holds his base */
+function onBase(r) { return r.to == null || r.lead; }
+function standingOn(k, except) {
+  if (k < 1 || k > 3) return null;
+  for (var i = 0; i < S.runners.length; i++) { var r = S.runners[i]; if (r !== except && alive(r) && onBase(r) && r.at === k) return r; }
+  return null;
+}
+/* a forced runner still on his way to base k has the right to it: nobody retreating may take it first */
+function forcedInto(k, except) { return S.runners.some(function (r) { return r !== except && alive(r) && r.forced && r.fb === k && r.to === k; }); }
+function runnersOn() { return S.runners.some(function (r) { return alive(r) && onBase(r) && r.at >= 1 && r.at <= 3; }); }
+function anyMoving() { return S.runners.some(function (r) { return alive(r) && r.to != null && !r.wait && !r.lead; }); }
+function anyOff() { return S.runners.some(function (r) { return alive(r) && r.to != null && !r.lead; }); }
+function anyStealing() { return S.runners.some(function (r) { return alive(r) && r.to != null && !r.lead && r.to > r.at; }); }
+/* leads: while the pitcher has the ball, runners take three steps toward the next base */
+var LEAD = 9;
+function takeLeads() {
+  var cpuBat = batSide() === 'cpu';
+  S.runners.forEach(function (r) {
+    if (!alive(r) || r.to != null || r.at < 1 || r.at > 3) return;
+    r.lead = true; r.to = r.at + 1; r.p = 0; r.go = false; r.next = null;
+  });
+  if (cpuBat) S.runners.forEach(function (r) { /* computer runners decide now whether they will steal (rarely) */
+    if (alive(r) && r.lead && r.at < 3 && !standingOn(r.at + 1, r)) r.go = S.rng() < (r.at === 1 ? 0.07 : 0.03);
+  });
+}
+/* runners told to steal break for the next base; the rest hold their lead */
+function startSteals() { S.runners.forEach(function (r) { if (alive(r) && r.lead && r.go) { r.lead = false; r.go = false; } }); }
+/* everyone still on a lead goes back to his base */
+function returnLeads() { S.runners.forEach(function (r) { if (alive(r) && r.lead) { r.lead = false; r.go = false; reverse(r); } }); }
+function newRunner(at, to) { var r = { at: at, to: to, p: 0, forced: false, fb: 0, award: false, awardB: 0, out: false, scored: false, bat: false, slide: 0, slideDir: 1, wait: false, trot: false, rev: 0, dest: null, snap: at, lead: false, go: false, next: null }; S.runners.push(r); return r; }
+function snapRunners() { S.runners.forEach(function (r) { r.snap = origin(r); }); }
+function reverse(r) { var a = r.at; r.at = r.to; r.to = a; r.p = 1 - r.p; r.wait = false; r.rev++; r.next = null; }
+/* direction + button: every runner who can reach that base heads for it, forward or back */
+function sendRunner(r, T) {
+  if (!alive(r) || r.trot || r.award) return false;
+  if (r.lead) {
+    if (S.phase === 'ready') { /* before the pitch: an order to steal (or to stay) */
+      if (T === r.to && T <= 3) { r.go = true; return true; }
+      if (T === r.at) { r.go = false; return true; }
+      return false;
+    }
+    if (T === r.to) { r.lead = false; r.go = false; return true; }
+    if (T === r.at) { r.lead = false; r.go = false; reverse(r); return true; }
+    return false;
+  }
+  if (r.to == null) {
+    if (T === r.at + 1 && T <= 4) { r.to = T; r.p = 0; return true; }
+    if (T === r.at - 1 && T >= 1) { r.to = T; r.p = 0; return true; }
+    return false;
+  }
+  if (T === r.at && !r.forced && T >= 1) { reverse(r); return true; }
+  if (r.to > r.at && T === r.to + 1 && T <= 4) { r.next = T; return true; } /* keep going: round the base without stopping */
+  if (r.next && T === r.to) { r.next = null; return true; }
+  return false;
+}
+function commandRunners(T) { var any = false; S.runners.forEach(function (r) { if (sendRunner(r, T)) any = true; }); return any; }
+function arrive(r) {
+  r.at = r.to; r.to = null; r.p = 0; r.wait = false;
+  if (r.forced && r.at === r.fb) r.forced = false;
+  if (r.award && r.at === r.awardB) r.award = false;
+  if (r.dest != null && r.at === r.dest) r.dest = null;
+  if (r.bat && r.at >= 1) r.reached = true;
+  if (r.at === 4) {
+    r.scored = true;
+    if (!r.trot) { S.playRuns++; if (homeWins(S.playRuns) || S.phase === 'result') commitRuns(); }
+    return;
+  }
+  if (r.trot) { r.to = r.at + 1; r.p = 0; return; }
+  if (r.next) { var nx = r.next; r.next = null; if (nx === r.at + 1 && !standingOn(nx, r)) { r.to = nx; r.p = 0; } }
+}
+function moveRunners() {
+  if (S.freezeR) return;
+  S.runners.forEach(function (r) {
+    if (!alive(r) || S.freezeR) return;
+    if (r.slide > 0) r.slide--;
+    if (r.to == null) return;
+    if (r.lead) { var LL = legLen(r), lp = LEAD / LL; r.step = r.p < lp && !S.lock; if (r.step) r.p = Math.min(lp, r.p + RSPD * 0.3 / LL); return; }
+    var L = legLen(r), np = r.p + RSPD * (r.trot ? TROT_K : 1) / L;
+    var occ = !r.trot && !r.dest && (standingOn(r.to, r) || (r.to < r.at && forcedInto(r.to, r)));
+    var cap = occ ? Math.max(r.p, 1 - SHORT / L) : 1;
+    r.wait = !!occ && np >= cap;
+    r.p = Math.min(np, cap);
+    if (r.p >= 1) arrive(r);
+  });
+}
+/* batter-runner heads to first; runners forced by him move up one base (awarded on a walk) */
+function batterToFirst(award) {
+  var b = newRunner(0, 1); b.bat = true; b.fb = 1; S.batR = b;
+  if (award) { b.award = true; b.awardB = 1; } else b.forced = true;
+  for (var k = 1; k <= 3; k++) {
+    var r = null; S.runners.forEach(function (x) { if (alive(x) && !x.bat && origin(x) === k) r = x; });
+    if (!r) break;
+    r.fb = k + 1;
+    if (award) { r.award = true; r.awardB = k + 1; } else r.forced = true;
+    if (r.to == null) { r.to = k + 1; r.p = 0; } else if (r.to < r.at) reverse(r);
+    r.wait = false;
+  }
+}
+/* foul ball: the batter stays at the plate and everyone goes back where they were when the pitch began */
+function foulReturn() {
+  S.runners = S.runners.filter(function (r) { return !r.bat; }); S.batR = null; S.abOver = false; S.batterGone = false; S.live = null; S.playRuns = 0;
+  S.runners.forEach(function (r) {
+    var home = r.snap; r.forced = false; r.out = false; r.lead = false; r.go = false; r.next = null;
+    if (r.scored) { r.scored = false; r.at = home; r.to = null; r.p = 0; return; }
+    if (r.to == null && r.at === home) return;
+    r.award = true; r.awardB = home; r.dest = home;
+    if (r.to == null) { if (Math.abs(r.at - home) === 1) { r.to = home; r.p = 0; } else { r.at = home; r.award = false; r.dest = null; } }
+    else if (r.at === home) reverse(r);
+    else if (r.to !== home) { r.at = home; r.to = null; r.p = 0; r.award = false; r.dest = null; }
+  });
+}
+/* home run: everyone on base and the batter circle the bases */
+function startTrot() {
+  var n = 0;
+  S.runners.forEach(function (r) {
+    if (!alive(r)) return; n++;
+    r.trot = true; r.forced = false; r.award = false; r.dest = null; r.wait = false;
+    if (r.to == null) { r.to = r.at + 1; r.p = 0; } else if (r.to < r.at) reverse(r);
+  });
+  return n;
+}
+function trotTicks() {
+  var m = 0; S.runners.forEach(function (r) { if (!alive(r) || r.to == null) return; var rem = (1 - r.p) * legLen(r) + (4 - r.to) * 90.1; m = Math.max(m, rem / (RSPD * TROT_K)); });
+  return Math.ceil(m) + 30;
+}
+/* when a play ends, anyone left between bases goes to the nearer free base */
+function settleRunners() {
+  S.runners.forEach(function (r) {
+    if (!alive(r) || r.to == null) return;
+    if (r.trot) { r.scored = true; r.to = null; return; }
+    var dest = r.dest != null ? r.dest : r.award ? r.awardB : (r.wait || r.p < 0.5) ? r.at : r.to;
+    if (dest === 0) dest = 1;
+    if (dest <= 3 && standingOn(dest, r)) { var alt = dest === r.at ? r.to : r.at; dest = alt === 0 ? 1 : alt; }
+    if (dest <= 3 && standingOn(dest, r)) { r.out = true; S.outs++; return; }
+    r.at = dest; r.to = null; r.p = 0; r.wait = false; r.dest = null;
+    if (dest === 4) { r.scored = true; S.playRuns++; }
+  });
+}
+function commitRuns() {
+  var n = S.playRuns; S.playRuns = 0; if (!n) return 0;
+  S.score[batSide()] += n;
+  S.faces = { bat: 'happy', pit: 'mad' }; S.faceT = 300; updatePortraits(); updateHUD();
+  sfx('cheer', null, 0.15);
+  if (!S.wo && homeWins(0)) walkOff();
+  return n;
+}
+/* bottom of the last inning (or extras): the home team wins the moment it goes ahead */
+function homeWins(pending) { var N = opts.innings; return S.half % 2 === 1 && S.half >= 2 * N - 1 && S.score[homeSide()] + (pending || 0) > S.score[S.vis]; }
+function walkOff() {
+  S.wo = true; S.freezeR = true; S.live = null; S.wildWait = false;
+  result('WALK-OFF!', (batSide() === 'you' ? 'You win it' : 'The computer wins it') + ' in the bottom of the ' + ordinal(Math.floor(S.half / 2) + 1), 'walkoff', true);
+  S.after = 'walkoff'; sfx('fanfare'); sfx('cheer', null, 0.3);
+}
+function runsText(n) { return n === 1 ? '1 run scores' : n + ' runs score'; }
+function runnerOut(r, how, force) {
+  r.out = true; r.how = how; S.outs++; S.playOuts++;
+  if (r.forced) S.runners.forEach(function (x) { if (x !== r && x.forced && x.fb > r.fb) x.forced = false; }); /* the force ahead is off once the man behind is out */
+  r.forced = false;
+  sfx('bark', null, 0.05);
+  if (S.outs >= 3) {
+    if (force || (r.bat && !r.reached)) S.playRuns = 0; /* no run counts on a force out (or the batter out before first) for the third out */
+    endLive('out', how); return;
+  }
+  if (!S.runners.some(alive)) { endLive('last', how); return; } /* nobody left on the bases: the play is over */
+  toast('OUT', how, 80);
+}
+
 /* ============ CPU ============ */
 function cpuPitcher() {
   var inp = { dir: null, btn: false };
   if (S.phase === 'ready') {
     if (!S.cpuP) {
-      var r = S.rng();
-      S.cpuP = { slide: (S.rng() * 2 - 1) * 5, delay: 45 + Math.floor(S.rng() * 40), type: r < 0.34 ? 'fast' : r < 0.6 ? 'slow' : 'curve', sign: S.rng() < 0.5 ? -1 : 1, target: (S.rng() * 2 - 1) * 4.8 };
+      var r = S.rng(), pk = 0;
+      if (S.rng() < 0.07) { if (standingOn(1) && !standingOn(2)) pk = 1; else if (standingOn(2) && !standingOn(3)) pk = 2; }
+      S.cpuP = { slide: (S.rng() * 2 - 1) * 5, delay: 45 + Math.floor(S.rng() * 40), type: r < 0.34 ? 'fast' : r < 0.6 ? 'slow' : 'curve', sign: S.rng() < 0.5 ? -1 : 1, target: (S.rng() * 2 - 1) * 4.8, pick: pk };
     }
     if (S.pt >= S.cpuP.delay) { var p = S.cpuP; inp.dir = p.type === 'fast' ? 'd' : p.type === 'slow' ? 'u' : (p.sign < 0 ? 'l' : 'r'); inp.btn = true; }
-  } else if (S.phase === 'pitch' && S.cpuP) {
+  } else if (S.phase === 'pitch' && S.cpuP && S.ball.fy > 0) { /* no more steering once the pitch has crossed the plate */
     var b = S.ball, p2 = S.cpuP, prog = 1 - b.fy / RELEASE_FY, left = Math.max(1, b.fy / b.sp);
     var aim = p2.target + ((p2.type === 'curve' && prog < 0.45) ? p2.sign * 9 : 0);
     var want = (aim - b.fx) / left, eps = 0.012;
@@ -654,6 +836,37 @@ function cpuBatter() {
   }
   return inp;
 }
+/* computer runners: steal rarely, take an extra base only when it is clearly safe, retreat when the ball will clearly beat them */
+/* about how many ticks until the defense can have the ball on base k */
+function ballETA(k) {
+  var b = basePos(k);
+  if (S.thr) { var t = S.thr, d2 = dist2(t.tx, t.ty, b[0], b[1]); return dist2(t.x, t.y, t.tx, t.ty) / (t.sp || THROW) + (d2 < 8 ? 0 : WIND_IF + d2 / THROW); }
+  if (S.holder) { var h = S.F[S.holder], d3 = dist2(h.x, h.y, b[0], b[1]); if (d3 < 10) return d3 / FSPD; return S.gatherT + (S.windT || windFor(S.holder)) + d3 / armFor(S.holder); }
+  var bt = 1e9, bid = null, bp = null;
+  FIELDERS.forEach(function (f) { var it = intercept(f.id, true); if (it.t < bt) { bt = it.t; bid = f.id; bp = it; } });
+  return bt + (isOF(bid) ? GATHER_OF + WIND_OF : WIND_IF) + dist2(bp.x, bp.y, b[0], b[1]) / THROW;
+}
+function cpuRunners() {
+  if (!S.live || (S.live.kind !== 'hit' && S.live.kind !== 'wild') || S.holder === 'P' || S.playT < 20) return;
+  S.runners.slice().sort(function (a, b) { return b.at - a.at; }).forEach(function (r) {
+    if (!alive(r) || r.award || r.trot || r.lead) return;
+    /* on the way to a base: keep going through it if there is a decent chance at the next one */
+    if (r.to != null && r.to > r.at && r.to < 4 && S.t % 4 === 0 && !r.wait) {
+      var nb = r.to + 1, tN = (1 - r.p) * legLen(r) / RSPD + legLen({ at: r.to, to: nb }) / RSPD;
+      if (!r.next && !standingOn(nb, r) && tN + 15 < ballETA(nb)) r.next = nb;
+      else if (r.next && ballETA(r.next) + 20 < tN) r.next = null;
+    }
+    if (r.to == null) {
+      var nx = r.at + 1; if (r.at < 1 || nx > 4 || standingOn(nx, r)) return;
+      var tRun = legLen({ at: r.at, to: nx }) / RSPD;
+      if (tRun + 15 < ballETA(nx)) { r.to = nx; r.p = 0; } /* a decent chance at the next base: go */
+    } else if (!r.forced && r.to > r.at && r.rev < 1 && S.t % 4 === 0) {
+      var L = legLen(r), rem = (1 - r.p) * L / RSPD;
+      /* clearly not going to make it: back to the base he left, if it is open */
+      if (ballETA(r.to) + 20 < rem && r.at >= 1 && !standingOn(r.at, r)) reverse(r);
+    }
+  });
+}
 
 /* ============ simulation ============ */
 function tick() {
@@ -664,6 +877,7 @@ function tick() {
   var hum = readHuman();
   var pIn = youBat ? cpuPitcher() : hum;
   var bIn = youBat ? hum : cpuBatter();
+  if (youBat) humanRunning(hum);
   if (S.sw && (S.phase === 'batted' || S.phase === 'result')) { S.sw.t++; if (S.sw.t > BUNT_LEN + 4) S.sw = null; }
   if ((S.phase === 'ready' || S.phase === 'windup') && bIn.btn && bIn.dir === 'd' && !S.sw) S.sw = { t: 0, type: 'bunt', hit: false, miss: false };
   /* bunt aim: you steer with left/right up to contact; the computer picks one when it squares around */
@@ -672,26 +886,97 @@ function tick() {
     else if (S.sw.aim === undefined) { var ar = S.rng(); S.sw.aim = ar < 0.34 ? 'l' : ar < 0.67 ? 'r' : null; }
   }
   switch (S.phase) {
-    case 'ready':
-      S.pt++;
-      /* pitcher slides along the rubber; batter moves inside the box (both before the wind-up) */
-      if (!youBat && !pIn.btn && (pIn.dir === 'l' || pIn.dir === 'r')) S.pOff = Math.max(-6, Math.min(6, S.pOff + (pIn.dir === 'l' ? -0.2 : 0.2)));
-      if (youBat && S.cpuP && S.cpuP.slide != null) { var sd = S.cpuP.slide - S.pOff; S.pOff += Math.max(-0.2, Math.min(0.2, sd)); }
-      moveBatter(youBat, bIn);
-      S.F.P.x = S.pOff;
-      if (pIn.btn && pIn.dir) { S.phase = 'windup'; S.wt = 0; S.startDir = pIn.dir; setLive(true); }
-      break;
+    case 'ready': readyStep(youBat, pIn, bIn); break;
     case 'windup':
-      moveBatter(youBat, bIn);
-      S.wt++; if (S.wt >= WINDUP_T) release(); break;
-    case 'pitch': moveBatter(youBat, bIn); pitchStep(pIn, bIn); break;
+      moveBatter(youBat, bIn); moveRunners(); stealCover();
+      S.wt++; if (S.wt >= S.wlen) release(); break;
+    case 'pitch': moveBatter(youBat, bIn); moveRunners(); stealCover(); pitchStep(pIn, bIn); break;
     case 'batted': battedStep(hum); break;
     case 'result':
       if (S.bb && S.bb.gone) { S.bb.x += S.bb.ux * S.bb.v; S.bb.y += S.bb.uy * S.bb.v; }
       if (S.freePlay && S.bb && !S.bb.gone && !S.bb.foul) { S.bb.t++; FIELDERS.forEach(function (f) { if (S.F[f.id].mv) S.F[f.id].mv--; }); playMotion(hum, true); }
+      moveRunners();
       S.rt--; if (S.rt <= 0) afterResult(); break;
   }
 }
+/* your runners: direction + button during the wind-up, the first half of a pitch, and any live play (down + button also squares to bunt) */
+function humanRunning(inp) {
+  if (!inp.btn || !inp.dir) return;
+  var ok = S.phase === 'ready' || S.phase === 'windup' || (S.phase === 'pitch' && S.ball && S.ball.fy > HALF_FY) || (S.phase === 'batted' && !!S.live);
+  if (ok && commandRunners(DIR_BASE[inp.dir]) && S.phase === 'ready') sfx('click');
+}
+/* before the pitch: left/right slides the pitcher, button alone sets (locks) him, direction + button pitches.
+   Once set, button alone calls a pickoff: a direction then throws to that base, the button again calls it off. */
+function readyStep(youBat, pIn, bIn) {
+  S.pt++;
+  FIELDERS.forEach(function (f) { if (S.F[f.id].mv) S.F[f.id].mv--; });
+  coverForPick(); moveRunners();
+  moveBatter(youBat, bIn);
+  if (!youBat) {
+    if (S.pick) {
+      if (S.pickQ) { if (pickReady()) return; }
+      else if (pIn.dir) { S.pickQ = DIR_BASE[pIn.dir]; S.pickQT = 0; if (pickReady()) return; }
+      else if (pIn.btn) { S.pick = false; sfx('click'); hint(); }
+    } else if (pIn.btn && pIn.dir) { startWindup(pIn.dir); return; }
+    else if (pIn.btn) { if (S.lock) S.pick = true; else S.lock = true; sfx('click'); hint(); }
+    else if (!S.lock && (pIn.dir === 'l' || pIn.dir === 'r')) S.pOff = Math.max(-6, Math.min(6, S.pOff + (pIn.dir === 'l' ? -0.2 : 0.2)));
+  } else {
+    var cp = S.cpuP;
+    if (cp && cp.slide != null) { var sd = cp.slide - S.pOff; S.pOff += Math.max(-0.2, Math.min(0.2, sd)); }
+    S.F.P.x = S.pOff;
+    if (cp && cp.pick) {
+      if (S.pt >= 10) S.pick = true;
+      if (S.pt >= 40 && !S.pickQ) { S.pickQ = cp.pick; S.pickQT = 0; }
+      if (S.pickQ && pickReady()) cp.pick = 0;
+      return;
+    }
+    if (pIn.btn && pIn.dir) { startWindup(pIn.dir); return; }
+  }
+  S.F.P.x = S.pOff;
+}
+/* a runner going on the pitch: the baseman at the base he is stealing breaks for the bag */
+function stealCover() {
+  ['1B', '2B', '3B'].forEach(function (id) { var f = S.F[id]; if (f.mv) f.mv--; });
+  S.runners.forEach(function (r) {
+    if (!alive(r) || r.lead || r.to == null || r.to <= r.at || r.to > 3) return;
+    var id = r.to === 2 ? '2B' : '3B', b = BASES[r.to], f = S.F[id];
+    if (dist2(f.x, f.y, b[0], b[1]) > 0.4) moveToward(id, b[0], b[1], FSPD * 0.9);
+  });
+}
+/* pickoff called: the basemen at bases with runners go to their bags (and the man at the base thrown to);
+   called off, they drift back to their spots */
+function coverForPick() {
+  ['1B', '2B', '3B'].forEach(function (id) {
+    var f = S.F[id], h = FDEF[id], k = COVER[id], b = BASES[k];
+    if (S.pick && (standingOn(k) || S.pickQ === k)) { if (dist2(f.x, f.y, b[0], b[1]) > 0.4) moveToward(id, b[0], b[1], FSPD); }
+    else if (dist2(f.x, f.y, h.x, h.y) > 0.4) moveToward(id, h.x, h.y, FSPD * 0.7);
+  });
+}
+/* a pickoff throw pressed early is held until the man covering is on the bag (at most 1.5 s) */
+function pickReady() {
+  var k = S.pickQ, id = k === 4 ? 'C' : k === 1 ? '1B' : k === 2 ? '2B' : '3B', b = basePos(k), f = S.F[id];
+  S.pickQT++;
+  if (k === 4 || dist2(f.x, f.y, b[0], b[1]) < 3 || S.pickQT > 90) { S.pickQ = 0; doPickoff(k); return true; }
+  return false;
+}
+function startWindup(dir) {
+  S.phase = 'windup'; S.wt = 0; S.stretch = runnersOn(); S.wlen = S.stretch ? WINDUP_T / 2 : WINDUP_T; S.startDir = dir; S.lock = false; S.pick = false;
+  snapRunners(); S.playRuns = 0; S.playOuts = 0;
+  setLive(true);
+  startSteals();
+}
+function doPickoff(base) {
+  S.pick = false; S.lock = false; S.pickQ = 0;
+  snapRunners(); S.playRuns = 0; S.playOuts = 0;
+  /* runners told to steal go now; the rest dive back */
+  S.runners.forEach(function (r) { if (alive(r) && r.lead) { var g = r.go; r.lead = false; r.go = false; if (!g) reverse(r); } });
+  resetPlay(true);
+  var p = S.F.P; S.bb = mkBall(p.x, p.y);
+  S.holder = 'P'; S.ctl = 'P'; S.phase = 'batted'; S.live = { kind: 'pick', still: 0 };
+  setLive(true); hint();
+  requestThrow(base);
+}
+function mkBall(x, y) { return { bunt: false, x: x, y: y, ux: 0, uy: 1, v: 0, ev: 0, dist: 0, h: 0, foul: false, wall: true, t: 99, gone: false, touched: true, fairLocked: true }; }
 /* batter can move in the box until he starts a swing (before, during the wind-up and while the pitch is coming) */
 function moveBatter(youBat, bIn) {
   if (youBat && !bIn.btn && (bIn.vx || bIn.vy) && !S.sw) { S.bOff.x = Math.max(-4, Math.min(3, S.bOff.x + bIn.vx * 0.15)); S.bOff.y = Math.max(-4, Math.min(6, S.bOff.y + bIn.vy * 0.15)); }
@@ -699,8 +984,22 @@ function moveBatter(youBat, bIn) {
 function release() {
   S.phase = 'pitch'; S.follow = 18; S.cpuB = null; if (!(S.sw && S.sw.type === 'bunt')) S.sw = null;
   S.ball = { fx: S.pOff - 1.5, fy: RELEASE_FY, sp: START_SP[S.startDir], lv: 0, crossed: false, crossFx: 0 };
+  S.cat = { up: false, upT: 0 };
   sfx('whoosh', S.ball.sp);
 }
+/* the catcher shuffles to the pitch at a quarter of a runner's speed in his crouch, and stands up to run if he can't get there that way */
+var CATCH_FY = -17, CATCH_R = 7, CSQUAT = RSPD / 4;
+function catcherTrack(b) {
+  var c = S.F.C, cat = S.cat; if (!cat) return;
+  var left = Math.max(1, (b.fy - CATCH_FY) / b.sp), pred = b.fx + b.lv * left, dx = pred - c.x;
+  if (!cat.up && Math.abs(dx) - CATCH_R > CSQUAT * left) { cat.up = true; cat.upT = 5; }
+  var sp = cat.up ? (cat.upT > 0 ? 0 : FSPD) : CSQUAT; if (cat.upT > 0) cat.upT--;
+  if (sp && Math.abs(dx) > 0.2) { c.x += dx > 0 ? Math.min(sp, dx) : Math.max(-sp, dx); if (cat.up) c.mv = 2; }
+  if (c.mv) c.mv--;
+  c.x = Math.max(-60, Math.min(60, c.x));
+}
+/* outside the invisible backstops (foul ground walls and the wall behind home) */
+function outOfPlay(x, y) { return (x >= 0 && y < x - 26) || (x < 0 && y < -x - 26) || y < -26 || Math.abs(x) > 148; }
 function pitchStep(pIn, bIn) {
   var b = S.ball, lvMax = batSide() === 'you' ? LV_CPU : LV_HUMAN;
   if (pIn.dir === 'u') b.sp = Math.max(SP_MIN, b.sp - SP_ACC);
@@ -720,7 +1019,9 @@ function pitchStep(pIn, bIn) {
       if (!S.sw.hit && !S.sw.miss && b.fy <= 1.5 + S.bOff.y) { tryContact(); if (S.phase !== 'pitch') return; }
     } else if (S.sw.t === S.sw.ct) { tryContact(); if (S.phase !== 'pitch') return; }
   }
-  if (b.fy <= -17 || Math.abs(b.fx) > 225) pitchEnd();
+  catcherTrack(b);
+  if (b.fy <= CATCH_FY) { if (Math.abs(b.fx - S.F.C.x) <= CATCH_R) pitchEnd(); else wildPitch(); return; }
+  if (outOfPlay(b.fx, b.fy)) wildPitch();
 }
 function tryContact() {
   var b = S.ball, sw = S.sw, Wd = sw.type === 'bunt' ? 99 : SWING_W;
@@ -745,71 +1046,127 @@ function tryContact() {
   var rad = ang * PI / 180, ux = -dsin(rad), uy = dcos(rad);
   var foul = Math.abs(ang) > 53; /* clearly foul at contact; balls near the line are judged by where they roll */
   S.bb = { bunt: sw.type === 'bunt', x: b.fx * 0.4, y: 1, ux: ux, uy: uy, v: ev, ev: ev, dist: 0, h: 0, hPeak: Math.max(0, ev - 1.6) * 14, foul: foul, wall: false, t: 0, gone: false };
-  S.phase = 'batted'; setLive(true); resetPlay(); S.ctl = 'P'; S.run = foul ? null : { p: 0, safe: false, out: false };
+  S.phase = 'batted'; setLive(true); resetPlay(true); S.F.C.mv = 0; S.ctl = 'P';
+  if (foul) foulReturn();
+  else {
+    S.live = { kind: 'hit', still: 0 }; S.abOver = true; S.batterGone = true;
+    var leads = S.runners.filter(function (r) { return alive(r) && r.lead; });
+    leads.forEach(function (r) { r.lead = false; r.go = false; });
+    batterToFirst(false);
+    leads.forEach(function (r) { if (!r.forced) reverse(r); });
+  }
   sfx(sw.type === 'bunt' ? 'thud' : 'crack', ev); hint();
 }
-function pitchEnd() {
-  var b = S.ball, swung = !!S.sw, strike = swung || Math.abs(b.crossFx) <= PLATE_HALF + BALL_R;
-  if (!b.crossed) strike = swung;
-  sfx(Math.abs(b.crossFx) <= 9 && b.crossed ? 'mitt' : 'wall');
-  var side = batSide();
+/* balls and strikes; updates the count and returns the call */
+function callPitch(b) {
+  var swung = !!S.sw, strike = swung || (b.crossed && Math.abs(b.crossFx) <= PLATE_HALF + BALL_R), side = batSide();
   if (strike) {
     S.s++;
-    if (S.s >= 3) { S.outs++; S.stats[side].k++; S.ball = null; S.F = homePos(); S.F.C.y = -21; S.bb = { x: 0, y: -21, ux: 0, uy: 1, v: 0, ev: 0, dist: 0, h: 0, foul: false, wall: true, t: 99, gone: false }; S.holder = 'C'; S.ctl = 'C'; result('STRIKEOUT', null, 'out'); sfx('bark', null, 0.15); sfx(side === 'you' ? 'boo' : 'cheer', null, 0.6); return; }
-    result('STRIKE ' + S.s, swung ? ((S.sw && S.sw.why) || 'Swing and a miss') : 'Caught looking', 'pitch'); sfx('strike', null, 0.12);
-  } else {
-    S.b++;
-    if (S.b >= 4) { S.stats[side].bb++; result('WALK', 'No base runners in this test', 'ab'); sfx('ball', null, 0.12); return; }
-    result('BALL ' + S.b, null, 'pitch'); sfx('ball', null, 0.12);
+    if (S.s >= 3) { S.stats[side].k++; return { k: 'K', text: 'STRIKEOUT' }; }
+    return { k: 'S', text: 'STRIKE ' + S.s, sub: swung ? ((S.sw && S.sw.why) || 'Swing and a miss') : 'Caught looking' };
   }
+  S.b++;
+  if (S.b >= 4) { S.stats[side].bb++; return { k: 'BB', text: 'WALK' }; }
+  return { k: 'B', text: 'BALL ' + S.b };
 }
-function resetPlay() { S.cpuRunning = false; S.animStart = null; S.gatherT = 0; S.windT = 0; S.queued = null; S.followT = 0; S.followId = null; S.freePlay = false; S.autoRun = 0; S.safeHold = 0; S.F = homePos(); S.F.P.x = S.pOff || 0; S.ctl = 'P'; S.run = null; S.holder = null; S.thr = null; S.playT = 0; S.cpuChase = null; S.cpuThrow = 0; S.thrFrom = null; S.thrT = 0; }
+function pitchEnd() {
+  var b = S.ball, c = callPitch(b), side = batSide();
+  sfx('mitt');
+  var going = anyStealing(); returnLeads();
+  if (going) { /* a runner is going: the ball stays live in the catcher's mitt */
+    var cx = S.F.C.x; S.ball = null; resetPlay(true); S.F.C.mv = 0;
+    S.bb = mkBall(cx, S.F.C.y); S.holder = 'C'; S.ctl = 'C'; S.phase = 'batted'; S.live = { kind: 'steal', still: 0 }; S.cReact = Math.floor(S.rng() * 25); setLive(true); hint();
+    applyCallLive(c); return;
+  }
+  if (c.k === 'K') {
+    S.abOver = true; S.batterGone = true; S.outs++; S.ball = null;
+    var kx = S.F.C.x; S.F = homePos(); S.F.C.x = kx;
+    S.bb = mkBall(kx, -21); S.holder = 'C'; S.ctl = 'C';
+    result('STRIKEOUT', null, 'out'); sfx('bark', null, 0.15); sfx(side === 'you' ? 'boo' : 'cheer', null, 0.6); return;
+  }
+  if (c.k === 'S') { result(c.text, c.sub, 'pitch'); sfx('strike', null, 0.12); return; }
+  if (c.k === 'BB') {
+    S.abOver = true; S.batterGone = true; batterToFirst(true);
+    result('WALK', S.runners.some(function (r) { return r.award && r.awardB === 4; }) ? 'A run is forced in' : null, 'ab'); sfx('ball', null, 0.12); return;
+  }
+  result(c.text, null, 'pitch'); sfx('ball', null, 0.12);
+}
+/* a call made while the play stays live (runner going, or a wild pitch) */
+function applyCallLive(c, title) {
+  var side = batSide();
+  if (c.k === 'K') {
+    S.abOver = true; S.batterGone = true; S.outs++; sfx('bark', null, 0.15);
+    if (S.outs >= 3) { endLive('out', 'Strikeout'); return; }
+    toast(title || 'STRIKEOUT', title ? 'Strikeout' : null, 80); return;
+  }
+  if (c.k === 'BB') { S.abOver = true; S.batterGone = true; batterToFirst(true); toast(title || 'WALK', title ? 'Ball four' : null, 80); sfx('ball', null, 0.12); return; }
+  toast(title || c.text, title ? c.text : c.sub, 70); sfx(c.k === 'S' ? 'strike' : 'ball', null, 0.12);
+}
+/* the pitch gets past the catcher: it rolls to the backstop, the play is live, and the catcher takes over once it hits the wall */
+function wildPitch() {
+  var b = S.ball, c = callPitch(b), vx = b.lv, vy = -b.sp, v = Math.sqrt(vx * vx + vy * vy) || 1, cx = S.F.C.x;
+  S.ball = null; resetPlay(true); S.F.C.mv = 0; S.F.C.x = cx; returnLeads();
+  S.bb = mkBall(b.fx, b.fy); S.bb.ux = vx / v; S.bb.uy = vy / v; S.bb.v = Math.min(2.2, v * 0.8);
+  S.phase = 'batted'; S.live = { kind: 'wild', still: 0 }; S.wildWait = true; S.ctl = 'P'; setLive(true); hint();
+  applyCallLive(c, 'WILD PITCH');
+}
+function resetPlay(keepF) {
+  S.cpuRunning = false; S.cpuRunTo = 0; S.animStart = null; S.gatherT = 0; S.windT = 0; S.queued = null; S.followT = 0; S.followId = null; S.freePlay = false; S.autoRun = 0; S.safeHold = 0;
+  if (!keepF) { S.F = homePos(); S.F.P.x = S.pOff || 0; }
+  S.ctl = 'P'; S.holder = null; S.thr = null; S.playT = 0; S.cpuChase = null; S.cpuThrow = 0; S.thrFrom = null; S.thrT = 0; S.live = null; S.wildWait = false; S.holdT = 0;
+}
 function defenseHuman() { return batSide() === 'cpu'; }
-function runnerPos() { var r = S.run; return [BASES[1][0] * r.p, BASES[1][1] * r.p]; }
 var CATCHER_WAIT = 30;
 function catcherWait() { return S.bb && S.bb.bunt ? 8 : CATCHER_WAIT; }
 function catcherFrozen(id) { return id === 'C' && S.bb && S.bb.t < catcherWait(); }
 var ACCEL_T = 12;
 function ramp(f, spd) { if (f.lastT !== S.t - 1 && f.lastT !== S.t) f.cur = 0; f.lastT = S.t; f.cur = Math.min(spd, (f.cur || 0) + spd / ACCEL_T); return f.cur; }
+var OF_K = 1.25; /* outfielders run 25% faster */
+function fspd(id) { return isOF(id) ? FSPD * OF_K : FSPD; }
 function moveToward(id, tx, ty, spd) {
   if (catcherFrozen(id) || holderBusy(id) || awaitingThrow(id)) return;
-  spd = ramp(S.F[id], spd);
+  spd = ramp(S.F[id], isOF(id) ? spd * OF_K : spd);
   var f = S.F[id], dx = tx - f.x, dy = ty - f.y, d = Math.sqrt(dx * dx + dy * dy);
   if (d < 0.05) return;
   var k = d <= spd ? 1 : spd / d; f.x += dx * k; f.y += dy * k; f.mv = 2;
 }
 function moveVec(id, vx, vy) {
   if (catcherFrozen(id) || holderBusy(id) || awaitingThrow(id)) return;
-  var f = S.F[id], sp = ramp(f, FSPD), l = Math.sqrt(vx * vx + vy * vy) || 1;
+  var f = S.F[id], sp = ramp(f, fspd(id)), l = Math.sqrt(vx * vx + vy * vy) || 1;
   f.x += vx / l * sp; f.y += vy / l * sp;
   f.x = Math.max(-150, Math.min(150, f.x)); f.y = Math.max(-22, Math.min(205, f.y)); f.mv = 2;
 }
 function moveDir(id, dir) {
   if (catcherFrozen(id) || holderBusy(id) || awaitingThrow(id)) return;
-  var f = S.F[id], sp = ramp(f, FSPD);
+  var f = S.F[id], sp = ramp(f, fspd(id));
   if (dir === 'u') f.y += sp; else if (dir === 'd') f.y -= sp; else if (dir === 'l') f.x -= sp; else if (dir === 'r') f.x += sp;
   f.x = Math.max(-150, Math.min(150, f.x)); f.y = Math.max(-22, Math.min(205, f.y)); f.mv = 2;
 }
 /* outfielders gather (crouch) then wind; infielders just wind. A throw pressed early is held until he is set. */
 var GATHER_OF = 22, WIND_OF = 17, WIND_IF = 11, FOLLOW_T = 22;
+/* the catcher's throw on a caught pitch with a runner going: quick release and a strong arm, so a throw made at once just beats a runner who left on the wind-up */
+var C_WIND = 6, C_THROW = 1.4;
 function isOF(id) { return id === 'LF' || id === 'CF' || id === 'RF'; }
+function stealThrow(id) { return id === 'C' && !!S.live && S.live.kind === 'steal'; }
+function windFor(id) { return isOF(id) ? WIND_OF : stealThrow(id) ? C_WIND : WIND_IF; }
+function armFor(id) { return stealThrow(id) ? C_THROW : THROW; }
 function requestThrow(base) {
   if (!S.holder) return;
   if (base === 'P' && S.holder === 'P') return; /* he already has it */
   if (S.animStart == null) {
-    var w = isOF(S.holder) ? WIND_OF : WIND_IF;
+    var w = windFor(S.holder);
     S.animStart = S.t; S.animRel = S.t - 1 + (S.gatherT > 0 ? S.gatherT + 1 + w : (S.windT > 0 ? S.windT : w));
   }
   S.queued = base;
   if (S.gatherT > 0 || S.windT > 0) return;
-  S.windT = isOF(S.holder) ? WIND_OF : WIND_IF;
+  S.windT = windFor(S.holder);
 }
 function throwSteps() {
   if (!S.holder) return;
   S.holdT = (S.holdT || 0) + 1;
   if (S.gatherT > 0) { S.gatherT--; return; }
   if (S.windT > 0) { S.windT--; if (S.windT === 0 && S.queued != null) { var q = S.queued; S.queued = null; S.followId = S.holder; S.followT = FOLLOW_T; S.followStart = S.t; S.animStart = null; throwTo(q); } return; }
-  if (S.queued != null) S.windT = isOF(S.holder) ? WIND_OF : WIND_IF;
+  if (S.queued != null) S.windT = windFor(S.holder);
 }
 function holderBusy(id) { return id === S.holder && (S.gatherT > 0 || S.windT > 0); }
 /* the man a throw is going to stays put to take it (unless you are steering him); the pitcher also waits while a throw to him is being wound up */
@@ -823,14 +1180,14 @@ function throwTo(base) {
   if (who) { tx = S.F[who].x; ty = S.F[who].y; } else if (BASES[base]) { tx = BASES[base][0]; ty = BASES[base][1]; } else return;
   var d0 = dist2(h.x, h.y, tx, ty);
   S.cpuThrow = 0;
-  S.thr = { player: who, x: h.x, y: h.y, sx: h.x, sy: h.y, tx: tx, ty: ty, base: base, d0: d0, peak: Math.min(30, 4 + d0 * 0.2) }; S.thrFrom = S.holder; S.thrT = 12; S.holder = null; sfx('toss');
+  S.thr = { player: who, x: h.x, y: h.y, sx: h.x, sy: h.y, tx: tx, ty: ty, base: base, d0: d0, peak: Math.min(30, 4 + d0 * 0.2), sp: armFor(S.holder) }; S.thrFrom = S.holder; S.thrT = 12; S.holder = null; sfx('toss');
 }
 function baseCovered(base, exceptId) {
-  var b = BASES[base], hit = false;
+  var b = basePos(base), hit = false;
   FIELDERS.forEach(function (f) { if (f.id === exceptId) return; var p = S.F[f.id]; if (dist2(p.x, p.y, b[0], b[1]) < 4.5) hit = true; });
   return hit;
 }
-function giveBall(id) { S.cpuRunning = false; S.holdT = 0; S.animStart = null; if (S.bb) S.bb.touched = true; S.gatherT = isOF(id) ? GATHER_OF : 0; S.windT = 0; S.queued = null; S.holder = id; S.ctl = id; S.thr = null; var bb = S.bb; bb.v = 0; bb.h = 0; sfx('glove'); }
+function giveBall(id) { S.cpuRunning = false; S.cpuRunTo = 0; S.holdT = 0; S.animStart = null; if (S.bb) S.bb.touched = true; S.gatherT = isOF(id) ? GATHER_OF : 0; S.windT = 0; S.queued = null; S.holder = id; S.ctl = id; S.thr = null; var bb = S.bb; bb.v = 0; bb.h = 0; sfx('glove'); }
 function coverFor(base) { var c = coverers(), who = null; Object.keys(c).forEach(function (id) { if (c[id] === base && id !== S.holder) who = id; }); return who; }
 function coverers() {
   var c = {}; Object.keys(COVER).forEach(function (id) { c[id] = COVER[id]; });
@@ -843,11 +1200,15 @@ function coverers() {
   return c;
 }
 function defense(inp) {
-  var cov = coverers(), live = !!(S.holder || S.thr);
+  var cov = coverers(), live = !!(S.holder || S.thr), bb = S.bb;
+  var deep = !!bb && !S.holder && !S.thr && Math.sqrt(bb.x * bb.x + bb.y * bb.y) > 100; /* ball in the outfield */
   Object.keys(cov).forEach(function (id) {
     if (id === S.ctl || id === S.holder || id === S.cpuChase) return;
-    if (!live && id !== '1B') return; /* first baseman heads to the bag at once; others wait until someone has the ball */
-    var b = BASES[cov[id]]; moveToward(id, b[0], b[1], FSPD * 0.9);
+    var k = cov[id];
+    /* first baseman and catcher go to their bags at once; the others once someone has the ball, it reaches the outfield, or a runner is coming */
+    var go = live || deep || id === '1B' || id === 'C' || S.runners.some(function (r) { return alive(r) && !r.lead && r.to === k; });
+    if (!go) return;
+    var b = basePos(k); moveToward(id, b[0], b[1], FSPD * (id === 'C' ? 1 : 0.9));
   });
   if (!defenseHuman()) { cpuDefense(); return; }
   var ctl = S.ctl;
@@ -859,42 +1220,74 @@ function defense(inp) {
     else if (inp.dir) { var pr = PAIRS[inp.dir]; S.ctl = ctl === pr[0] ? pr[1] : ctl === pr[1] ? pr[0] : pr[0]; }
     else S.ctl = 'P';
   } else if (inp.vx || inp.vy) { S.autoRun = 0; moveVec(ctl, inp.vx, inp.vy); }
-  else if (S.autoRun && S.holder === ctl) { var ab = BASES[S.autoRun]; moveToward(ctl, ab[0], ab[1], FSPD); }
+  else if (S.autoRun && S.holder === ctl) { var ab = basePos(S.autoRun); moveToward(ctl, ab[0], ab[1], FSPD); }
 }
 /* earliest point on the ball's path this fielder can reach in time */
-function intercept(id) {
+function intercept(id, wall) {
   var bb = S.bb, f = S.F[id], r = 3, x = bb.x, y = bb.y, v = bb.v, wait = id === 'C' ? Math.max(0, catcherWait() - bb.t) : 0;
   for (var t = 0; t < 240; t++) {
-    if (dist2(f.x, f.y, x, y) <= FSPD * Math.max(0, t - wait) + r) return { x: x, y: y, t: t };
+    if (dist2(f.x, f.y, x, y) <= fspd(id) * Math.max(0, t - wait) + r) return { x: x, y: y, t: t };
     v = v * DECAY - FRICTION; if (v < 0) v = 0; x += bb.ux * v; y += bb.uy * v;
+    if (wall && y > 0) { var rr = Math.sqrt(x * x + y * y); var fr = fenceR(x / rr); if (rr >= fr) { var kf = (fr - 2) / rr; x *= kf; y *= kf; v = 0; } } /* runners' estimate: the ball stops at the fence */
   }
-  return { x: x, y: y, t: 240 + dist2(f.x, f.y, x, y) / FSPD };
+  return { x: x, y: y, t: 240 + dist2(f.x, f.y, x, y) / fspd(id) };
 }
-function cpuDefense() {
-  var bb = S.bb, r = S.run;
-  if (S.holder) {
-    var hid = S.holder, hp = S.F[hid]; S.ctl = hid;
-    if (S.queued != null || S.animStart != null) return; /* already throwing */
-    if (r && !r.safe && !r.out) {
-      /* decide at once: throw if the bag is (or will be) covered before the ball gets there, else run it over if that's quicker */
-      var bx = BASES[1][0], by = BASES[1][1], d1 = dist2(hp.x, hp.y, bx, by);
-      if (isOF(hid)) {
-        /* outfielder: throw to first only if it can beat the runner, otherwise to second (where the runner would go next) */
-        var tRun = (1 - r.p) * 90 / RSPD, tThrow = S.gatherT + WIND_OF + d1 / THROW;
-        requestThrow(tThrow < tRun - 5 ? 1 : 2); return;
-      }
-      /* bag already covered: throw. Otherwise run it over himself if he'd get there about as soon as the cover man;
-         if the cover man is clearly quicker, edge toward the bag and throw the moment he's on it */
-      if (!S.cpuRunning && baseCovered(1, hid)) { requestThrow(1); return; }
-      var cov = coverFor(1), tSelf = d1 / FSPD;
-      var tCov = cov ? dist2(S.F[cov].x, S.F[cov].y, bx, by) / (FSPD * 0.9) + ACCEL_T / 2 : 1e9;
-      if (S.cpuRunning || d1 < 12 || tSelf <= tCov + 10) { S.cpuRunning = true; moveToward(hid, bx, by, FSPD); return; }
-      moveToward(hid, bx, by, FSPD * 0.5);
-    } else if (isOF(hid)) requestThrow(2);
-    else if (hid !== 'P') requestThrow('P');
+/* computer fielder with the ball: take the surest out (force or tag) if it is clearly there; otherwise hold the runners and return the ball */
+function cpuHolder() {
+  var hid = S.holder, hp = S.F[hid]; S.ctl = hid;
+  if (S.queued != null || S.animStart != null) return; /* already throwing */
+  var steal = stealThrow(hid);
+  if (steal && S.playT < S.cReact) return; /* computer catcher: random reaction, 0 to 0.4 s */
+  if (S.cpuRunTo) {
+    var rt = S.cpuRunTo, tb = basePos(rt), still = S.runners.some(function (r) { return alive(r) && r.to === rt && !r.award; });
+    if (still && dist2(hp.x, hp.y, tb[0], tb[1]) > 1.5) { S.cpuRunning = true; moveToward(hid, tb[0], tb[1], FSPD); return; }
+    S.cpuRunTo = 0; S.cpuRunning = false;
+  }
+  var best = null, bm = -1e9;
+  S.runners.forEach(function (r) {
+    if (!alive(r) || r.to == null || r.award || r.trot || r.wait || r.lead) return;
+    var k = r.to, b = basePos(k), force = r.forced && r.fb === k;
+    var tRun = (1 - r.p) * legLen(r) / RSPD, dSelf = dist2(hp.x, hp.y, b[0], b[1]), tSelf = isOF(hid) ? 1e9 : dSelf / FSPD;
+    var cov = coverFor(k); if (cov === hid) cov = null;
+    var tThr = 1e9;
+    if (cov) {
+      var cp = S.F[cov], w = S.gatherT + windFor(hid);
+      var tc = baseCovered(k, hid) ? 0 : dist2(cp.x, cp.y, b[0], b[1]) / (FSPD * 0.9) + ACCEL_T / 2;
+      tThr = Math.max(w + dSelf / armFor(hid), tc);
+    }
+    var m = tRun - (Math.min(tSelf, tThr) + (force ? 0 : steal ? -4 : 10)); /* a steal throw only has to beat him to the tag */
+    if (m > bm) { bm = m; best = { k: k, self: !isOF(hid) && (tSelf <= tThr + 10 || dSelf < 12) }; }
+  });
+  /* running at a runner: the earliest point on his path this fielder can reach before he gets to a base */
+  var chase = null, cm = -1e9, hs = fspd(hid), busy = S.gatherT + (S.windT || 0);
+  S.runners.forEach(function (r) {
+    if (!alive(r) || r.to == null || r.award || r.trot || r.lead) return;
+    var a = basePos(r.at), b = basePos(r.to), L = legLen(r), tRem = r.wait ? 600 : (1 - r.p) * L / RSPD;
+    for (var t = 0; t <= Math.min(tRem, 600); t += 2) {
+      var q = r.wait ? r.p : Math.min(1, r.p + RSPD * t / L), x = a[0] + (b[0] - a[0]) * q, y = a[1] + (b[1] - a[1]) * q;
+      if (dist2(hp.x, hp.y, x, y) - TAG_R <= hs * Math.max(0, t - busy)) { if (tRem - t > cm) { cm = tRem - t; chase = [x, y]; } break; }
+    }
+  });
+  if (chase && cm > 8 && cm >= bm) { moveToward(hid, chase[0], chase[1], FSPD); return; }
+  if (best && bm > (steal ? 0 : 12)) {
+    var bp = basePos(best.k);
+    if (best.self) { S.cpuRunTo = best.k; S.cpuRunning = true; moveToward(hid, bp[0], bp[1], FSPD); }
+    else if (isOF(hid) || baseCovered(best.k, hid)) requestThrow(best.k);
+    else moveToward(hid, bp[0], bp[1], FSPD * 0.5); /* cover man is quicker: edge toward the bag and throw the moment he is on it */
     return;
   }
-  if (S.thr) return;
+  /* a runner stuck between bases near the ball: run him down */
+  var stuck = null;
+  S.runners.forEach(function (r) { if (alive(r) && r.to != null && r.wait && !r.award) { var rp = rPos(r); if (dist2(hp.x, hp.y, rp[0], rp[1]) < 40) stuck = rp; } });
+  if (stuck && !isOF(hid)) { moveToward(hid, stuck[0], stuck[1], FSPD); return; }
+  if (isOF(hid)) { requestThrow(2); return; } /* outfielders get it back in to second */
+  if (anyMoving()) return; /* infielder: hold the ball while runners are moving */
+  if (hid !== 'P') requestThrow('P');
+}
+function cpuDefense() {
+  var bb = S.bb;
+  if (S.holder) { cpuHolder(); return; }
+  if (S.thr || S.wildWait) return;
   if (!S.cpuChase || S.playT % 20 === 0) {
     var best = null, bt = 1e9;
     /* anyone who can reach the ball goes for it; infielders only while it is still in the infield, beyond that it's the outfield's ball */
@@ -907,6 +1300,7 @@ function cpuDefense() {
     });
     if (!best) FIELDERS.forEach(function (f) { var it = intercept(f.id); if (it.t < bt) { bt = it.t; best = f.id; } });
     if (bb.bunt) { var ic = intercept('C'); if (Math.sqrt(ic.x * ic.x + ic.y * ic.y) < 32) best = 'C'; } /* catcher takes the short bunts; longer ones go to whoever gets there first */
+    if (S.live && S.live.kind === 'wild') best = 'C';
     S.cpuChase = best;
   }
   var ip = intercept(S.cpuChase);
@@ -915,32 +1309,79 @@ function cpuDefense() {
 function battedStep(dIn) {
   var bb = S.bb; bb.t++;
   if (bb.foul) {
+    moveRunners();
     bb.v = bb.v * DECAY - FRICTION; if (bb.v < 0) bb.v = 0;
     bb.x += bb.ux * bb.v; bb.y += bb.uy * bb.v; bb.dist += bb.v; bb.h = 0; backstops(bb);
     if (bb.v < 0.05 || bb.t > 240) {
-      if (bb.bunt && S.s >= 2) { var ks = batSide(); S.outs++; S.stats[ks].k++; result('STRIKEOUT', 'Foul bunt with two strikes', 'out'); sfx('bark', null, 0.1); sfx(ks === 'you' ? 'boo' : 'cheer', null, 0.5); return; }
+      if (bb.bunt && S.s >= 2) { var ks = batSide(); S.outs++; S.stats[ks].k++; S.batterGone = true; result('STRIKEOUT', 'Foul bunt with two strikes', 'out'); sfx('bark', null, 0.1); sfx(ks === 'you' ? 'boo' : 'cheer', null, 0.5); return; }
       if (S.s < 2) S.s++; result('FOUL BALL', null, 'pitch'); sfx('foul');
     }
     return;
   }
   S.playT++;
   FIELDERS.forEach(function (f) { if (S.F[f.id].mv) S.F[f.id].mv--; });
-  var r = S.run;
-  if (r && !r.safe && !r.out) { r.p += RSPD / 90; if (r.p >= 1) { r.p = 1; r.safe = true; } }
+  moveRunners();
+  if (batSide() === 'cpu') cpuRunners();
   if (playMotion(dIn, false) === 'stop') return;
-  var side = batSide();
-  if (S.holder && r && !r.safe && !r.out) {
-    var h = S.F[S.holder], rp = runnerPos();
-    if (dist2(h.x, h.y, BASES[1][0], BASES[1][1]) < 3.5) { r.out = true; r.how = 'Forced out at first'; }
-    else if (dist2(h.x, h.y, rp[0], rp[1]) < 2.6) { r.out = true; r.how = 'Tagged out'; }
+  if (S.phase !== 'batted' || !S.live) return;
+  checkOuts(); if (S.phase !== 'batted') return;
+  slides();
+  /* the play is over once every runner is standing on a base and the ball is held: by the pitcher, or by anyone for 2 seconds */
+  var busy = anyMoving() || !!S.thr || !S.holder;
+  S.live.still = busy ? 0 : S.live.still + 1;
+  if (S.live.still > (S.holder === 'P' ? 20 : 120) || S.playT > 1800) endLive('done');
+}
+/* force outs by touching the base with the ball, tags by touching a runner who is off a base */
+function checkOuts() {
+  if (!S.holder) return;
+  var h = S.F[S.holder], by = ' by the ' + FNAME[S.holder];
+  for (var i = 0; i < S.runners.length; i++) {
+    var r = S.runners[i]; if (!alive(r) || r.award || r.trot || r.to == null) continue;
+    if (r.forced && r.to === r.fb) {
+      var fp = basePos(r.fb);
+      if (dist2(h.x, h.y, fp[0], fp[1]) < FORCE_R) { runnerOut(r, 'Forced out at ' + BNAME[r.fb] + by, true); if (S.phase !== 'batted') return; continue; }
+    }
+    var rp = rPos(r), tx = (h.x - rp[0]) * KX, ty = (h.y - rp[1]) * KY;
+    if (Math.sqrt(tx * tx + ty * ty) < TAG_PX) { runnerOut(r, 'Tagged out' + by, false); if (S.phase !== 'batted') return; }
   }
-  if (r && r.out) { S.outs++; result('OUT', r.how + (S.holder ? ' by the ' + FNAME[S.holder] : ''), 'out'); sfx('bark', null, 0.1); return; }
-  if (r && r.safe && S.holder && !S.thr) S.safeHold = (S.safeHold || 0) + 1;
-  if (r && r.safe && ((S.holder === 'P' && S.safeHold > 20) || S.safeHold > 300 || S.playT > 1800)) {
-    S.stats[side].h++;
-    result('SINGLE', 'Safe at first' + (bb.wall ? ' (off the wall)' : '') + '. Base running comes next', 'ab');
-    sfx('slide', null, 0); sfx('cheer', null, 0.3); return;
+}
+/* runners slide when the ball is arriving at their base about when they are */
+function slides() {
+  S.runners.forEach(function (r) {
+    if (!alive(r) || r.to == null || r.slide > 0 || r.trot || r.lead || r.slidLeg === r.at * 10 + r.to) return;
+    if (r.to === 1 && r.at !== 2) return; /* no sliding into first, except diving back from second */
+    var L = legLen(r), rem = (1 - r.p) * L; if (rem > 11 || rem < 2) return;
+    var b = basePos(r.to), close = false;
+    if (S.thr && dist2(S.thr.tx, S.thr.ty, b[0], b[1]) < 12 && dist2(S.thr.x, S.thr.y, S.thr.tx, S.thr.ty) / THROW < rem / RSPD + 25) close = true;
+    if (S.holder) { var hp = S.F[S.holder]; if (dist2(hp.x, hp.y, b[0], b[1]) < 12) close = true; }
+    if (close) { var a = basePos(r.at), dx = (b[0] - a[0]) * KX, dy = (a[1] - b[1]) * KY; r.slideDir = Math.abs(dx) > 1 ? (dx > 0 ? 1 : -1) : (dy > 0 ? 1 : -1); r.slide = 26; r.slidLeg = r.at * 10 + r.to; sfx('slide'); }
+  });
+}
+function endLive(why, how) {
+  var side = batSide(), L = S.live || { kind: 'hit' };
+  S.live = null; S.wasLive = true; S.wildWait = false;
+  if (why === 'out') { /* third out ends the half at once */
+    S.freezeR = true; var n0 = commitRuns(); if (S.wo) return;
+    result('OUT', how + (n0 ? ' · ' + (n0 === 1 ? '1 run scored first' : n0 + ' runs scored first') : ''), 'out'); return;
   }
+  if (why === 'last') { var n1 = commitRuns(); if (S.wo) return; result(L.kind === 'steal' ? 'CAUGHT STEALING' : L.kind === 'pick' ? 'PICKED OFF' : 'OUT', how + (n1 ? ' · ' + runsText(n1) : ''), S.abOver ? 'ab' : 'pitch'); return; }
+  settleRunners();
+  if (S.outs >= 3) { S.playRuns = 0; result('OUT', 'Caught off base', 'out'); return; }
+  var n = commitRuns(); if (S.wo) return;
+  var sub = n ? runsText(n) : null, title = null, kind = S.abOver ? 'ab' : 'pitch';
+  if (L.kind === 'hit') {
+    var b = S.batR;
+    if (b && b.scored) { title = 'INSIDE-THE-PARK HR!'; S.stats[side].h++; S.stats[side].hr++; sfx('fanfare'); }
+    else if (b && !b.out) {
+      if (S.playOuts > 0 && b.at === 1) title = "FIELDER'S CHOICE";
+      else { title = ['', 'SINGLE', 'DOUBLE', 'TRIPLE'][b.at] || 'SAFE'; S.stats[side].h++; sfx('cheer', null, 0.3); }
+    }
+    else { title = n ? (n > 1 ? n + ' RUNS SCORE' : 'RUN SCORES') : null; sub = null; } /* the out itself was already called */
+  }
+  else if (n) { title = n > 1 ? n + ' RUNS SCORE' : 'RUN SCORES'; sub = null; }
+  else if (S.playOuts > 0) title = L.kind === 'steal' ? 'CAUGHT STEALING' : L.kind === 'pick' ? 'PICKED OFF' : null;
+  else if (L.kind === 'steal' && S.runners.some(function (r) { return alive(r) && !r.bat && r.at > r.snap; })) title = 'STOLEN BASE';
+  result(title, sub, kind);
 }
 /* fielders move and throw; also runs after the call (free = true) until the next batter */
 function playMotion(dIn, free) {
@@ -952,8 +1393,8 @@ function playMotion(dIn, free) {
   else if (S.thr) {
     var t = S.thr;
     /* throws fly straight at the spot the man was standing on when the ball left the hand */
-    var dx = t.tx - t.x, dy = t.ty - t.y, d = Math.sqrt(dx * dx + dy * dy);
-    if (d <= THROW) {
+    var dx = t.tx - t.x, dy = t.ty - t.y, d = Math.sqrt(dx * dx + dy * dy), TS = t.sp || THROW;
+    if (d <= TS) {
       t.x = t.tx; t.y = t.ty; bb.x = t.x; bb.y = t.y; bb.h = 0; S.thr = null;
       var got = null, gd = 5;
       if (t.player && dist2(S.F[t.player].x, S.F[t.player].y, t.x, t.y) < 8) got = t.player; /* the intended man still makes the catch if he drifted a little */
@@ -963,7 +1404,7 @@ function playMotion(dIn, free) {
         var tdx = t.tx - t.sx, tdy = t.ty - t.sy, tl = Math.sqrt(tdx * tdx + tdy * tdy) || 1;
         bb.ux = tdx / tl; bb.uy = tdy / tl; bb.v = THROW * 0.55; bb.touched = true; sfx('thud');
       }
-    } else { t.x += dx / d * THROW; t.y += dy / d * THROW; bb.x = t.x; bb.y = t.y; var pp = t.d0 ? 1 - (d - THROW) / t.d0 : 1; if (pp < 0) pp = 0; bb.h = 6 + t.peak * 4 * pp * (1 - pp); }
+    } else { t.x += dx / d * TS; t.y += dy / d * TS; bb.x = t.x; bb.y = t.y; var pp = t.d0 ? 1 - (d - TS) / t.d0 : 1; if (pp < 0) pp = 0; bb.h = 6 + t.peak * 4 * pp * (1 - pp); }
   } else {
     var px = bb.x, py = bb.y;
     bb.v = bb.v * DECAY - FRICTION; if (bb.v < 0) bb.v = 0;
@@ -973,11 +1414,11 @@ function playMotion(dIn, free) {
     if (!free && !bb.fairLocked && !bb.wall && !bb.touched) {
       var rr2 = Math.sqrt(bb.x * bb.x + bb.y * bb.y), outside = bb.y < Math.abs(bb.x) - 1.0;
       if (dist2(bb.x, bb.y, BASES[1][0], BASES[1][1]) < 2.5 || dist2(bb.x, bb.y, BASES[3][0], BASES[3][1]) < 2.5) bb.fairLocked = true; /* over the bag = fair */
-      if (!bb.fairLocked && outside && (rr2 > 3 || bb.v === 0)) { bb.foul = true; bb.t = 0; S.run = null; S.holder = null; setLive(true); return 'stop'; }
+      if (!bb.fairLocked && outside && (rr2 > 3 || bb.v === 0)) { bb.foul = true; bb.t = 0; foulReturn(); S.holder = null; setLive(true); return 'stop'; }
       if (rr2 >= 90 && !outside) bb.fairLocked = true;
       if (bb.v === 0 && !outside) bb.fairLocked = true;
     }
-    if (bb.h < 9) {
+    if (bb.h < 9 && !S.wildWait) {
       for (var i = 0; i < FIELDERS.length; i++) {
         var f = FIELDERS[i], fp = S.F[f.id];
         if (f.id === 'C' && bb.t < catcherWait()) continue;
@@ -990,31 +1431,36 @@ function playMotion(dIn, free) {
     if (!S.holder) {
       var dd2 = Math.sqrt(bb.x * bb.x + bb.y * bb.y);
       if (bb.y > 0 && dd2 >= fenceR(bb.x / dd2)) { if (free) bb.wall = true; wallHit(dd2); if (!free && S.phase !== 'batted') return 'stop'; }
-      backstops(bb);
+      if (backstops(bb) && S.wildWait) { S.wildWait = false; S.ctl = 'C'; S.cpuChase = null; } /* wild pitch: the catcher takes over once it hits the wall */
       if (Math.abs(bb.x) > 150) { bb.x = bb.x < 0 ? -150 : 150; bb.v = 0; }
     }
   }
 }
-/* invisible backstops: a wall in foul ground parallel to each line, and one behind home */
+/* invisible backstops: a wall in foul ground parallel to each line, and one behind home. Returns true on a bounce. */
 function backstops(bb) {
-  var BS = 26, k = 0.45, nx = 0, ny = 0;
+  var BS = 26, k = 0.45, nx = 0, ny = 0, hit = false;
   if (bb.x >= 0 && bb.y < bb.x - BS) { nx = -0.70711; ny = 0.70711; }
   else if (bb.x < 0 && bb.y < -bb.x - BS) { nx = 0.70711; ny = 0.70711; }
   else if (bb.y < -26) { nx = 0; ny = 1; }
   else if (Math.abs(bb.x) > 148) { nx = bb.x > 0 ? -1 : 1; ny = 0; }
   else { var dd = Math.sqrt(bb.x * bb.x + bb.y * bb.y); if (bb.y < Math.abs(bb.x) && dd > 186) { nx = -bb.x / dd; ny = -bb.y / dd; } } /* stands wall past the foul poles */
-  if (!nx && !ny) return;
+  if (!nx && !ny) return false;
   var vx = bb.ux * bb.v, vy = bb.uy * bb.v, dot = vx * nx + vy * ny;
-  if (dot < 0) { vx = (vx - 2 * dot * nx) * k; vy = (vy - 2 * dot * ny) * k; var v = Math.sqrt(vx * vx + vy * vy) || 0.0001; bb.ux = vx / v; bb.uy = vy / v; bb.v = v; sfx('thud'); }
+  if (dot < 0) { vx = (vx - 2 * dot * nx) * k; vy = (vy - 2 * dot * ny) * k; var v = Math.sqrt(vx * vx + vy * vy) || 0.0001; bb.ux = vx / v; bb.uy = vy / v; bb.v = v; sfx('thud'); hit = true; }
   bb.x += nx * 0.6; bb.y += ny * 0.6;
+  return hit;
 }
 function wallHit(d) {
   var bb = S.bb, frac = bb.v / BALLMAX, ch = frac * 100 + 20, u = Math.abs(bb.x / d), side = batSide();
   if (u >= 0.5) ch += 10; if (ch > 100) ch = 100;
   if (!bb.wall && S.rng() * 100 < ch) {
-    bb.gone = true; bb.h = 0; S.run = null;
-    S.score[side]++; S.stats[side].h++; S.stats[side].hr++;
-    result('HOME RUN!', Math.round(ch) + '% chance: ' + Math.round(frac * 100) + '% speed + 20' + (u >= 0.5 ? ' + 10 near the line' : ''), 'ab', true);
+    bb.gone = true; bb.h = 0; S.live = null;
+    var n = startTrot();
+    S.score[side] += n; S.stats[side].h++; S.stats[side].hr++;
+    var tag = n === 4 ? null : n > 1 ? n + '-run homer' : null;
+    if (homeWins(0)) { S.wo = true; tag = 'Walk-off' + (tag ? ' ' + tag.toLowerCase() : ''); }
+    result(n === 4 ? 'GRAND SLAM!' : 'HOME RUN!', (tag ? tag + ' · ' : '') + Math.round(ch) + '% chance: ' + Math.round(frac * 100) + '% speed + 20' + (u >= 0.5 ? ' + 10 near the line' : ''), 'ab', true);
+    S.rt = Math.max(S.rt, trotTicks()); if (S.wo) S.after = 'walkoff';
     sfx('fanfare'); sfx('cheer', null, 0.3);
     S.faces = { bat: 'happy', pit: 'mad' }; S.faceT = 300; updatePortraits(); updateHUD();
     return;
@@ -1030,19 +1476,24 @@ function wallHit(d) {
 function result(text, sub, kind, big) {
   S.phase = 'result'; S.rt = kind === 'pitch' ? 55 : big ? 170 : (kind === 'out' || kind === 'ab') ? 160 : 100; S.after = kind;
   if ((kind === 'out' || kind === 'ab') && S.bb && !S.bb.gone && !S.bb.foul) S.freePlay = true;
-  setLive(false); toast(text, sub, S.rt, big); updateHUD();
+  setLive(false); if (text) toast(text, sub, S.rt, big); updateHUD();
 }
 function afterResult() {
-  var kind = S.after; S.sw = null; S.fielded = null; S.ball = null; resetPlay();
-  if (S.bb && !S.bb.gone) S.bb = null;
+  var kind = S.after;
+  if (kind === 'walkoff') { updateHUD(); endGame(); return; } S.sw = null; S.fielded = null; S.ball = null;
+  if (S.outs >= 3) { S.runners = []; S.playRuns = 0; }
+  S.freezeR = false; settleRunners(); commitRuns(); if (S.wo) return;
+  S.runners = S.runners.filter(alive);
+  S.runners.forEach(function (r) { r.forced = false; r.award = false; r.dest = null; r.trot = false; r.slide = 0; r.wait = false; r.rev = 0; r.lead = false; r.go = false; r.next = null; if (kind === 'out' || kind === 'ab') r.bat = false; });
+  resetPlay(); S.wasLive = false; S.lock = false; S.pick = false; S.stretch = false; S.cat = null;
   if (kind === 'ready') { S.bb = null; S.phase = 'ready'; S.pt = 0; S.cpuP = null; hint(); return; }
   S.bb = null;
-  if (kind === 'out' || kind === 'ab') { S.b = 0; S.s = 0; S.bOff = { x: 0, y: 0 }; if (Math.random() < 0.12) sfx('organ'); }
+  if (kind === 'out' || kind === 'ab') { S.b = 0; S.s = 0; S.bOff = { x: 0, y: 0 }; S.batR = null; S.batterGone = false; S.abOver = false; if (Math.random() < 0.12) sfx('organ'); }
   if (S.outs >= 3) {
     if (kind !== 'side') { S.after = 'side'; S.phase = 'result'; S.rt = 80; toast('SIDE RETIRED', null, 80); if (Math.random() < 0.5) sfx('organ', null, 0.6); return; }
   }
   if (kind === 'side') { S.half++; if (gameOver()) return endGame(); startHalf(); return; }
-  S.phase = 'ready'; S.pt = 0; S.cpuP = null; updateHUD(); hint();
+  S.phase = 'ready'; S.pt = 0; S.cpuP = null; S.pickQ = 0; takeLeads(); updateHUD(); hint();
 }
 function homeSide() { return S.vis === 'you' ? 'cpu' : 'you'; }
 function gameOver() {
@@ -1061,10 +1512,11 @@ function toast(text, sub, ticks, big) {
 }
 function setLive(live) { $('sb').classList.toggle('hide', live); if (live) $('hint').style.opacity = 0; }
 function hint() {
-  var h = $('hint'); h.style.opacity = (S && S.phase === 'batted' && !defenseHuman()) ? 0 : 1;
+  var h = $('hint'); h.style.opacity = (S && (S.phase === 'windup' || S.phase === 'pitch' || (S.phase === 'batted' && !S.live))) ? 0 : 1;
   if (!S || S.over) { h.textContent = ''; return; }
-  if (S.phase === 'batted' && S.run) { h.textContent = defenseHuman() ? 'Arrows move · Arrow + button: pick fielder, or throw to that base · Button: throw to pitcher' : 'Your runner heads to first'; return; }
-  h.textContent = batSide() === 'you' ? 'Tap to swing · Down + tap to square around and bunt (any time) · Up + tap for power' : 'Hold a direction, then tap to pitch · Steer and change speed in flight';
+  if (S.phase === 'batted' && S.live) { h.textContent = defenseHuman() ? 'Arrows move · Arrow + button: pick fielder, or throw to that base · Button: throw to pitcher' : 'Arrow + button: send runners to that base, forward or back (also while running)'; return; }
+  if (batSide() === 'you') h.textContent = runnersOn() ? 'Arrow + tap now: runner steals on the pitch · Tap swing · Up + tap power · Down + tap bunt' : 'Tap to swing · Down + tap to square around and bunt (any time) · Up + tap for power';
+  else h.textContent = S.pick ? 'Pickoff: press a direction to throw to that base · Button calls it off' : S.lock ? 'Set · Hold a direction, then tap to pitch · Tap alone: pickoff move' : 'Left/right: slide on the rubber · Tap: set · Hold a direction, then tap to pitch';
 }
 function updateHUD() {
   $('sv').textContent = S.score[S.vis]; $('sh').textContent = S.score[homeSide()];
@@ -1106,7 +1558,7 @@ function render() {
   if (!S) { drawIdle(); return; }
   var bat = batSide(), pit = bat === 'you' ? 'cpu' : 'you';
   var batCol = teamColor(bat) === 'red' ? theme.red : theme.blue, pitCol = teamColor(pit) === 'red' ? theme.red : theme.blue;
-  var playing = (!!S.run || S.freePlay) && (S.phase === 'batted' || S.phase === 'result');
+  var playing = (!!S.live || S.freePlay || S.wasLive) && (S.phase === 'batted' || S.phase === 'result');
   var list = [];
   FIELDERS.forEach(function (f) {
     if (f.id === 'C' && !playing) return;
@@ -1127,13 +1579,18 @@ function render() {
       if (hold && !o.ball) { circ(ctx, p[0] + ballAt[0] * sc, p[1] + ballAt[1] * sc, 1.9); ctx.fillStyle = '#fff'; ctx.fill(); }
     } });
   });
-  if (S.run) {
-    var rp = runnerPos(), q = proj(rp[0], rp[1]), rs = spriteScale(q[1]);
-    list.push({ y: q[1], d: function () { drawFielder(ctx, q[0], q[1], rs, batCol, { noGlove: true, run: (S.run.safe || S.run.out) ? null : S.t / 2.8 }); } });
-  } else {
-    if (!S.freePlay || S.run) list.push({ y: BAT_Y, d: function () { drawBatter(ctx, BAT_X + S.bOff.x * KX, BAT_Y - S.bOff.y * KY, BAT_S, batCol, batterPose()); } });
+  S.runners.forEach(function (r) {
+    if (!alive(r)) return;
+    var rp = rPos(r), q = proj(rp[0], rp[1]), rs = spriteScale(q[1]);
+    var o = r.slide > 0 ? { noGlove: true, rot: -r.slideDir * 1.15, sy: 0.9 } : { noGlove: true, run: (r.to != null && !r.wait && !S.freezeR && (!r.lead || r.step)) ? S.t / (r.lead ? 5 : 2.8) : null };
+    list.push({ y: q[1], d: function () { drawFielder(ctx, q[0], q[1], rs, batCol, o); } });
+  });
+  if (!S.batterGone) list.push({ y: BAT_Y, d: function () { drawBatter(ctx, BAT_X + S.bOff.x * KX, BAT_Y - S.bOff.y * KY, BAT_S, batCol, batterPose()); } });
+  if (!playing) {
+    var cfx = S.F.C.x;
+    if (S.cat && S.cat.up && S.phase === 'pitch') { var cq = proj(cfx + 2.3, -19); list.push({ y: cq[1], d: function () { drawFielder(ctx, cq[0], cq[1], SPR, pitCol, { run: S.F.C.mv ? S.t / 3.2 : null }); } }); }
+    else list.push({ y: HY + 37, d: function () { drawCatcher(ctx, 428 + cfx * KX, HY + 37, pitCol); } });
   }
-  if (!playing) list.push({ y: HY + 37, d: function () { drawCatcher(ctx, 428, HY + 37, pitCol); } });
   list.sort(function (a, b) { return a.y - b.y; }).forEach(function (o) { o.d(); });
   if (S.ball && !S.bb && (S.phase === 'pitch' || S.phase === 'result')) {
     if (S.phase === 'pitch' || S.ball.fy > -17) drawBall(ctx, S.ball.fx, Math.max(S.ball.fy, -19), 7);
@@ -1141,13 +1598,19 @@ function render() {
   if (S.bb && !S.holder && !S.bb.gone) drawBall(ctx, S.bb.x, S.bb.y, S.thr ? (S.bb.h || 0) + 4 : 3, !!S.thr);
 }
 function pitcherPose() {
+  var st = S.phase === 'ready' ? runnersOn() : S.stretch;
+  if (S.phase === 'windup' && st) { /* from the stretch: set, short leg lift, quick delivery */
+    var ws = S.wt / S.wlen;
+    if (ws < 0.45) return { side: true, hand: [-0.5, -19.5], glove: [1, -19.5], ball: true, lift: 3 * (ws / 0.45) };
+    var k4 = (ws - 0.45) / 0.55; return { hand: [-8 - 6 * k4, -32 + 2 * k4], glove: [8 + 2 * k4, -24 + 4 * k4], lift: 3 * (1 - k4) };
+  }
   if (S.phase === 'windup') {
-    var w = S.wt / WINDUP_T;
+    var w = S.wt / S.wlen;
     if (w < 0.55) { var k = w / 0.55; return { hand: [-3 + 2 * k, -20 - 18 * k], glove: [3 - 2 * k, -20 - 18 * k], lift: 7 * Math.sin(k * PI) }; }
     var k2 = (w - 0.55) / 0.45; return { hand: [-8 - 6 * k2, -38 + 4 * k2], glove: [8 + 2 * k2, -26 + 6 * k2], lift: 7 * (1 - k2) };
   }
   if (S.follow > 0 && S.phase === 'pitch') { var f = S.follow / 18; return { hand: [-2 + 4 * (1 - f), -8], glove: [9, -20] }; }
-  if (S.phase === 'ready' && S.ball === null) return { hand: [-3, -20], glove: [3, -20], ball: true };
+  if (S.phase === 'ready' && S.ball === null) return st ? { side: true, hand: [-0.5, -19.5], glove: [1, -19.5], ball: true } : { hand: [-3, -20], glove: [3, -20], ball: true };
   return { ball: S.phase === 'ready' };
 }
 function batterPose() {
@@ -1208,6 +1671,6 @@ layout(); setTheme('day'); pressGroup('mon', 'moff', opts.murmur);
 $('fl').innerHTML = coachSVG('red', 'neutral'); $('fr').innerHTML = coachSVG('blue', 'neutral');
 $('hint').textContent = '';
 requestAnimationFrame(frame);
-window.__ccb = { get S() { return S; }, tick: function () { tick(); }, newGame: function (o) { if (o) for (var k in o) opts[k] = o[k]; newGame(); } };
+window.__ccb = { get S() { return S; }, tick: function () { tick(); }, newGame: function (o) { if (o) for (var k in o) opts[k] = o[k]; newGame(); }, newRunner: function (a) { return newRunner(a, null); }, human: human };
 })();
 </script>
