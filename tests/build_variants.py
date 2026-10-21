@@ -18,22 +18,15 @@ HOOKS = ['runnerOut', 'foulReturn', 'startTrot', 'commitRuns', 'endLive', 'batte
          'settleRunners', 'snapRunners', 'resetPlay', 'mkBall', 'homeWins', 'wallHit', 'giveBall', 'takeLeads',
          'gameOver', 'afterResult']
 
-# both sides run by the computer
+# both sides run by the computer (version 69: the game has a switch for this, S.ai)
 CPU_BOTH = [
-    ("  var pIn = youBat ? cpuPitcher() : hum;\n  var bIn = youBat ? hum : cpuBatter();\n  if (youBat) humanRunning(hum);",
-     "  var pIn = cpuPitcher();\n  var bIn = cpuBatter();"),
-    ("function defenseHuman() { return batSide() === 'cpu'; }", "function defenseHuman() { return false; }"),
-    ("  if (batSide() === 'cpu') cpuRunners();", "  cpuRunners();"),
-    ("  if (!youBat) {\n    if (S.pick) {", "  if (false) {\n    if (S.pick) {"),
-    ("  var cpuBat = batSide() === 'cpu';", "  var cpuBat = true;"),
+    ("ai: g.ai || { you: false, cpu: true },", "ai: { you: true, cpu: true },"),
 ]
 # like CPU_BOTH, but runners are driven by window.__adv(S, api) instead of the computer's running logic
-ADV = CPU_BOTH[:2] + [
-    ("  if (batSide() === 'cpu') cpuRunners();",
+ADV = CPU_BOTH + [
+    ("  if (S.ai[batSide()]) cpuRunners();",
      "  if (window.__adv) window.__adv(S, { sendRunner: sendRunner, rPos: rPos, basePos: basePos, alive: alive, dist2: dist2, standingOn: standingOn });"),
-    CPU_BOTH[3],
 ]
-
 
 def apply(src, pairs, name):
     for old, new in pairs:
