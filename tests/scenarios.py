@@ -60,6 +60,34 @@ CHECKS = {
     T.until(() => S.phase === 'ready', 200); T.run(10); T.press('d'); for (let i = 0; i < 400 && ['ready', 'windup', 'pitch'].includes(S.phase); i++) T.C.tick();
     if (!S.bb || !S.bb.bunt || S.bb.foul) continue; for (let i = 0; i < 700 && S.phase === 'batted'; i++) T.C.tick(); n++; if (S.runners.some(r => r.out) || (S.batR && S.batR.out)) outs++; }
   return { ok: n > 0 && outs / n >= 0.6, bunts: n, withAnOut: outs }; }""",
+'you throw home on a bases-loaded ground ball: force out at home (any infielder)': r"""() => { const res = [];
+  for (const ang of [-25, -8, 0, 25, 40]) { T.start(false); const S = T.C.S; T.put([1, 2, 3]); const third = S.runners.find(r => r.at === 3); T.hit(ang, 1.5);
+    T.until(() => S.holder, 400); const who = S.holder; T.press('d'); T.until(() => S.phase !== 'batted', 400); res.push(who + ':' + (third.out && /home/.test(third.how) ? 'out' : 'safe')); }
+  return { ok: res.every(x => x.endsWith('out')), plays: res }; }""",
+
+'you throw to first on a ground ball: the first baseman takes it on the bag': r"""() => { const res = [];
+  for (const ang of [-8, 0, 25, 40]) { T.start(false); const S = T.C.S; S.runners = []; T.hit(ang, 1.5);
+    T.until(() => S.holder, 400); const who = S.holder; T.press('r'); T.until(() => S.phase !== 'batted', 400); res.push(who + ':' + (S.batR.out ? S.batR.how : 'safe')); }
+  return { ok: res.every(x => /Forced out at first/.test(x)), plays: res }; }""",
+
+'timed throw: the pitcher holds his throw to second until the cover man will be there, and he takes it on the bag': r"""() => { T.start(false); const S = T.C.S; T.put([1]); T.hit(0, 1.2);
+  T.until(() => S.holder === 'P', 400); T.press('u'); let held = 0; for (let i = 0; i < 200 && !S.thr && S.holder; i++) { if (S.thrWait > 0) held++; T.C.tick(); }
+  const runner = S.runners.find(r => !r.bat); T.until(() => !S.thr, 300); const f = S.F['2B'], off = Math.hypot(f.x, f.y - 127.3);
+  T.until(() => S.phase !== 'batted' || runner.out, 400);
+  return { ok: held > 0 && runner.out && /second baseman/.test(runner.how) && off < 1, heldTicks: held, distanceFromBag: +off.toFixed(2), runner: runner.out ? runner.how : 'safe' }; }""",
+
+'a pitch the catcher can reach is never a wild pitch (the screen-edge walls never decide a play)': r"""() => { let a = 77; const r = () => { a = (a * 1103515245 + 12345) & 0x7fffffff; return a / 0x7fffffff; };
+  let n = 0, wild = 0, inReach = 0;
+  for (let k = 0; k < 200; k++) { T.start(false); const S = T.C.S; S.runners = []; T.hold(['u', 'd', 'l', 'r'][Math.floor(r() * 4)]); T.press(T.C.human.dir);
+    const curve = r() < 0.6 ? (r() < 0.5 ? 'l' : 'r') : null, hold = Math.floor(r() * 40), start = Math.floor(r() * 20); let i = 0;
+    while (['windup', 'pitch'].includes(S.phase) && i < 600) { if (S.phase === 'pitch') { i++; if (curve && i > start && i < start + hold) T.hold(curve); else T.release(); } T.C.tick(); }
+    T.release(); n++; if (S.live && S.live.kind === 'wild') { wild++; if (Math.abs(S.bb.x - S.F.C.x) <= 7) inReach++; } }
+  return { ok: inReach === 0, pitches: n, wildPitches: wild, wildButCatcherCouldReach: inReach }; }""",
+
+'computer goes for the double play (turns one on the right side, tries on the left)': r"""() => { const run = ang => { T.start(true); const S = T.C.S; T.put([1]); T.hit(ang, 1.5); let tried = false;
+    for (let i = 0; i < 900 && S.phase === 'batted'; i++) { T.C.tick(); if (S.playOuts === 1 && S.thr && S.thr.base === 1) tried = true; } return { outs: S.playOuts, tried }; };
+  const right = run(-10), left = run(30);
+  return { ok: right.outs === 2 && left.tried, right, left }; }""",
 }
 
 failed = 0

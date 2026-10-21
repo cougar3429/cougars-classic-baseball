@@ -137,7 +137,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 69</small>
+    <small id="ver">Version 70</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -1078,8 +1078,8 @@ function catcherTrack(b) {
   if (c.mv) c.mv--;
   c.x = Math.max(-60, Math.min(60, c.x));
 }
-/* outside the invisible backstops (foul ground walls and the wall behind home) */
-function outOfPlay(x, y) { return (x >= 0 && y < x - 26) || (x < 0 && y < -x - 26) || y < -26 || Math.abs(x) > 148; }
+/* the screen edges (field units): balls stop here only so they stay in view; they never decide a play */
+var EDGE_X = (W / 2 - 4) / KX, EDGE_Y = -(H - 4 - HY) / KY;
 function pitchStep(pIn, bIn) {
   var b = S.ball, lvMax = S.ai[pitSide()] ? LV_CPU : LV_HUMAN;
   if (pIn.dir === 'u') b.sp = Math.max(SP_MIN, b.sp - SP_ACC);
@@ -1100,8 +1100,9 @@ function pitchStep(pIn, bIn) {
     } else if (S.sw.t === S.sw.ct) { tryContact(); if (S.phase !== 'pitch') return; }
   }
   catcherTrack(b);
+  /* caught or wild is decided only by the catcher's reach when the pitch gets to him */
   if (b.fy <= CATCH_FY) { if (Math.abs(b.fx - S.F.C.x) <= CATCH_R) pitchEnd(); else wildPitch(); return; }
-  if (outOfPlay(b.fx, b.fy)) wildPitch();
+  if (Math.abs(b.fx) > EDGE_X) wildPitch(); /* curved clean off the screen */
 }
 function tryContact() {
   var b = S.ball, sw = S.sw, Wd = sw.type === 'bunt' ? 99 : SWING_W;
@@ -1191,7 +1192,7 @@ function wildPitch() {
   applyCallLive(c, 'WILD PITCH');
 }
 function resetPlay(keepF) {
-  S.cpuRunning = false; S.cpuRunTo = 0; S.animStart = null; S.gatherT = 0; S.windT = 0; S.queued = null; S.followT = 0; S.followId = null; S.freePlay = false; S.autoRun = 0; S.safeHold = 0;
+  S.cpuRunning = false; S.cpuRunTo = 0; S.animStart = null; S.gatherT = 0; S.windT = 0; S.thrWait = 0; S.queued = null; S.followT = 0; S.followId = null; S.freePlay = false; S.autoRun = 0; S.safeHold = 0;
   if (!keepF) { S.F = homePos(); S.F.P.x = S.pOff || 0; }
   S.ctl = 'P'; S.holder = null; S.thr = null; S.playT = 0; S.rd = null; S.cpuChase = null; S.cpuThrow = 0; S.thrFrom = null; S.thrT = 0; S.live = null; S.wildWait = false; S.holdT = 0;
 }
@@ -1239,25 +1240,42 @@ function requestThrow(base) {
   }
   S.queued = base;
   if (S.gatherT > 0 || S.windT > 0) return;
-  S.windT = windFor(S.holder);
+  startWind();
+}
+/* timed throws: how many ticks too early a throw to this base would arrive, because the man covering it is still on his way */
+var THR_WAIT = 90; /* hold a throw at most 1.5 s */
+function coverLate(base) {
+  if (base === 'P' || !BASES[base] || !S.holder) return 0;
+  var who = coverFor(base); if (!who || who === S.holder || (who === S.ctl && defenseHuman())) return 0;
+  var b = basePos(base), f = S.F[who], d = dist2(f.x, f.y, b[0], b[1]); if (d < 1.5) return 0;
+  var h = S.F[S.holder];
+  var tR = d / (fspd(who) * (who === 'C' ? 1 : 0.9)) + ACCEL_T / 2 + (catcherFrozen(who) ? catcherWait() - S.bb.t : 0);
+  var tB = (S.windT || windFor(S.holder)) + dist2(h.x, h.y, b[0], b[1]) / armFor(S.holder);
+  return Math.max(0, tR - tB);
+}
+function startWind() {
+  if (coverLate(S.queued) > 0 && (S.thrWait || 0) < THR_WAIT) { S.thrWait = (S.thrWait || 0) + 1; S.animStart = null; return; }
+  S.thrWait = 0;
+  var w = windFor(S.holder); S.windT = w;
+  if (S.animStart == null) { S.animStart = S.t; S.animRel = S.t - 1 + w; }
 }
 function throwSteps() {
   if (!S.holder) return;
   S.holdT = (S.holdT || 0) + 1;
   if (S.gatherT > 0) { S.gatherT--; return; }
   if (S.windT > 0) { S.windT--; if (S.windT === 0 && S.queued != null) { var q = S.queued; S.queued = null; S.followId = S.holder; S.followT = FOLLOW_T; S.followStart = S.t; S.animStart = null; throwTo(q); } return; }
-  if (S.queued != null) S.windT = windFor(S.holder);
+  if (S.queued != null) startWind();
 }
-function holderBusy(id) { return id === S.holder && (S.gatherT > 0 || S.windT > 0); }
-/* the man a throw is going to stays put to take it (unless you are steering him); the pitcher also waits while a throw to him is being wound up */
+function holderBusy(id) { return id === S.holder && (S.gatherT > 0 || S.windT > 0 || S.thrWait > 0); }
+/* a throw to a base goes to the bag and the man covering keeps running to it; the pitcher waits for a throw to him (and while it is being wound up) */
 function awaitingThrow(id) {
-  if (S.thr && S.thr.player === id && id !== S.ctl) return true;
+  if (S.thr && S.thr.player === id && id !== S.ctl) return !BASES[S.thr.base];
   return id === 'P' && S.holder !== 'P' && S.queued === 'P';
 }
 function throwTo(base) {
   var h = S.F[S.holder], tx, ty, who = base === 'P' ? 'P' : coverFor(base);
   if (who === S.holder) who = null;
-  if (who) { tx = S.F[who].x; ty = S.F[who].y; } else if (BASES[base]) { tx = BASES[base][0]; ty = BASES[base][1]; } else return;
+  if (BASES[base]) { var bg = basePos(base); tx = bg[0]; ty = bg[1]; } else if (who) { tx = S.F[who].x; ty = S.F[who].y; } else return;
   var d0 = dist2(h.x, h.y, tx, ty);
   S.cpuThrow = 0;
   S.thr = { player: who, x: h.x, y: h.y, sx: h.x, sy: h.y, tx: tx, ty: ty, base: base, d0: d0, peak: Math.min(30, 4 + d0 * 0.2), sp: armFor(S.holder) }; S.thrFrom = S.holder; S.thrT = 12; S.holder = null; sfx('toss');
@@ -1267,7 +1285,7 @@ function baseCovered(base, exceptId) {
   FIELDERS.forEach(function (f) { if (f.id === exceptId) return; var p = S.F[f.id]; if (dist2(p.x, p.y, b[0], b[1]) < 4.5) hit = true; });
   return hit;
 }
-function giveBall(id) { S.cpuRunning = false; S.cpuRunTo = 0; S.holdT = 0; S.animStart = null; if (S.bb) S.bb.touched = true; S.gatherT = isOF(id) ? GATHER_OF : 0; S.windT = 0; S.queued = null; S.holder = id; S.ctl = id; S.thr = null; S.cpuChase = null; var bb = S.bb; bb.v = 0; bb.h = 0; sfx('glove'); }
+function giveBall(id) { S.cpuRunning = false; S.cpuRunTo = 0; S.holdT = 0; S.animStart = null; if (S.bb) S.bb.touched = true; S.gatherT = isOF(id) ? GATHER_OF : 0; S.windT = 0; S.thrWait = 0; S.queued = null; S.holder = id; S.ctl = id; S.thr = null; S.cpuChase = null; var bb = S.bb; bb.v = 0; bb.h = 0; sfx('glove'); }
 function coverFor(base) { var c = coverers(), who = null; Object.keys(c).forEach(function (id) { if (c[id] === base && id !== S.holder) who = id; }); return who; }
 function coverers() {
   var c = {}; Object.keys(COVER).forEach(function (id) { c[id] = COVER[id]; });
@@ -1324,7 +1342,7 @@ function cpuHolder() {
     if (still && dist2(hp.x, hp.y, tb[0], tb[1]) > 1.5) { S.cpuRunning = true; moveToward(hid, tb[0], tb[1], FSPD); return; }
     S.cpuRunTo = 0; S.cpuRunning = false;
   }
-  var best = null, bm = -1e9, lead = null;
+  var best = null, bm = -1e9, lead = null, dp = null;
   S.runners.forEach(function (r) {
     if (!alive(r) || r.to == null || r.award || r.trot || r.wait || r.lead) return;
     if (r.to < r.at) return; /* never throw at a runner going back: that only hands a base to the runner behind him */
@@ -1340,6 +1358,7 @@ function cpuHolder() {
     var m = tRun - (Math.min(tSelf, tThr) + (force ? 0 : steal ? -4 : 10)); /* a steal throw only has to beat him to the tag */
     var cand = { k: k, m: m, self: !isOF(hid) && (tSelf <= tThr + 10 || dSelf < 12) };
     if (!lead || k > lead.k) lead = cand;
+    if (r.bat && force && k === 1) dp = cand;
     if (m > bm) { bm = m; best = cand; }
   });
   /* with only one runner on the bases a throw risks nothing, so go for any play that is close; with others on, only a clear out */
@@ -1350,6 +1369,8 @@ function cpuHolder() {
     if (lead && lead.m > -6) { best = lead; bm = lead.m; need = -6; }
     else need = Math.min(need, -6);
   }
+  /* double play: once this play has an out, throw on for the batter-runner at first whenever it could be close (within about 0.5 s) */
+  if (S.playOuts > 0 && dp && dp.m > -30 && !(best && bm > need)) { best = dp; bm = dp.m; need = -30; }
   /* running at a runner: the earliest point on his path this fielder can reach before he gets to a base */
   var chase = null, cm = -1e9, hs = fspd(hid), busy = S.gatherT + (S.windT || 0);
   S.runners.forEach(function (r) {
@@ -1525,7 +1546,7 @@ function playMotion(dIn, free) {
       var got = null, gd = 5;
       if (t.player && dist2(S.F[t.player].x, S.F[t.player].y, t.x, t.y) < 8) got = t.player; /* the intended man still makes the catch if he drifted a little */
       else FIELDERS.forEach(function (f) { if (f.id === S.thrFrom) return; var fp = S.F[f.id], dd = dist2(fp.x, fp.y, t.x, t.y); if (dd < gd) { gd = dd; got = f.id; } });
-      if (got) giveBall(got);
+      if (got) { giveBall(got); if (BASES[t.base] && defenseHuman()) { var tb2 = basePos(t.base); if (dist2(S.F[got].x, S.F[got].y, tb2[0], tb2[1]) > 1) S.autoRun = t.base; } } /* caught short of the bag: he keeps going onto it */
       else { /* nobody there: it hits the ground and keeps rolling the way it was thrown */
         var tdx = t.tx - t.sx, tdy = t.ty - t.sy, tl = Math.sqrt(tdx * tdx + tdy * tdy) || 1;
         bb.ux = tdx / tl; bb.uy = tdy / tl; bb.v = THROW * 0.55; bb.touched = true; sfx('thud');
@@ -1566,13 +1587,11 @@ function playMotion(dIn, free) {
     }
   }
 }
-/* invisible backstops: a wall in foul ground parallel to each line, and one behind home. Returns true on a bounce. */
+/* a loose ball bounces off the screen edges (and the stands wall past the foul poles) so it stays in view. Returns true on a bounce. */
 function backstops(bb) {
-  var BS = 26, k = 0.45, nx = 0, ny = 0, hit = false;
-  if (bb.x >= 0 && bb.y < bb.x - BS) { nx = -0.70711; ny = 0.70711; }
-  else if (bb.x < 0 && bb.y < -bb.x - BS) { nx = 0.70711; ny = 0.70711; }
-  else if (bb.y < -26) { nx = 0; ny = 1; }
-  else if (Math.abs(bb.x) > 148) { nx = bb.x > 0 ? -1 : 1; ny = 0; }
+  var k = 0.45, nx = 0, ny = 0, hit = false;
+  if (bb.y < EDGE_Y) { nx = 0; ny = 1; } /* bottom of the screen, behind home */
+  else if (Math.abs(bb.x) > EDGE_X) { nx = bb.x > 0 ? -1 : 1; ny = 0; } /* sides of the screen */
   else { var dd = Math.sqrt(bb.x * bb.x + bb.y * bb.y); if (bb.y < Math.abs(bb.x) && dd > 186) { nx = -bb.x / dd; ny = -bb.y / dd; } } /* stands wall past the foul poles */
   if (!nx && !ny) return false;
   var vx = bb.ux * bb.v, vy = bb.uy * bb.v, dot = vx * nx + vy * ny;
