@@ -88,6 +88,18 @@ CHECKS = {
     for (let i = 0; i < 900 && S.phase === 'batted'; i++) { T.C.tick(); if (S.playOuts === 1 && S.thr && S.thr.base === 1) tried = true; } return { outs: S.playOuts, tried }; };
   const right = run(-10), left = run(30);
   return { ok: right.outs === 2 && left.tried, right, left }; }""",
+'runner sent to an occupied base: the computer takes the out at first, then gets the stranded runner': r"""() => { const res = [];
+  for (const [ang, ev] of [[-6, 1.4], [-12, 1.4], [0, 1.7], [-25, 1.4]]) { T.start(true); const S = T.C.S; T.put([2, 3]); T.hit(ang, ev); let sent = false, first = null;
+    for (let i = 0; i < 900 && S.phase === 'batted'; i++) { if (!sent && S.holder) { T.press('l'); sent = true; } else T.C.tick(); if (S.thr && first == null) first = S.thr.base; }
+    res.push({ ang, firstThrow: first, batterOut: S.batR.out, outs: S.playOuts }); }
+  return { ok: res.every(r => r.firstThrow !== 3 && r.batterOut && r.outs === 2), plays: res }; }""",
+
+'a runner standing on a base is drawn in front of a fielder on the bag': r"""() => { document.getElementById('title').hidden = true; T.start(true); const S = T.C.S; T.put([2]); const r = S.runners[0]; r.lead = false; r.to = null;
+  S.phase = 'result'; S.rt = 999; S.wasLive = true; S.bb = T.I.mkBall(0, 125.9); S.holder = '2B'; S.F['2B'].x = 0.4; S.F['2B'].y = 125.9; document.getElementById('toast').classList.remove('on');
+  return new Promise(done => requestAnimationFrame(() => requestAnimationFrame(() => {
+    const cv = document.getElementById('cv'), k = cv.width / 844, d = cv.getContext('2d').getImageData(Math.round(420 * k), Math.round(146 * k), Math.max(1, Math.round(4 * k)), Math.max(1, Math.round(3 * k))).data;
+    let rr = 0, bl = 0; for (let i = 0; i < d.length; i += 4) { rr += d[i]; bl += d[i + 2]; }
+    S.rt = 1; done({ ok: rr > bl, red: rr, blue: bl }); }))); }""",
 }
 
 failed = 0

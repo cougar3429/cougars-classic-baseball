@@ -137,7 +137,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 71</small>
+    <small id="ver">Version 72</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -1348,6 +1348,7 @@ function cpuHolder() {
   var best = null, bm = -1e9, lead = null, dp = null;
   S.runners.forEach(function (r) {
     if (!alive(r) || r.to == null || r.award || r.trot || r.wait || r.lead) return;
+    if (r.to <= 3 && standingOn(r.to, r)) return; /* heading for an occupied base: he has to stop short of it, so a throw there gets nobody (version 72) */
     if (r.to < r.at) return; /* never throw at a runner going back: that only hands a base to the runner behind him */
     var k = r.to, b = basePos(k), force = r.forced && r.fb === k;
     var tRun = (1 - r.p) * legLen(r) / RSPD, dSelf = dist2(hp.x, hp.y, b[0], b[1]), tSelf = isOF(hid) ? 1e9 : dSelf / FSPD;
@@ -1378,7 +1379,7 @@ function cpuHolder() {
   var chase = null, cm = -1e9, hs = fspd(hid), busy = S.gatherT + (S.windT || 0);
   S.runners.forEach(function (r) {
     if (!alive(r) || r.to == null || r.award || r.trot || r.lead) return;
-    var a = basePos(r.at), b = basePos(r.to), L = legLen(r), tRem = r.wait ? 600 : (1 - r.p) * L / RSPD;
+    var a = basePos(r.at), b = basePos(r.to), L = legLen(r), tRem = r.wait ? strandTime(r, hp) : (1 - r.p) * L / RSPD;
     for (var t = 0; t <= Math.min(tRem, 600); t += 2) {
       var q = r.wait ? r.p : Math.min(1, r.p + RSPD * t / L), x = a[0] + (b[0] - a[0]) * q, y = a[1] + (b[1] - a[1]) * q;
       if (dist2(hp.x, hp.y, x, y) - TAG_R <= hs * Math.max(0, t - busy)) { if (tRem - t > cm) { cm = tRem - t; chase = [x, y]; } break; }
@@ -1395,6 +1396,13 @@ function cpuHolder() {
     return;
   }
   /* a runner stuck between bases near the ball: run him down */
+  /* a runner stranded short of an occupied base: throw behind him to cut off his way back (or ahead, if nobody covers behind) */
+  var sr = null; S.runners.forEach(function (r) { if (alive(r) && r.wait && r.to != null && r.to > r.at && !r.award && !r.trot) sr = r; });
+  if (sr) {
+    var back = sr.at >= 1 ? sr.at : null, cb = back && coverFor(back), ca = coverFor(sr.to);
+    if (cb && cb !== hid) { requestThrow(back); return; }
+    if (!cb && ca && ca !== hid) { requestThrow(sr.to); return; }
+  }
   var stuck = null;
   S.runners.forEach(function (r) { if (alive(r) && r.to != null && r.wait && !r.award) { var rp = rPos(r); if (dist2(hp.x, hp.y, rp[0], rp[1]) < 40) stuck = rp; } });
   if (stuck && !isOF(hid)) { moveToward(hid, stuck[0], stuck[1], FSPD); return; }
@@ -1405,6 +1413,12 @@ function cpuHolder() {
   if (anyOff()) return;
   if (hid === 'P') { if (!onMound() || dist2(hp.x, hp.y, S.pOff || 0, 61.6) > 1.5) moveToward('P', S.pOff || 0, 61.6, FSPD); return; } /* pitcher walks the ball back to the mound */
   requestThrow('P');
+}
+/* how long a stranded runner (stopped short of an occupied base) needs to get back to the base behind him; trapped if the man with the ball is on it */
+function strandTime(r, hp) {
+  if (r.at < 1 || standingOn(r.at, r)) return 600;
+  var bb = basePos(r.at); if (dist2(hp.x, hp.y, bb[0], bb[1]) < 6) return 600;
+  return r.p * legLen(r) / RSPD;
 }
 /* rundown: an infielder with the ball runs a retreating runner back toward his base and never throws at him.
    If the runner turns to go forward again, the normal rules take over: tag him, or throw ahead to a covered base only when the throw beats him. */
@@ -1822,7 +1836,7 @@ function render() {
     if (!alive(r)) return;
     var rp = rPos(r), q = proj(rp[0], rp[1]), rs = spriteScale(q[1]);
     var o = r.slide > 0 ? { noGlove: true, rot: -r.slideDir * 1.15, sy: 0.9 } : { noGlove: true, run: (r.to != null && !r.wait && !S.freezeR && (!r.lead || r.step)) ? S.t / (r.lead ? 5 : 2.8) : null };
-    list.push({ y: q[1], d: function () { drawFielder(ctx, q[0], q[1], rs, batCol, o); } });
+    list.push({ y: q[1] + (r.to == null || r.lead ? 6 : 0), d: function () { drawFielder(ctx, q[0], q[1], rs, batCol, o); } }); /* on a base he is drawn in front of a fielder standing on it */
   });
   if (!S.batterGone) list.push({ y: BAT_Y, d: function () { drawBatter(ctx, BAT_X + S.bOff.x * KX, BAT_Y - S.bOff.y * KY, BAT_S, batCol, batterPose()); } });
   if (!playing) {
