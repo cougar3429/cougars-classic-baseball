@@ -137,7 +137,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 70</small>
+    <small id="ver">Version 71</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -1192,7 +1192,7 @@ function wildPitch() {
   applyCallLive(c, 'WILD PITCH');
 }
 function resetPlay(keepF) {
-  S.cpuRunning = false; S.cpuRunTo = 0; S.animStart = null; S.gatherT = 0; S.windT = 0; S.thrWait = 0; S.queued = null; S.followT = 0; S.followId = null; S.freePlay = false; S.autoRun = 0; S.safeHold = 0;
+  S.cpuRunning = false; S.cpuRunTo = 0; S.animStart = null; S.gatherT = 0; S.windT = 0; S.thrWait = 0; S.pivot = false; S.queued = null; S.followT = 0; S.followId = null; S.freePlay = false; S.autoRun = 0; S.safeHold = 0;
   if (!keepF) { S.F = homePos(); S.F.P.x = S.pOff || 0; }
   S.ctl = 'P'; S.holder = null; S.thr = null; S.playT = 0; S.rd = null; S.cpuChase = null; S.cpuThrow = 0; S.thrFrom = null; S.thrT = 0; S.live = null; S.wildWait = false; S.holdT = 0;
 }
@@ -1229,8 +1229,11 @@ var GATHER_OF = 22, WIND_OF = 17, WIND_IF = 11, FOLLOW_T = 22;
 var C_WIND = 6, C_THROW = 1.75;
 function isOF(id) { return id === 'LF' || id === 'CF' || id === 'RF'; }
 function stealThrow(id) { return id === 'C' && !!S.live && S.live.kind === 'steal'; }
-function windFor(id) { return isOF(id) ? WIND_OF : stealThrow(id) ? C_WIND : WIND_IF; }
-function armFor(id) { return stealThrow(id) ? C_THROW : THROW; }
+/* pivot (version 71): an infielder who takes a throw at a base and throws on gets it away a little quicker */
+var PIVOT_WIND = 5, PIVOT_THROW = 1.3;
+function pivoting(id) { return S.pivot && id === S.holder; }
+function windFor(id) { return isOF(id) ? WIND_OF : stealThrow(id) ? C_WIND : pivoting(id) ? PIVOT_WIND : WIND_IF; }
+function armFor(id) { return stealThrow(id) ? C_THROW : pivoting(id) ? PIVOT_THROW : THROW; }
 function requestThrow(base) {
   if (!S.holder) return;
   if (base === 'P' && S.holder === 'P') return; /* he already has it */
@@ -1285,7 +1288,7 @@ function baseCovered(base, exceptId) {
   FIELDERS.forEach(function (f) { if (f.id === exceptId) return; var p = S.F[f.id]; if (dist2(p.x, p.y, b[0], b[1]) < 4.5) hit = true; });
   return hit;
 }
-function giveBall(id) { S.cpuRunning = false; S.cpuRunTo = 0; S.holdT = 0; S.animStart = null; if (S.bb) S.bb.touched = true; S.gatherT = isOF(id) ? GATHER_OF : 0; S.windT = 0; S.thrWait = 0; S.queued = null; S.holder = id; S.ctl = id; S.thr = null; S.cpuChase = null; var bb = S.bb; bb.v = 0; bb.h = 0; sfx('glove'); }
+function giveBall(id) { S.cpuRunning = false; S.cpuRunTo = 0; S.holdT = 0; S.animStart = null; if (S.bb) S.bb.touched = true; S.gatherT = isOF(id) ? GATHER_OF : 0; S.windT = 0; S.thrWait = 0; S.pivot = false; S.queued = null; S.holder = id; S.ctl = id; S.thr = null; S.cpuChase = null; var bb = S.bb; bb.v = 0; bb.h = 0; sfx('glove'); }
 function coverFor(base) { var c = coverers(), who = null; Object.keys(c).forEach(function (id) { if (c[id] === base && id !== S.holder) who = id; }); return who; }
 function coverers() {
   var c = {}; Object.keys(COVER).forEach(function (id) { c[id] = COVER[id]; });
@@ -1546,7 +1549,7 @@ function playMotion(dIn, free) {
       var got = null, gd = 5;
       if (t.player && dist2(S.F[t.player].x, S.F[t.player].y, t.x, t.y) < 8) got = t.player; /* the intended man still makes the catch if he drifted a little */
       else FIELDERS.forEach(function (f) { if (f.id === S.thrFrom) return; var fp = S.F[f.id], dd = dist2(fp.x, fp.y, t.x, t.y); if (dd < gd) { gd = dd; got = f.id; } });
-      if (got) { giveBall(got); if (BASES[t.base] && defenseHuman()) { var tb2 = basePos(t.base); if (dist2(S.F[got].x, S.F[got].y, tb2[0], tb2[1]) > 1) S.autoRun = t.base; } } /* caught short of the bag: he keeps going onto it */
+      if (got) { giveBall(got); S.pivot = !!BASES[t.base] && !isOF(got) && got !== 'C'; if (BASES[t.base] && defenseHuman()) { var tb2 = basePos(t.base); if (dist2(S.F[got].x, S.F[got].y, tb2[0], tb2[1]) > 1) S.autoRun = t.base; } } /* caught short of the bag: he keeps going onto it */
       else { /* nobody there: it hits the ground and keeps rolling the way it was thrown */
         var tdx = t.tx - t.sx, tdy = t.ty - t.sy, tl = Math.sqrt(tdx * tdx + tdy * tdy) || 1;
         bb.ux = tdx / tl; bb.uy = tdy / tl; bb.v = THROW * 0.55; bb.touched = true; sfx('thud');
