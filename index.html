@@ -214,7 +214,10 @@ var FIELDERS = [
   { id: 'CF', x: 0, y: 163, r: 6, inf: false },
   { id: 'RF', x: 79, y: 137, r: 6, inf: false }
 ];
-var BASES = { 1: [63.6, 63.6], 2: [0, 127.3], 3: [-63.6, 63.6], 4: [0, -1] };
+/* first and third base bags sit entirely in fair territory: the outside edge lies on the foul line and the back corner is at the 90-foot point (63.6, 63.6).
+   BAG_D is the bag's half-diagonal; base positions are the bag centers */
+var BAG_D = 3.4;
+var BASES = { 1: [63.6 - BAG_D, 63.6], 2: [0, 127.3], 3: [-63.6 + BAG_D, 63.6], 4: [0, -1] };
 var DIR_BASE = { r: 1, u: 2, l: 3, d: 4 };
 var PAIRS = { r: ['1B', 'RF'], u: ['2B', 'CF'], l: ['3B', 'LF'], d: ['C', 'C'] };
 var COVER = { '1B': 1, '2B': 2, '3B': 3, 'C': 4 };
@@ -302,7 +305,7 @@ function buildField() {
   var tp = fencePts(5); c.strokeStyle = T.track; c.lineWidth = 18; c.beginPath(); tp.forEach(function (p, i) { if (i) c.lineTo(p[0], p[1]); else c.moveTo(p[0], p[1]); }); c.stroke();
   var mdp = proj(0, 61.6); c.fillStyle = T.dirt; c.beginPath(); c.ellipse(HX, mdp[1] - 6, 236 * KX / 2.99 * 1.05, 100 * KY / 1.46, 0, 0, 7); c.fill();
   c.restore();
-  var b1 = proj(63.6, 63.6), b2 = proj(0, 127.3), b3 = proj(-63.6, 63.6), md = proj(0, 61.6);
+  var b1 = proj(BASES[1][0], BASES[1][1]), b2 = proj(BASES[2][0], BASES[2][1]), b3 = proj(BASES[3][0], BASES[3][1]), md = proj(0, 61.6), bw = BAG_D * KX, bh = BAG_D * KY;
   function shrink(p, k) { return [md[0] + (p[0] - md[0]) * k, md[1] + (p[1] - md[1]) * k]; }
   var g1 = shrink(b1, 0.8), g2 = shrink(b2, 0.8), g3 = shrink(b3, 0.8), gh = shrink([HX, HY], 0.74);
   c.fillStyle = T.infGrass; c.beginPath(); c.moveTo(gh[0], gh[1]); c.lineTo(g1[0], g1[1]); c.lineTo(g2[0], g2[1]); c.lineTo(g3[0], g3[1]); c.closePath(); c.fill();
@@ -322,7 +325,7 @@ function buildField() {
   c.fillStyle = '#ffffff';
   function poly(pts) { c.beginPath(); pts.forEach(function (p, i) { if (i) c.lineTo(p[0], p[1]); else c.moveTo(p[0], p[1]); }); c.closePath(); c.fill(); if (T.outline) { c.strokeStyle = T.outline; c.lineWidth = 0.9; c.stroke(); } }
   poly([[HX - 7, HY - 5], [HX + 7, HY - 5], [HX + 7, HY - 1], [HX, HY + 3], [HX - 7, HY - 1]]);
-  [b1, b2, b3].forEach(function (b) { poly([[b[0], b[1] - 4], [b[0] + 10, b[1]], [b[0], b[1] + 4], [b[0] - 10, b[1]]]); });
+  [b1, b2, b3].forEach(function (b) { poly([[b[0], b[1] - bh], [b[0] + bw, b[1]], [b[0], b[1] + bh], [b[0] - bw, b[1]]]); });
   // fence wall
   function wall(off) { c.beginPath(); c.moveTo(0, poleL[1] + 24 + off); c.lineTo(poleL[0], poleL[1] + off); for (var i = fp.length - 1; i >= 0; i--) c.lineTo(fp[i][0], fp[i][1] + off); c.lineTo(W, poleR[1] + 24 + off); }
   c.lineJoin = 'round';
@@ -648,14 +651,33 @@ function takeLeads() {
   var cpuBat = batSide() === 'cpu';
   S.runners.forEach(function (r) {
     if (!alive(r) || r.to != null || r.at < 1 || r.at > 3) return;
-    r.lead = true; r.to = r.at + 1; r.p = 0; r.go = false; r.next = null;
+    r.lead = true; r.to = r.at + 1; r.p = 0; r.go = false; r.next = null; r.snap = r.at;
   });
   if (cpuBat) S.runners.forEach(function (r) { /* computer runners decide now whether they will steal (rarely) */
     if (alive(r) && r.lead && r.at < 3 && !standingOn(r.at + 1, r)) r.go = S.rng() < (r.at === 1 ? 0.07 : 0.03);
   });
 }
 /* runners told to steal break for the next base; the rest hold their lead */
-function startSteals() { S.runners.forEach(function (r) { if (alive(r) && r.lead && r.go) { r.lead = false; r.go = false; } }); }
+function startSteals() {
+  S.runners.forEach(function (r) {
+    if (!alive(r) || !r.go) return;
+    r.go = false;
+    if (r.lead) r.lead = false;
+    else if (r.to == null && r.at < 3 && !standingOn(r.at + 1, r)) { r.to = r.at + 1; r.p = 0; }
+  });
+}
+/* the pickoff play starts when the set pitcher taps the button: runners told to steal go now, the rest dive back */
+function callPick() {
+  if (S.pick) return;
+  S.pick = true; S.pickQ = 0;
+  S.runners.forEach(function (r) {
+    if (!alive(r)) return;
+    if (r.lead) { var g = r.go; r.lead = false; r.go = false; if (!g) reverse(r); }
+    else if (r.go && r.to == null && r.at < 3 && !standingOn(r.at + 1, r)) { r.go = false; r.to = r.at + 1; r.p = 0; }
+  });
+  S.pickRun = anyStealing();
+  hint();
+}
 /* everyone still on a lead goes back to his base */
 function returnLeads() { S.runners.forEach(function (r) { if (alive(r) && r.lead) { r.lead = false; r.go = false; reverse(r); } }); }
 function newRunner(at, to) { var r = { at: at, to: to, p: 0, forced: false, fb: 0, award: false, awardB: 0, out: false, scored: false, bat: false, slide: 0, slideDir: 1, wait: false, trot: false, rev: 0, dest: null, snap: at, lead: false, go: false, next: null }; S.runners.push(r); return r; }
@@ -674,9 +696,15 @@ function sendRunner(r, T) {
     if (T === r.at) { r.lead = false; r.go = false; reverse(r); return true; }
     return false;
   }
+  if (r.to == null && S.phase === 'ready') {
+    if (S.pick) return false;
+    if (T === r.at + 1 && T <= 3) { r.go = true; return true; }
+    if (T === r.at) { r.go = false; return true; }
+    return false;
+  }
   if (r.to == null) {
     if (T === r.at + 1 && T <= 4) { r.to = T; r.p = 0; return true; }
-    if (T === r.at - 1 && T >= 1) { r.to = T; r.p = 0; return true; }
+    if (T === r.at - 1 && T >= 1 && (r.bat || T >= r.snap)) { r.to = T; r.p = 0; return true; } /* never back past the base he started the play on */
     return false;
   }
   if (T === r.at && !r.forced && T >= 1) { reverse(r); return true; }
@@ -914,19 +942,25 @@ function readyStep(youBat, pIn, bIn) {
   moveBatter(youBat, bIn);
   if (!youBat) {
     if (S.pick) {
+      if (pickSettled()) return;
       if (S.pickQ) { if (pickReady()) return; }
       else if (pIn.dir) { S.pickQ = DIR_BASE[pIn.dir]; S.pickQT = 0; if (pickReady()) return; }
-      else if (pIn.btn) { S.pick = false; sfx('click'); hint(); }
+      else if (pIn.btn && !anyStealing()) { S.pick = false; sfx('click'); hint(); } /* can't call it off with a runner going */
     } else if (pIn.btn && pIn.dir) { startWindup(pIn.dir); return; }
-    else if (pIn.btn) { if (S.lock) S.pick = true; else S.lock = true; sfx('click'); hint(); }
+    else if (pIn.btn) { if (S.lock) callPick(); else S.lock = true; sfx('click'); hint(); }
     else if (!S.lock && (pIn.dir === 'l' || pIn.dir === 'r')) S.pOff = Math.max(-6, Math.min(6, S.pOff + (pIn.dir === 'l' ? -0.2 : 0.2)));
   } else {
     var cp = S.cpuP;
     if (cp && cp.slide != null) { var sd = cp.slide - S.pOff; S.pOff += Math.max(-0.2, Math.min(0.2, sd)); }
     S.F.P.x = S.pOff;
     if (cp && cp.pick) {
-      if (S.pt >= 10) S.pick = true;
-      if (S.pt >= 40 && !S.pickQ) { S.pickQ = cp.pick; S.pickQT = 0; }
+      if (S.pt >= 10) callPick();
+      if (S.pick && pickSettled()) { cp.pick = 0; return; }
+      if (S.pick && !S.pickQ) { /* a runner breaks: throw to the base he is stealing */
+        var st = null; S.runners.forEach(function (r) { if (alive(r) && !r.lead && r.to != null && r.to > r.at && (!st || r.to > st.to)) st = r; });
+        if (st) { S.pickQ = st.to; S.pickQT = 0; }
+        else if (S.pt >= 40) { S.pickQ = cp.pick; S.pickQT = 0; }
+      }
       if (S.pickQ && pickReady()) cp.pick = 0;
       return;
     }
@@ -948,9 +982,15 @@ function stealCover() {
 function coverForPick() {
   ['1B', '2B', '3B'].forEach(function (id) {
     var f = S.F[id], h = FDEF[id], k = COVER[id], b = BASES[k];
-    if (S.pick && (standingOn(k) || S.pickQ === k)) { if (dist2(f.x, f.y, b[0], b[1]) > 0.4) moveToward(id, b[0], b[1], FSPD); }
+    if (S.pick && (standingOn(k) || S.pickQ === k || S.runners.some(function (r) { return alive(r) && !r.lead && r.to === k && r.to > r.at; }))) { if (dist2(f.x, f.y, b[0], b[1]) > 0.4) moveToward(id, b[0], b[1], FSPD); }
     else if (dist2(f.x, f.y, h.x, h.y) > 0.4) moveToward(id, h.x, h.y, FSPD * 0.7);
   });
+}
+/* every runner who broke on the pickoff reached his base before the throw: stolen base, pitcher steps off */
+function pickSettled() {
+  if (!S.pickRun || anyStealing() || S.pickQ) return false;
+  S.pick = false; S.pickRun = false; S.lock = false;
+  toast('STOLEN BASE', null, 70); sfx('slide'); hint(); return true;
 }
 /* a pickoff throw pressed early is held until the man covering is on the bag (at most 1.5 s) */
 function pickReady() {
@@ -966,8 +1006,8 @@ function startWindup(dir) {
   startSteals();
 }
 function doPickoff(base) {
-  S.pick = false; S.lock = false; S.pickQ = 0;
-  snapRunners(); S.playRuns = 0; S.playOuts = 0;
+  S.pick = false; S.lock = false; S.pickQ = 0; S.pickRun = false;
+  S.playRuns = 0; S.playOuts = 0;
   /* runners told to steal go now; the rest dive back */
   S.runners.forEach(function (r) { if (alive(r) && r.lead) { var g = r.go; r.lead = false; r.go = false; if (!g) reverse(r); } });
   resetPlay(true);
@@ -1113,7 +1153,7 @@ function wildPitch() {
 function resetPlay(keepF) {
   S.cpuRunning = false; S.cpuRunTo = 0; S.animStart = null; S.gatherT = 0; S.windT = 0; S.queued = null; S.followT = 0; S.followId = null; S.freePlay = false; S.autoRun = 0; S.safeHold = 0;
   if (!keepF) { S.F = homePos(); S.F.P.x = S.pOff || 0; }
-  S.ctl = 'P'; S.holder = null; S.thr = null; S.playT = 0; S.cpuChase = null; S.cpuThrow = 0; S.thrFrom = null; S.thrT = 0; S.live = null; S.wildWait = false; S.holdT = 0;
+  S.ctl = 'P'; S.holder = null; S.thr = null; S.playT = 0; S.rd = null; S.cpuChase = null; S.cpuThrow = 0; S.thrFrom = null; S.thrT = 0; S.live = null; S.wildWait = false; S.holdT = 0;
 }
 function defenseHuman() { return batSide() === 'cpu'; }
 var CATCHER_WAIT = 30;
@@ -1238,6 +1278,7 @@ function cpuHolder() {
   if (S.queued != null || S.animStart != null) return; /* already throwing */
   var steal = stealThrow(hid);
   if (steal && S.playT < S.cReact) return; /* computer catcher: random reaction, 0 to 0.4 s */
+  if (rundown(hid, hp)) return;
   if (S.cpuRunTo) {
     var rt = S.cpuRunTo, tb = basePos(rt), still = S.runners.some(function (r) { return alive(r) && r.to === rt && !r.award; });
     if (still && dist2(hp.x, hp.y, tb[0], tb[1]) > 1.5) { S.cpuRunning = true; moveToward(hid, tb[0], tb[1], FSPD); return; }
@@ -1283,6 +1324,27 @@ function cpuHolder() {
   if (isOF(hid)) { requestThrow(2); return; } /* outfielders get it back in to second */
   if (anyMoving()) return; /* infielder: hold the ball while runners are moving */
   if (hid !== 'P') requestThrow('P');
+}
+/* a runner heading for the base this fielder holds turns back after getting more than halfway: run him down,
+   and throw ahead to the base he is going back to only when the throw will just beat him */
+function rundown(hid, hp) {
+  if (isOF(hid)) return false;
+  var r = S.rd;
+  if (r && (!alive(r) || r.to == null || r.award || r.trot)) r = S.rd = null;
+  if (!r) S.runners.forEach(function (x) {
+    if (S.rd || !alive(x) || x.to == null || x.lead || x.trot || x.award || x.to >= x.at || x.p >= 0.5) return;
+    var fb = basePos(x.at); if (dist2(hp.x, hp.y, fb[0], fb[1]) < 15) S.rd = x;
+  });
+  r = S.rd; if (!r) return false;
+  var rp = rPos(r);
+  if (r.to < r.at) {
+    var k = r.to, kb = basePos(k), cov = coverFor(k);
+    if (cov && cov !== hid && baseCovered(k, hid)) {
+      var tRun = (1 - r.p) * legLen(r) / RSPD, tThr = windFor(hid) + dist2(hp.x, hp.y, kb[0], kb[1]) / armFor(hid);
+      if (tRun - tThr < 14 && tRun - tThr > 2) { S.rd = null; requestThrow(k); return true; }
+    }
+  }
+  moveToward(hid, rp[0], rp[1], FSPD); return true;
 }
 function cpuDefense() {
   var bb = S.bb;
@@ -1413,7 +1475,7 @@ function playMotion(dIn, free) {
     /* fair/foul: foul if fully outside the line (ball + chalk) before passing first or third base; fair for good once past the bag */
     if (!free && !bb.fairLocked && !bb.wall && !bb.touched) {
       var rr2 = Math.sqrt(bb.x * bb.x + bb.y * bb.y), outside = bb.y < Math.abs(bb.x) - 1.0;
-      if (dist2(bb.x, bb.y, BASES[1][0], BASES[1][1]) < 2.5 || dist2(bb.x, bb.y, BASES[3][0], BASES[3][1]) < 2.5) bb.fairLocked = true; /* over the bag = fair */
+      if (Math.abs(bb.x - BASES[1][0]) + Math.abs(bb.y - BASES[1][1]) < BAG_D + 0.7 || Math.abs(bb.x - BASES[3][0]) + Math.abs(bb.y - BASES[3][1]) < BAG_D + 0.7) bb.fairLocked = true; /* touches the bag = fair */
       if (!bb.fairLocked && outside && (rr2 > 3 || bb.v === 0)) { bb.foul = true; bb.t = 0; foulReturn(); S.holder = null; setLive(true); return 'stop'; }
       if (rr2 >= 90 && !outside) bb.fairLocked = true;
       if (bb.v === 0 && !outside) bb.fairLocked = true;
@@ -1493,7 +1555,7 @@ function afterResult() {
     if (kind !== 'side') { S.after = 'side'; S.phase = 'result'; S.rt = 80; toast('SIDE RETIRED', null, 80); if (Math.random() < 0.5) sfx('organ', null, 0.6); return; }
   }
   if (kind === 'side') { S.half++; if (gameOver()) return endGame(); startHalf(); return; }
-  S.phase = 'ready'; S.pt = 0; S.cpuP = null; S.pickQ = 0; takeLeads(); updateHUD(); hint();
+  S.phase = 'ready'; S.pt = 0; S.cpuP = null; S.pickQ = 0; S.pickRun = false; takeLeads(); updateHUD(); hint();
 }
 function homeSide() { return S.vis === 'you' ? 'cpu' : 'you'; }
 function gameOver() {
@@ -1516,7 +1578,7 @@ function hint() {
   if (!S || S.over) { h.textContent = ''; return; }
   if (S.phase === 'batted' && S.live) { h.textContent = defenseHuman() ? 'Arrows move · Arrow + button: pick fielder, or throw to that base · Button: throw to pitcher' : 'Arrow + button: send runners to that base, forward or back (also while running)'; return; }
   if (batSide() === 'you') h.textContent = runnersOn() ? 'Arrow + tap now: runner steals on the pitch · Tap swing · Up + tap power · Down + tap bunt' : 'Tap to swing · Down + tap to square around and bunt (any time) · Up + tap for power';
-  else h.textContent = S.pick ? 'Pickoff: press a direction to throw to that base · Button calls it off' : S.lock ? 'Set · Hold a direction, then tap to pitch · Tap alone: pickoff move' : 'Left/right: slide on the rubber · Tap: set · Hold a direction, then tap to pitch';
+  else h.textContent = S.pick ? (anyStealing() ? 'Runner going! Press a direction to throw to that base' : 'Pickoff: press a direction to throw to that base · Button calls it off') : S.lock ? 'Set · Hold a direction, then tap to pitch · Tap alone: pickoff move' : 'Left/right: slide on the rubber · Tap: set · Hold a direction, then tap to pitch';
 }
 function updateHUD() {
   $('sv').textContent = S.score[S.vis]; $('sh').textContent = S.score[homeSide()];
