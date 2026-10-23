@@ -1,8 +1,9 @@
 """Online 2-player check: two copies of the real game (net.html, with a stand-in for supabase-js) play each other
 through the real lobby buttons: Ann hosts, Bob asks to join, Ann denies once, Bob asks again, Ann accepts.
 Both then play for a while with made-up inputs at real speed over a laggy simulated network.
-Passes when both phones have played, the game states they reached agree at every checked tick (fingerprints
-of final states), and when Bob quits, Ann is told.
+Passes when both phones have played and their game states agree at every checked tick (fingerprints of final
+states); when Bob's connection drops for 6 s, Ann is offered the choices and play picks up by itself when he is back
+(lost moves are resent); and when Bob quits, Ann can finish the game against the computer.
 
   python3 net.py [seconds_of_play] [lag_ms]
 """
@@ -62,18 +63,44 @@ def main():
         if len(common) < 20: problems.append(f'only {len(common)} ticks to compare')
         if bad: problems.append(f'the phones disagree from tick {bad[0]} ({len(bad)} of {len(common)} checked ticks)')
         if info[0]['me'] != 'you' or info[1]['me'] != 'cpu': problems.append(f"teams {info[0]['me']}/{info[1]['me']}")
-        # Bob quits: Ann should be told
+        # Bob's connection drops for 6 s (everything he sends or receives is lost): Ann gets the choices and waits; when Bob is back, lost moves are resent and play picks up
+        bob.evaluate('() => { window.__mockDrop = true; }')
+        try: A.locator('#netwait').wait_for(state='visible', timeout=8000); shown = A.locator('#nwh').inner_text()
+        except Exception: shown = None; problems.append('Ann did not get the choices when Bob dropped out')
+        if shown: A.locator('#nwait').click()
+        pg.wait_for_timeout(3000)
+        bob.evaluate('() => { window.__mockDrop = false; }')
+        try: A.locator('#netwait').wait_for(state='hidden', timeout=10000); healed = True
+        except Exception: healed = False; problems.append('play did not pick up after Bob came back')
+        t_before = [f.evaluate('() => window.__ccb.S.t') for f in (ann, bob)]
+        ann.evaluate(DRIVE, 33); bob.evaluate(DRIVE, 44); pg.wait_for_timeout(5000)
+        for f in (ann, bob): f.evaluate('() => clearInterval(window.__drive)')
+        pg.wait_for_timeout(1500)
+        info2 = [f.evaluate("() => ({ t: window.__ccb.S.t, hashes: window.__ccb.RB.hashes })") for f in (ann, bob)]
+        common2 = sorted(set(info2[0]['hashes']) & set(info2[1]['hashes']), key=int)
+        bad2 = [k for k in common2 if info2[0]['hashes'][k] != info2[1]['hashes'][k]]
+        if bad2: problems.append(f'after the dropout the phones disagree from tick {bad2[0]}')
+        if not all(b > a + 100 for a, b in zip(t_before, [i['t'] for i in info2])): problems.append('play did not continue after the dropout')
+        # Bob quits: Ann gets the choices without WAIT, picks FINISH VS CPU, and her game goes on against the computer
         B.locator('#menu').click(); B.locator('#qyes').click()
-        try: A.locator('#nmp', has_text='Bob').wait_for(timeout=5000); told = A.locator('#nmp').inner_text()
-        except Exception: told = None; problems.append('Ann was not told that Bob left')
+        try: A.locator('#nwp', has_text='quit').wait_for(timeout=5000); told = A.locator('#nwp').inner_text()
+        except Exception: told = None; problems.append('Ann was not told that Bob quit')
+        wait_hidden = A.locator('#nwait').is_hidden()
+        if not wait_hidden: problems.append('WAIT FOR RECONNECT was offered after Bob quit')
+        A.locator('#ncpu').click()
+        t_cpu = ann.evaluate('() => window.__ccb.S.t'); pg.wait_for_timeout(3000)
+        cpu = ann.evaluate("() => ({ t: window.__ccb.S.t, ai: window.__ccb.S.ai, label: document.getElementById('wl').textContent + '/' + document.getElementById('wr').textContent })")
+        if not (cpu['ai']['cpu'] and cpu['t'] > t_cpu + 100): problems.append(f'finish vs CPU did not take over: {cpu}')
         br.close()
     srv.shutdown()
     for who, i in zip(('Ann (host)', 'Bob (guest)'), info):
         print(f"{who}: tick {i['t']}, half {i['half']}, score {i['score']}, re-runs {i['rolls']} ({i['rolled']} ticks)")
-    print(f'scoreboard labels Ann/Bob: {names}; checked ticks {len(common)}; Ann told: {told!r}')
+    print(f'scoreboard labels Ann/Bob: {names}; checked ticks {len(common)}')
+    print(f'dropout: choices shown as {shown!r}, play picked up: {healed}, checked ticks after: {len(common2)}')
+    print(f'quit: Ann told {told!r}; after FINISH VS CPU: {cpu}')
     for x in problems + errs[:5]: print('   ', x)
     ok = not problems and not errs
-    print('PASS' if ok else 'FAIL', '- online 2-player: lobby, deny, accept, play, agree, quit')
+    print('PASS' if ok else 'FAIL', '- online 2-player: lobby, deny, accept, play, agree, dropout and reconnect, quit, finish vs CPU')
     sys.exit(0 if ok else 1)
 
 

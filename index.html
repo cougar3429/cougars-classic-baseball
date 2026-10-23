@@ -74,6 +74,8 @@ body.day { background: #4f9e44; }
 .tip input { width: 22px; height: 22px; accent-color: var(--gold); margin: 0; }
 #ver { position: absolute; right: 14px; bottom: 10px; font: 700 13px var(--font-body); letter-spacing: 0.08em; color: #cfdccf; }
 #setup { gap: 9px; }
+#netwait .big-btn { font-size: 16px; padding: 8px 16px; min-height: 44px; }
+#netwait .big-btn:disabled { opacity: 0.55; cursor: default; }
 #lobby { gap: 10px; justify-content: flex-start; padding-top: 14px; }
 #lobby h1 { font-size: 30px; }
 .lobby { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; width: 100%; max-width: 720px; text-align: left; }
@@ -155,7 +157,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 77</small>
+    <small id="ver">Version 78</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -200,6 +202,16 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     <h1 id="nmh">Opponent Left</h1>
     <p id="nmp"></p>
     <button class="big-btn" id="nmok" type="button">BACK TO MENU</button>
+  </section>
+
+  <section class="screen" id="netwait" hidden>
+    <h1 id="nwh">Connection Lost</h1>
+    <p id="nwp"></p>
+    <div class="row">
+      <button class="big-btn" id="nwait" type="button" style="background:#2f6fe0">WAIT FOR RECONNECT</button>
+      <button class="big-btn" id="ncpu" type="button">FINISH VS CPU</button>
+      <button class="big-btn" id="nquit" type="button" style="background:#5b6470">QUIT GAME</button>
+    </div>
   </section>
 
   <section class="screen" id="quit" hidden>
@@ -1834,6 +1846,7 @@ var RB = {
   /* an opponent input arrived */
   recv: function (t, p) {
     if (this.remote[t] || t <= this.base) return;
+    if (t <= S.t && !this.used[t]) return; /* already final (a resent move for a tick this phone has settled) */
     this.remote[t] = p;
     if (t <= S.t && !sameIn(this.used[t], p) && (this.dirty == null || t < this.dirty)) this.dirty = t;
   },
@@ -2020,8 +2033,8 @@ var acc = 0, last = 0;
 function frame(now) {
   if (!last) last = now; acc += Math.min(250, now - last); last = now;
   if (NET.live && S && !S.over) {
-    while (acc >= TICK) { var m = RB.step(readHuman()); if (!m) { acc = 0; break; } NET.out(m.t, m.i); acc -= TICK; } /* null: waiting on the opponent */
-    NET.flush();
+    while (acc >= TICK) { var m = RB.step(readHuman()); NET.stepOk = !!m; if (!m) { acc = 0; break; } NET.out(m.t, m.i); acc -= TICK; } /* null: waiting on the opponent */
+    NET.flush(); NET.resend(now); NET.watch(now);
   } else if (S && !S.over && !S.paused) { while (acc >= TICK) { tick(); acc -= TICK; } } else acc = 0;
   render();
   requestAnimationFrame(frame);
@@ -2033,10 +2046,12 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = 77; /* only games on the same build are listed */
+var PROTO = 78; /* only games on the same build are listed */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
+  log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null,
   out: function (t, p) {
+    this.log[t] = p; this.lastSent = t;
     if (!this.pend) { this.pend = { a: t, b: t, r: [[t, p]] }; this.lastP = p; this.changed = true; return; }
     if (!sameIn(this.lastP, p)) { this.pend.r.push([t, p]); this.changed = true; }
     this.pend.b = t; this.lastP = p;
@@ -2044,16 +2059,30 @@ var NET = {
   flush: function () {
     var pd = this.pend; if (!pd || !this.ch) return;
     if (!this.changed && pd.b - pd.a < 5) return;
-    this.ch.send({ type: 'broadcast', event: 'in', payload: { a: pd.a, b: pd.b, r: pd.r } });
+    this.ch.send({ type: 'broadcast', event: 'in', payload: { a: pd.a, b: pd.b, r: pd.r, k: RB.confirmed() } });
     this.pend = null; this.changed = false;
   },
+  /* moves the opponent hasn't confirmed are sent again (they were lost while a phone was away) */
+  resend: function (now) {
+    if (!this.ch || now - this.lastResend < 600 || this.lastSent - this.oppAck <= 20) return;
+    this.lastResend = now;
+    var a = this.oppAck + 1, b = Math.min(this.lastSent, a + 600), r = [], last = null;
+    for (var t = a; t <= b; t++) { var p = this.log[t]; if (!p) continue; if (!r.length || !sameIn(last, p)) r.push([t, p]); last = p; }
+    if (r.length) { if (r[0][0] !== a) a = r[0][0]; this.ch.send({ type: 'broadcast', event: 'in', payload: { a: a, b: b, r: r, k: RB.confirmed() } }); }
+  },
+  /* the opponent's moves stopped arriving: after 3 s the waiting player gets the choices; they close by themselves when play picks up */
+  watch: function (now) {
+    if (!this.stepOk) { if (!this.stallAt) this.stallAt = now; else if (now - this.stallAt > 3000 && !this.wait) showWait('stall'); }
+    else { this.stallAt = 0; if (this.wait && this.wait !== 'quit') hideWait(); }
+  },
   recv: function (m) {
+    if (m.k != null && m.k > this.oppAck) { for (var x in this.log) if (+x <= m.k) delete this.log[x]; this.oppAck = m.k; }
     var j = 0, r = m.r;
     for (var t = m.a; t <= m.b; t++) { while (j + 1 < r.length && r[j + 1][0] <= t) j++; RB.recv(t, r[j][1]); }
   },
   leave: function (tell) {
     if (this.ch) { try { if (tell) this.ch.send({ type: 'broadcast', event: 'bye', payload: {} }); } catch (e) { } var c = this.ch; this.ch = null; setTimeout(function () { try { NET.sb.removeChannel(c); } catch (e) { } }, 300); }
-    this.live = false; RB.on = false; this.pend = null;
+    this.live = false; RB.on = false; this.pend = null; this.log = {}; hideWait();
   }
 };
 try { NET.name = localStorage.getItem('ccb-name') || ''; } catch (e) { }
@@ -2072,14 +2101,14 @@ function lobbyOpen() {
     catch (e) { lobbyStatus("Couldn't start the connection to the game server."); }
   });
 }
-function lobbyClose() { $('lobby').hidden = true; if (NET.lobby) { var c = NET.lobby; NET.lobby = null; try { NET.sb.removeChannel(c); } catch (e) { } } NET.hosting = false; }
+function lobbyClose(later) { $('lobby').hidden = true; NET.hosting = false; if (NET.lobby) { var c = NET.lobby; NET.lobby = null; var go = function () { try { NET.sb.removeChannel(c); } catch (e) { } }; if (later) setTimeout(go, 2000); else go(); } }
 function joinLobby() {
   if (NET.lobby) return;
   var ch = NET.sb.channel('ccb-lobby', { config: { presence: { key: NET.id }, broadcast: { self: false } } });
   ch.on('presence', { event: 'sync' }, renderGames)
     .on('broadcast', { event: 'req' }, function (m) { var p = m.payload; if (p.to === NET.id && NET.hosting) { NET.reqs[p.from] = p.name; renderReqs(); sfx('click'); } })
     .on('broadcast', { event: 'unreq' }, function (m) { var p = m.payload; if (p.to === NET.id) { delete NET.reqs[p.from]; renderReqs(); } })
-    .on('broadcast', { event: 'resp' }, function (m) { var p = m.payload; if (p.to === NET.id && NET.asked === p.from) onAnswer(p); })
+    .on('broadcast', { event: 'resp' }, function (m) { var p = m.payload; if (p.to === NET.id && p.from && (NET.asked === p.from || NET.askedLast === p.from) && !NET.ch) onAnswer(p); }) /* the host's listing can vanish just before the answer arrives */
     .subscribe(function (status) {
       if (status === 'SUBSCRIBED') trackMe();
       else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') lobbyStatus("Couldn't connect to the game server. Tap BACK and try again.");
@@ -2107,7 +2136,7 @@ function renderGames() {
 }
 function askJoin(id, name) {
   NET.name = myName(); try { localStorage.setItem('ccb-name', NET.name); } catch (e) { }
-  NET.asked = id; NET.askedName = name; sfx('click');
+  NET.asked = id; NET.askedLast = id; NET.askedName = name; sfx('click');
   NET.lobby.send({ type: 'broadcast', event: 'req', payload: { to: id, from: NET.id, name: NET.name } });
   lobbyStatus('Asked ' + name + '. Waiting for an answer…'); renderGames();
 }
@@ -2134,7 +2163,7 @@ function acceptReq(id) {
   startOnline('host', g, name, id);
 }
 function startOnline(role, g, oppName, oppId) {
-  lobbyClose();
+  lobbyClose(true); /* stay in the lobby channel a moment so the answer gets through before this listing disappears */
   NET.role = role; NET.oppName = oppName; NET.oppId = oppId; NET.g = g; NET.heard = false; NET.started = false;
   $('netmsg').hidden = false; $('nmh').textContent = 'Starting'; $('nmp').textContent = 'Connecting to ' + oppName + '…'; $('nmok').textContent = 'CANCEL';
   var ch = NET.sb.channel('ccb-g-' + g.room, { config: { presence: { key: NET.id }, broadcast: { self: false } } });
@@ -2142,8 +2171,8 @@ function startOnline(role, g, oppName, oppId) {
   NET.early = [];
   ch.on('broadcast', { event: 'in' }, function (m) { if (NET.live) NET.recv(m.payload); else NET.early.push(m.payload); }) /* moves that arrive before this phone has started are kept */
     .on('broadcast', { event: 'hi' }, function () { NET.heard = true; })
-    .on('broadcast', { event: 'bye' }, function () { oppGone(oppName + ' left the game.'); })
-    .on('presence', { event: 'leave' }, function (m) { if (m.key === NET.oppId) oppGone(oppName + ' lost the connection.'); })
+    .on('broadcast', { event: 'bye' }, function () { if (NET.live) showWait('quit'); else oppGone(oppName + ' left the game.'); })
+    .on('presence', { event: 'leave' }, function (m) { if (m.key !== NET.oppId) return; if (NET.live) showWait('lost'); else oppGone(oppName + ' lost the connection.'); })
     .subscribe(function (status) {
       if (status === 'SUBSCRIBED') { ch.track({ name: NET.name }); greet(); }
       else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') oppGone("Couldn't connect to the game.");
@@ -2161,10 +2190,28 @@ function beginOnline() {
   var g = NET.g; opts.innings = g.innings; opts.mercy = g.mercy;
   $('netmsg').hidden = true; audio(); if (opts.murmur) murmur(true); $('menu').hidden = false;
   newGame({ seed: g.seed, ai: { you: false, cpu: false }, me: NET.role === 'host' ? 'you' : 'cpu', vis: g.vis });
-  RB.start(ME, 1); NET.pend = null; NET.lastP = null; NET.live = true; acc = 0;
+  RB.start(ME, 1); NET.pend = null; NET.lastP = null; NET.log = {}; NET.oppAck = 0; NET.lastSent = 0; NET.stepOk = true; NET.stallAt = 0; NET.live = true; acc = 0;
   (NET.early || []).forEach(function (m) { NET.recv(m); }); NET.early = [];
   updatePortraits(); hint();
 }
+/* why: 'stall' (moves stopped arriving), 'lost' (the server says the opponent dropped), 'quit' (the opponent quit) */
+function showWait(why) {
+  if (!NET.live || (S && S.over)) return;
+  if (NET.wait === 'quit') return;
+  NET.wait = why; var n = NET.oppName || 'Your opponent';
+  $('quit').hidden = true; $('netwait').hidden = false;
+  $('nwh').textContent = why === 'quit' ? 'Opponent Quit' : 'Connection Lost';
+  $('nwp').textContent = why === 'quit' ? n + ' quit the game. Finish it against the computer, or quit.' : why === 'lost' ? n + ' lost the connection. Wait for them to come back, finish against the computer, or quit.' : 'Waiting for ' + n + '. Their phone may be locked or in another app. Wait for them, finish against the computer, or quit.';
+  $('nwait').hidden = why === 'quit'; $('nwait').disabled = false; $('nwait').textContent = 'WAIT FOR RECONNECT';
+}
+function hideWait() { NET.wait = null; $('netwait').hidden = true; }
+$('nwait').addEventListener('click', function () { sfx('click'); $('nwait').disabled = true; $('nwait').textContent = 'WAITING…'; $('nwp').textContent = 'Waiting for ' + (NET.oppName || 'your opponent') + '. The game picks up by itself when they are back.'; });
+$('ncpu').addEventListener('click', function () {
+  sfx('click'); if (!S) return;
+  S.ai[RB.them] = true; NET.leave(true); acc = 0; S.paused = false; /* the computer takes over their team; this phone plays on alone */
+  updatePortraits(); updateHUD(); hint(); toast('VS CPU', 'The computer takes over ' + (NET.oppName || 'the other team'), 90);
+});
+$('nquit').addEventListener('click', function () { sfx('click'); NET.leave(true); toMenu(); });
 function oppGone(msg) {
   if (!NET.ch && !NET.live) return;
   var over = S && S.over; NET.leave(false);
