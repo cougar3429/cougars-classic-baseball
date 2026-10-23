@@ -19,11 +19,11 @@ Rebuilds the test pages, runs the rule checks, a 3-game soak and a 2-game two-ph
 | Script | What it does | Typical use |
 |---|---|---|
 | `build_variants.py` | Builds `tests/build/hooks.html` (real game plus `window.__ccbi` internal hooks), `auto.html` (computer vs computer) and `adv.html` (exploit runner on offense) from `index.html`. Stops with a clear message if the game code no longer matches its edits. | Run after every change to `index.html` (`run_all.sh` does it). |
-| `scenarios.py` | 11 scripted rule checks: forced walk, grand slam, third-out run rule, foul return, no going back past the start base, pickoff flow, foul bunt, tags, walk-off, mercy rule, catcher throwing on bunts. Prints PASS/FAIL with details. | Regression check before publishing a build. |
+| `scenarios.py` | 25 scripted rule checks: forced walk, grand slam, third-out run rule, foul return, no going back past the start base, pickoff flow (one tap steps off, a new direction throws at once), foul bunt, tags, walk-off, mercy rule, catcher on bunts, force at home and first, timed throws, wild pitches only out of reach, double plays, runners sent to occupied bases, stranded runners, run commands blocked by a runner in the way, the throw back to the pitcher, SAFE calls, runner drawn on a bag. Prints PASS/FAIL with details. | Regression check before publishing a build. |
 | `soak.py [games]` | Whole computer-vs-computer games with rule invariants checked every tick, plus a count of every call shown. | Catching rare bugs after big changes. |
-| `rates.py [n] [steals\|bunts\|both]` | Your steal and bunt success rates against the computer. Version 68: steals about 42% safe, bunts about 6% hits. | Tuning difficulty. |
+| `rates.py [n] [steals\|bunts\|both]` | Your steal and bunt success rates against the computer. Version 73: steals about 50% safe, bunts about 10-12% hits. | Tuning difficulty. |
 | `rollback.py [games] [max_lag] [max_ticks]` | Two-phone check: a host and a guest copy of the game play each other through the rollback engine (`RB`) with a fake network (random lag, out of order); a third copy gets both players' inputs with no lag. All three must end with exactly the same game. Serves `build/` on a local port so the three copies can share one page. | After any change to the game logic: catches anything that makes the phones disagree. |
-| `adv.py [games]` | Whole games where runners use the tricks found while testing (turn back when the ball closes in, go when they throw elsewhere). Version 68: about 0.2 to 0.5 runs per half-inning. | Checking a running exploit is closed. Edit `ADV` for a new trick. |
+| `adv.py [games]` | Whole games where runners use the tricks found while testing (turn back when the ball closes in, go when they throw elsewhere). Version 73: about 0.3 to 0.45 runs per half-inning. | Checking a running exploit is closed. Edit `ADV` for a new trick. |
 | `catcher_throw.py` | You as catcher throwing out a stealer after 0 to 16 ticks of delay, per pitch type. | Tuning `C_THROW`/`C_WIND`. |
 
 ## Writing a check
@@ -36,6 +36,7 @@ Add an entry to `CHECKS` in `scenarios.py`: a JS function that sets up a situati
 - `T.run(n)`, `T.until(fn, maxTicks)` advance the simulation (60 ticks = 1 second).
 - `T.press(dir)` one tick with direction (`'u' 'd' 'l' 'r'` or `null`) plus the button; `T.hold(dir)` and `T.release()`.
 - `T.put([1, 3])` put runners on bases; `T.rs()` runner summary such as `"1>2@0.40,3"` (from 1 to 2, 40% of the way; one standing on 3).
+- `T.hit(angle, speed)` a ground ball set up exactly as contact does (0 = up the middle, + = toward third).
 - `T.toast()` the call on screen; `T.watch(n)` list of calls over n ticks.
 - `T.C` is `window.__ccb` (`S`, `tick(inputs)`, `newGame(opts)`, `newRunner(base)`, `human`, plus `save()`, `load(copy)`, `syncView()`, `quiet(on)`, `RB`, `packIn`); `T.I` is `window.__ccbi` (internal functions: `mkBall`, `giveBall`, `batterToFirst`, `wallHit`, `commitRuns`, `runnerOut`, `takeLeads`, ...).
 

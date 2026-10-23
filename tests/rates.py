@@ -3,8 +3,8 @@
 usage: python3 tests/rates.py [attempts=60] [steals|bunts|both]
 Steals: a runner on first ordered to steal from his lead; results by pitch type (fast/curve/slow).
 Bunts: square around, aim left/right/straight in turn; counts outs, hits and fouls.
-Reference (version 68): steals about 42% safe (fast pitches always out, normal about half, slow always safe);
-bunts about 6% hits with no runner on.
+Reference (version 73, 200 attempts each): steals about 50% safe (fast pitches always out, curves about 50-60%, slow always safe);
+bunts about 10-12% hits with no runner on (counted by whether the batter is put out; earlier versions read the call text and showed about 6%).
 """
 import json, sys
 from common import page
@@ -27,8 +27,8 @@ BUNTS = r"""(N) => { const t = { out: 0, hit: 0, foul: 0 }; let n = 0;
     T.until(() => S.phase === 'ready', 200); T.run(10); T.press('d'); const aim = ['l', 'r', null][k % 3]; if (aim) T.hold(aim);
     for (let i = 0; i < 400 && ['ready', 'windup', 'pitch'].includes(S.phase); i++) T.C.tick();
     T.release(); if (!S.bb || !S.bb.bunt) continue;
-    let res = null; for (let i = 0; i < 700 && !res; i++) { T.C.tick(); const tt = T.toast(); if (S.phase === 'result' || S.phase === 'ready') res = /FOUL|STRIKEOUT/.test(tt) ? 'foul' : /OUT/.test(tt) ? 'out' : 'hit'; }
-    if (!res) continue; n++; t[res]++; }
+    const b = S.batR; for (let i = 0; i < 700 && S.phase === 'batted'; i++) T.C.tick();
+    n++; if (!b || S.bb.foul || /FOUL|STRIKEOUT/.test(T.toast())) t.foul++; else if (b.out) t.out++; else t.hit++; }   /* by the real outcome, not the call text (version 73) */
   t.hitPercentOfFair = Math.round(100 * t.hit / Math.max(1, t.out + t.hit)); return t; }"""
 
 with page() as (pg, errs):

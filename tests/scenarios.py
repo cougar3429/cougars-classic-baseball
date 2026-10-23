@@ -32,9 +32,18 @@ CHECKS = {
   S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(-100, 150); T.I.giveBall('LF'); S.F.LF.x = -100; S.F.LF.y = 150; S.gatherT = 9999;
   T.press('r'); return { ok: T.rs() === '2', runnersAfterSendingToFirst: T.rs() }; }""",
 
-'pickoff: set, call (runners dive back), call off': r"""() => { T.start(false); const S = T.C.S; T.put([1, 2]); T.run(80); const leads = T.rs();
-  T.press(null); const set = S.lock; T.press(null); const pick = S.pick; T.run(70); const back = T.rs(); T.press(null);
-  return { ok: set && pick && back === '1,2' && !S.pick, leads, afterCall: back, calledOff: !S.pick }; }""",
+'pickoff: one tap steps off (runners dive back), tap again goes back on the rubber': r"""() => { T.start(false); const S = T.C.S; T.put([1, 2]); T.run(80); const leads = T.rs();
+  T.press(null); const pick = S.pick; T.run(70); const back = T.rs(); T.press(null);
+  return { ok: pick && back === '1,2' && !S.pick, leads, steppedOffWithOneTap: pick, afterCall: back, backOnRubber: !S.pick }; }""",
+
+'pickoff: a direction after stepping off throws at once, even to an empty base': r"""() => { const res = {};
+  for (const [dir, base] of [['r', 1], ['l', 3]]) { T.start(false); const S = T.C.S; T.put([1]); T.run(80);
+    T.press(null); T.run(2); T.hold(dir); let n = 0; while (!S.thr && n < 60) { T.C.tick(); n++; } T.release(); res[base] = { ticksToRelease: n, throwTo: S.thr && S.thr.base }; }
+  return { ok: res[1].throwTo === 1 && res[3].throwTo === 3 && res[1].ticksToRelease <= 14 && res[3].ticksToRelease <= 14, res }; }""",
+
+'pickoff: a direction already held when he steps off does not throw': r"""() => { T.start(false); const S = T.C.S; T.put([1]); T.run(80);
+  T.hold('r'); T.C.human.btn = true; T.C.tick(); T.C.human.btn = false; const off = S.pick; T.run(30); const threw = !!S.thr || S.phase !== 'ready'; T.release();
+  return { ok: off === false || !threw, steppedOff: off, threw }; }""",
 
 'bunt fielded fully in foul ground is foul': r"""() => { T.start(true); const S = T.C.S; S.runners = []; const a = 50 * Math.PI / 180;
   S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.abOver = true; S.batterGone = true; S.playT = 0;
@@ -88,11 +97,39 @@ CHECKS = {
     for (let i = 0; i < 900 && S.phase === 'batted'; i++) { T.C.tick(); if (S.playOuts === 1 && S.thr && S.thr.base === 1) tried = true; } return { outs: S.playOuts, tried }; };
   const right = run(-10), left = run(30);
   return { ok: right.outs === 2 && left.tried, right, left }; }""",
-'runner sent to an occupied base: the computer takes the out at first, then gets the stranded runner': r"""() => { const res = [];
-  for (const [ang, ev] of [[-6, 1.4], [-12, 1.4], [0, 1.7], [-25, 1.4]]) { T.start(true); const S = T.C.S; T.put([2, 3]); T.hit(ang, ev); let sent = false, first = null;
-    for (let i = 0; i < 900 && S.phase === 'batted'; i++) { if (!sent && S.holder) { T.press('l'); sent = true; } else T.C.tick(); if (S.thr && first == null) first = S.thr.base; }
+'runner sent to an occupied base stays put; the computer takes the out at first': r"""() => { const res = [];
+  for (const [ang, ev] of [[-6, 1.4], [-12, 1.4], [0, 1.7]]) { T.start(true); const S = T.C.S; T.put([2, 3]); T.hit(ang, ev); let sent = false, first = null, moved = false;
+    for (let i = 0; i < 900 && S.phase === 'batted'; i++) { if (!sent && S.holder) { T.press('l'); sent = true; const r2 = S.runners.find(r => !r.bat && r.at === 2); moved = !!(r2 && r2.to === 3); } else T.C.tick(); if (S.thr && first == null) first = S.thr.base; }
+    res.push({ ang, runnerWent: moved, firstThrow: first, batterOut: S.batR.out }); }
+  return { ok: res.every(r => !r.runnerWent && r.firstThrow === 1 && r.batterOut), plays: res }; }""",
+
+'a stranded runner (stopped short of an occupied base) is never thrown at there; the computer gets him after the out at first': r"""() => { const res = [];
+  for (const [ang, ev] of [[-6, 1.4], [-12, 1.4], [0, 1.7]]) { T.start(true); const S = T.C.S; T.put([2, 3]); T.hit(ang, ev);
+    const r2 = S.runners.find(r => !r.bat && r.at === 2); r2.to = 3; r2.p = 0.1; let first = null;
+    for (let i = 0; i < 900 && S.phase === 'batted'; i++) { T.C.tick(); if (S.thr && first == null) first = S.thr.base; }
     res.push({ ang, firstThrow: first, batterOut: S.batR.out, outs: S.playOuts }); }
   return { ok: res.every(r => r.firstThrow !== 3 && r.batterOut && r.outs === 2), plays: res }; }""",
+
+'runners on 1st and 2nd: sending the trailing runner back to first leaves the runner on 2nd alone': r"""() => { T.start(true); const S = T.C.S; T.put([1, 2]);
+  S.phase = 'batted'; S.live = { kind: 'steal', still: 0 }; S.bb = T.I.mkBall(0, -21); T.I.giveBall('C'); S.playT = 0;   /* a steal play: no batter-runner */
+  const a = S.runners.find(r => r.at === 1), b = S.runners.find(r => r.at === 2); [a, b].forEach(r => { r.lead = false; r.go = false; }); a.to = 2; a.p = 0.4; b.to = null;
+  T.press('r'); return { ok: a.to === 1 && b.to == null && b.at === 2, trailing: T.rs() }; }""",
+
+'runners on 1st and 2nd: third then second moves both up; second first is ignored while it is occupied': r"""() => { T.start(true); const S = T.C.S; T.put([1, 2]); T.hit(0, 0.2);
+  const a = S.runners.find(r => !r.bat && r.at === 1), b = S.runners.find(r => !r.bat && r.at === 2); [a, b].forEach(r => { r.forced = false; r.to = null; r.p = 0; });
+  T.press('u'); const ignored = a.to == null && b.to == null; T.press('l'); T.press('u');
+  return { ok: ignored && b.to === 3 && a.to === 2, secondFirstIgnored: ignored, runners: T.rs() }; }""",
+
+'the catcher throws the ball back to the pitcher after a pitch that is not hit': r"""() => { let saw = 0, ready = false, call = '';
+  for (let k = 0; k < 12 && !saw; k++) { T.start(true); const S = T.C.S; S.runners = [];   /* you bat and never swing: the computer's pitch is caught */
+    for (let i = 0; i < 600 && S.phase !== 'result' && S.phase !== 'batted'; i++) T.C.tick();
+    if (S.phase !== 'result' || !S.ret) continue; call = T.toast();
+    for (let i = 0; i < 300 && S.phase === 'result'; i++) { if (S.ret && S.ret.t >= 0 && S.ret.t < 46) saw++; T.C.tick(); } ready = S.phase === 'ready'; }
+  return { ok: saw > 20 && ready, ticksInFlight: saw, call }; }""",
+
+'SAFE call when a runner beats a close throw': r"""() => { T.start(true); const S = T.C.S; S.runners = []; T.hit(0, 0.2); const b = S.batR; b.p = 0.985; S.F['1B'].x = 60.2; S.F['1B'].y = 63.6;
+  S.bb = T.I.mkBall(30, 70); T.I.giveBall('2B'); S.F['2B'].x = 30; S.F['2B'].y = 70; S.thr = { player: '1B', x: 50, y: 66, sx: 30, sy: 70, tx: 60.2, ty: 63.6, base: 1, d0: 31, peak: 8, sp: 1.2 }; S.holder = null; S.thrFrom = '2B';
+  const calls = T.watch(80); return { ok: calls.some(c => / SAFE /.test(c)), calls }; }""",
 
 'a runner standing on a base is drawn in front of a fielder on the bag': r"""() => { document.getElementById('title').hidden = true; T.start(true); const S = T.C.S; T.put([2]); const r = S.runners[0]; r.lead = false; r.to = null;
   S.phase = 'result'; S.rt = 999; S.wasLive = true; S.bb = T.I.mkBall(0, 125.9); S.holder = '2B'; S.F['2B'].x = 0.4; S.F['2B'].y = 125.9; document.getElementById('toast').classList.remove('on');
