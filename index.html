@@ -137,7 +137,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 74</small>
+    <small id="ver">Version 75</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -698,7 +698,7 @@ function startSteals() {
 /* the pickoff play starts when the set pitcher taps the button: runners told to steal go now, the rest dive back */
 function callPick() {
   if (S.pick) return;
-  S.pick = true; S.pickQ = 0;
+  S.pick = true; S.pickQ = 0; S.pickAt = S.t;
   S.runners.forEach(function (r) {
     if (!alive(r)) return;
     if (r.lead) { var g = r.go; r.lead = false; r.go = false; if (!g) reverse(r); }
@@ -1020,7 +1020,7 @@ function readyStep(bH, pH, pIn, bIn) {
     if (S.pick) {
       if (pickSettled()) return;
       if (fresh) { doPickoff(DIR_BASE[pIn.dir]); return; }
-      if (pIn.btn && !pIn.dir && !anyStealing()) { S.pick = false; sfx('click'); hint(); }
+      if (pIn.btn && !pIn.dir && !anyStealing()) { S.pick = false; S.unpickAt = S.t; sfx('click'); hint(); }
     } else if (pIn.btn && pIn.dir) { startWindup(pIn.dir); return; }
     else if (pIn.btn) { callPick(); sfx('click'); }
     else if (pIn.dir === 'l' || pIn.dir === 'r') S.pOff = Math.max(-6, Math.min(6, S.pOff + (pIn.dir === 'l' ? -0.2 : 0.2)));
@@ -1869,11 +1869,16 @@ function throwPose(u) {
   var k3 = Math.min(1, (u - 1) / 0.6), e3 = ez(k3);
   return { rot: L(0.12, 0, e3) + 0.16 * Math.sin(k3 * PI), glove: [L(7, 6, e3), L(-20, -16, e3)], hand: [L(3, 5, e3), L(-30, -9, e3)], lift: 0 };
 }
-/* "OFF" tag over the pitcher while he is off the rubber for a pickoff */
-function offLabel(c, x, y) {
-  c.save(); c.font = '11px Bungee, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-  var w = c.measureText('OFF').width + 12; rr(c, x - w / 2, y - 8, w, 16, 5); c.fillStyle = '#16202b'; c.fill();
-  c.fillStyle = '#ffd23f'; c.fillText('OFF', x, y + 1); c.restore();
+/* stepping off the rubber for a pickoff: 0 = on the rubber, 1 = stepped off with his arm back; about 1/6 s each way (version 75) */
+var STEP_OFF_T = 10;
+function stepOffK() {
+  if (S.pick) return Math.min(1, (S.t - (S.pickAt || 0)) / STEP_OFF_T);
+  var back = S.t - (S.unpickAt == null ? -1e9 : S.unpickAt); return back < STEP_OFF_T ? 1 - back / STEP_OFF_T : 0;
+}
+function stepOffPose(k) {
+  var e = k * k * (3 - 2 * k), o = throwPose(0.7 * e); /* arm comes back into the throwing position */
+  o.lift = 3.5 * Math.sin(k * PI); /* the back foot lifts as it steps off */
+  return o;
 }
 function ring(c, x, y, sc) { c.save(); c.strokeStyle = '#ffd23f'; c.lineWidth = 2; c.beginPath(); c.ellipse(x, y, 13 * sc, 4.4 * sc, 0, 0, 7); c.stroke(); c.restore(); }
 function render() {
@@ -1888,11 +1893,11 @@ function render() {
   FIELDERS.forEach(function (f) {
     if (f.id === 'C' && !playing) return;
     var pos = S.F[f.id], p = proj(pos.x, pos.y), bs = besideBag(f.id); if (bs) p = [p[0] + bs, p[1]];
-    var offRubber = f.id === 'P' && !playing && S.pick && S.phase === 'ready'; if (offRubber) p = proj(pos.x, pos.y + 4); /* stepped off: a step back behind the rubber (version 74) */
+    var offK = f.id === 'P' && !playing && S.phase === 'ready' ? stepOffK() : 0; if (offK > 0) p = proj(pos.x, pos.y + 3 * offK); /* stepping off: back foot steps toward second (version 75) */
     var sc = f.id === 'P' ? 0.98 * SPR : f.id === 'C' ? SPR : spriteScale(p[1]);
     if (playing && f.id === 'P') sc = spriteScale(p[1]) * 1.05;
     var hold = S.holder === f.id;
-    var o = (f.id === 'P' && !playing) ? pitcherPose() : { run: pos.mv ? S.t / 3.2 : null, glove: hold ? [8.1, -25] : undefined };
+    var o = (f.id === 'P' && !playing) ? (offK > 0 ? stepOffPose(offK) : pitcherPose()) : { run: pos.mv ? S.t / 3.2 : null, glove: hold ? [8.1, -25] : undefined };
     var ballAt = [8.1, -25];
     /* one continuous throw motion: starts on the throw, release lands on the real release tick, then follow-through */
     if (hold && S.animStart != null) o = throwPose(Math.min(1, (S.t - S.animStart) / Math.max(1, S.animRel - S.animStart)));
@@ -1917,7 +1922,6 @@ function render() {
     if (S.cat && S.cat.up && S.phase === 'pitch') { var cq = proj(cfx + 2.3, -19); list.push({ y: cq[1], d: function () { drawFielder(ctx, cq[0], cq[1], SPR, pitCol, { run: S.F.C.mv ? S.t / 3.2 : null }); } }); }
     else list.push({ y: HY + 37, d: function () { drawCatcher(ctx, 428 + cfx * KX, HY + 37, pitCol); } });
   }
-  if (S.pick && S.phase === 'ready' && !playing) { var mp = proj(S.F.P.x, 61.6 + 4); list.push({ y: 1e9, d: function () { offLabel(ctx, mp[0], mp[1] - 42); } }); }
   list.sort(function (a, b) { return a.y - b.y; }).forEach(function (o) { o.d(); });
   if (S.ball && !S.bb && (S.phase === 'pitch' || S.phase === 'result')) {
     if (S.phase === 'pitch' || S.ball.fy > -17) drawBall(ctx, S.ball.fx, Math.max(S.ball.fy, -19), 7);
