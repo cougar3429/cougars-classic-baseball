@@ -3,6 +3,7 @@
   hooks.html  the real game, plus window.__ccbi exposing internal functions for scripted scenarios
   auto.html   computer vs computer on both sides (soak tests of whole games)
   adv.html    computer pitches and fields; your side's runners are driven by window.__adv (exploit hunting)
+  net.html    the real game with a stand-in for supabase-js, for the online 2-player test (net.py)
 
 Run this after every change to index.html (run_all.sh does it for you). If a replacement no longer
 matches the game code, it stops and says which one, so the edit below can be updated.
@@ -55,6 +56,9 @@ def main():
     (OUT / 'hooks.html').write_text(with_hooks(src))
     (OUT / 'auto.html').write_text(with_hooks(apply(src, CPU_BOTH, 'auto.html')))
     (OUT / 'adv.html').write_text(with_hooks(apply(src, ADV, 'adv.html')))
+    # online 2-player: the real game with a stand-in for supabase-js (see mock_supabase.js)
+    mock = (HERE / 'mock_supabase.js').read_text()
+    (OUT / 'net.html').write_text(with_hooks(src).replace('<title>', '<script>' + mock + '</script>\n<title>', 1))
     print('built', ', '.join(p.name for p in sorted(OUT.glob('*.html'))))
 
 

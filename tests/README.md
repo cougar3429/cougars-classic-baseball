@@ -14,7 +14,7 @@ Headless browser tests for `index.html`. None of this is served as part of the g
 ./tests/run_all.sh
 ```
 
-Rebuilds the test pages, runs the rule checks, a 3-game soak and a 2-game two-phone rollback check. Exit code is non-zero if anything fails.
+Rebuilds the test pages, runs the rule checks, a 3-game soak, a 2-game two-phone rollback check and a 15-second online 2-player check. Exit code is non-zero if anything fails.
 
 | Script | What it does | Typical use |
 |---|---|---|
@@ -23,6 +23,7 @@ Rebuilds the test pages, runs the rule checks, a 3-game soak and a 2-game two-ph
 | `soak.py [games]` | Whole computer-vs-computer games with rule invariants checked every tick, plus a count of every call shown. | Catching rare bugs after big changes. |
 | `rates.py [n] [steals\|bunts\|both]` | Your steal and bunt success rates against the computer. Version 73: steals about 50% safe, bunts about 10-12% hits. | Tuning difficulty. |
 | `rollback.py [games] [max_lag] [max_ticks]` | Two-phone check: a host and a guest copy of the game play each other through the rollback engine (`RB`) with a fake network (random lag, out of order); a third copy gets both players' inputs with no lag. All three must end with exactly the same game. Serves `build/` on a local port so the three copies can share one page. | After any change to the game logic: catches anything that makes the phones disagree. |
+| `net.py [seconds] [lag_ms]` | Online 2-player: two copies of the real game (`build/net.html`, with `mock_supabase.js` standing in for supabase-js) go through the real lobby buttons (host, ask, deny, ask again, accept), play at real speed over a laggy simulated network, and must agree at every checked tick; then one quits and the other must be told. | After any change to the lobby, the network code or the game logic. |
 | `adv.py [games]` | Whole games where runners use the tricks found while testing (turn back when the ball closes in, go when they throw elsewhere). Version 73: about 0.3 to 0.45 runs per half-inning. | Checking a running exploit is closed. Edit `ADV` for a new trick. |
 | `catcher_throw.py` | You as catcher throwing out a stealer after 0 to 16 ticks of delay, per pitch type. | Tuning `C_THROW`/`C_WIND`. |
 
@@ -51,6 +52,11 @@ Add an entry to `CHECKS` in `scenarios.py`: a JS function that sets up a situati
 - `tick(inputs)` takes `{ you: input, cpu: input }` for human teams; with no argument it reads this phone's controls for `ME`. Input: `{ dir, btn, vx, vy }`.
 - Random numbers: `rnd()`, state in `S.seed` (a number). `newGame` takes `seed`, `ai`, `me` and `vis` (who bats first) alongside the usual options.
 - Rollback: `save()` / `load()` copy the whole game (`S` is plain data, about 1.2 KB). While `QUIET` is on (re-running ticks), sounds and screen updates are skipped; `syncView()` redraws from `S` afterwards.
+
+## Online play
+
+- The game loads supabase-js 2.117.3 from cdn.jsdelivr.net only when 2 PLAYER is picked, and talks to the Supabase project in `SB_URL` with the publishable key. Realtime only (Presence on `ccb-lobby`, Broadcast on `ccb-g-<room>`); no database tables.
+- The Claude artifact viewer blocks connections to Supabase, so online play works only on the live GitHub Pages site. Claude's cloud workspace can't reach Supabase either, so tests use `mock_supabase.js`.
 
 ## Publishing reminders
 
