@@ -125,10 +125,31 @@ CHECKS = {
   const lead = S.runners.find(r => !r.bat && r.at === 2); T.until(() => S.batR.to == null && S.batR.at === 1, 400); T.press('l'); T.until(() => lead.to === 3 && lead.p >= 0.45, 400);
   T.press('u'); return { ok: lead.to === 2 && S.batR.to == null, lead: lead.at + '>' + lead.to, batter: S.batR.at + '>' + S.batR.to }; }""",
 
-'Case B: a forced lead runner can turn back; the trailing runner forced to that base is then forced out there, with the out called': r"""() => { T.start(true); const S = T.C.S; T.put([1, 2]); T.hit(-10, 0.6);
-  const lead = S.runners.find(r => !r.bat && r.at === 2), mid = S.runners.find(r => !r.bat && r.at === 1); T.until(() => lead.to === 3 && lead.p >= 0.45, 400);
-  T.press('u'); const back = lead.to === 2; T.until(() => S.phase !== 'batted', 900);
-  return { ok: back && !lead.out && lead.at === 2 && mid.out && /out/i.test(mid.how || ''), leadTurnedBack: back, lead: lead.out ? 'out' : 'at ' + lead.at, middle: mid.out ? mid.how : 'safe' }; }""",
+
+
+'Case B: a forced lead runner can turn back but stays forced; whoever reaches second first gets it, and the other is forced out': r"""() => { const res = [];
+  for (const [ev, at] of [[0.6, 0.3], [1.0, 0.3], [0.6, 0.7], [1.0, 0.7]]) { T.start(true); const S = T.C.S; T.put([1, 2]); T.hit(-10, ev);
+    const lead = S.runners.find(r => !r.bat && r.at === 2), mid = S.runners.find(r => !r.bat && r.at === 1); T.until(() => lead.to === 3 && lead.p >= at, 400);
+    T.press('u'); const forced = lead.forced && lead.fb === 3; let first = null;
+    for (let i = 0; i < 3000 && S.phase === 'batted'; i++) { T.C.tick(); if (!first) { if (lead.to == null && lead.at === 2) first = 'lead'; else if (mid.to == null && mid.at === 2) first = 'trailing'; } }
+    res.push({ ev, at, stillForced: forced, first, lead: lead.out ? lead.how : 'safe at ' + lead.at, trailing: mid.out ? mid.how : 'safe at ' + mid.at }); }
+  const ok = res.every(r => r.stillForced && (r.first === 'lead' ? r.lead === 'safe at 2' && /Forced out at second/.test(r.trailing) : r.trailing === 'safe at 2' && /Forced out at third/.test(r.lead)));
+  return { ok, plays: res }; }""",
+
+'a fielder with the ball touching the force base puts out a forced runner who turned back': r"""() => { T.start(false); const S = T.C.S; T.put([1, 2]); T.hit(-10, 0.6);
+  const lead = S.runners.find(r => !r.bat && r.at === 2); T.until(() => lead.to === 3 && lead.p >= 0.4, 400);
+  lead.at = 3; lead.to = 2; lead.p = 1 - lead.p;
+  S.bb = T.I.mkBall(-60.2, 63.6); T.I.giveBall('3B'); S.F['3B'].x = -60.2; S.F['3B'].y = 63.6; T.C.tick();
+  return { ok: lead.out && /Forced out at third/.test(lead.how), how: lead.how }; }""",
+
+'the play clock never ends a play while a runner is off a base': r"""() => { let a = 99; const rn = () => { a = (a * 1103515245 + 12345) & 0x7fffffff; return a / 0x7fffffff; };
+  const bad = []; let plays = 0;
+  for (let k = 0; k < 40; k++) { T.start(rn() < 0.5); const S = T.C.S; T.put([[1], [2], [1, 2], [1, 3], [2, 3], [1, 2, 3]][Math.floor(rn() * 6)]); T.hit(Math.floor(rn() * 80) - 40, 0.6 + rn() * 1.2); plays++;
+    for (let i = 0; i < 4000 && S.phase === 'batted'; i++) {
+      const off = S.runners.some(r => !r.out && !r.scored && r.to != null && !r.lead && !r.trot), outs = S.outs;
+      if (rn() < 0.02) T.press(['u', 'l', 'r', 'd'][Math.floor(rn() * 4)]); else T.C.tick();
+      if (S.phase !== 'batted' && off && S.outs < 3 && !S.over && S.outs === outs && S.runners.some(r => !r.out && !r.scored)) bad.push({ k, i, toast: T.toast() }); } }
+  return { ok: bad.length === 0, plays, endedWithRunnerOff: bad.slice(0, 3) }; }""",
 
 'the catcher throws the ball back to the pitcher after a pitch that is not hit': r"""() => { let saw = 0, ready = false, call = '';
   for (let k = 0; k < 12 && !saw; k++) { T.start(true); const S = T.C.S; S.runners = [];   /* you bat and never swing: the computer's pitch is caught */

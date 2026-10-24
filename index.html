@@ -157,7 +157,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 84</small>
+    <small id="ver">Version 85</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -739,8 +739,6 @@ function standingOn(k, except) {
   for (var i = 0; i < S.runners.length; i++) { var r = S.runners[i]; if (r !== except && alive(r) && onBase(r) && r.at === k) return r; }
   return null;
 }
-/* a forced runner still on his way to base k has the right to it: nobody retreating may take it first */
-function forcedInto(k, except) { return S.runners.some(function (r) { return r !== except && alive(r) && r.forced && r.fb === k && r.to === k; }); }
 function runnersOn() { return S.runners.some(function (r) { return alive(r) && onBase(r) && r.at >= 1 && r.at <= 3; }); }
 function anyMoving() { return S.runners.some(function (r) { return alive(r) && r.to != null && !r.wait && !r.lead; }); }
 function anyOff() { return S.runners.some(function (r) { return alive(r) && r.to != null && !r.lead; }); }
@@ -815,13 +813,12 @@ function sendRunner(r, T) {
     if (T === r.at - 1 && T >= 1 && (r.bat || T >= r.snap)) { r.to = T; r.p = 0; return true; } /* never back past the base he started the play on */
     return false;
   }
-  if (T === r.at && T >= 1 && (!r.forced || isLead(r))) { if (r.forced) { r.forced = false; r.fb = 0; } reverse(r); return true; } /* the lead runner can always turn back to avoid a tag or force (version 84) */
+  if (T === r.at && T >= 1) { reverse(r); return true; } /* any runner may turn back to avoid a tag; a forced runner stays forced (version 85) */
   if (r.to > r.at && T === r.to + 1 && T <= 4) { r.next = T; return true; } /* keep going: round the base without stopping */
   if (r.next && T === r.to) { r.next = null; return true; }
   return false;
 }
 /* where he is along the bases: 1.5 = halfway from first to second; a runner holding his lead counts as on his base (version 83) */
-function isLead(r) { var x = rLine(r); return !S.runners.some(function (o) { return o !== r && alive(o) && !o.trot && rLine(o) > x + 0.001; }); }
 function rLine(r) { return r.to == null || r.lead ? r.at : r.at + (r.to - r.at) * r.p; }
 function rDir(r) { if (r.lead) return r.go ? 1 : 0; return r.to == null || r.wait ? 0 : r.to > r.at ? 1 : -1; }
 /* the base he would run to on this command, or null if the command doesn't move him toward one */
@@ -877,7 +874,7 @@ function moveRunners() {
     if (r.to == null) return;
     if (r.lead) { var LL = legLen(r), lp = LEAD / LL; r.step = r.p < lp; if (r.step) r.p = Math.min(lp, r.p + RSPD * 0.3 / LL); return; }
     var L = legLen(r), np = r.p + RSPD * (r.trot ? TROT_K : 1) / L;
-    var occ = !r.trot && !r.dest && (standingOn(r.to, r) || (r.to < r.at && !isLead(r) && forcedInto(r.to, r))); /* the lead runner coming back gets his base first */
+    var occ = !r.trot && !r.dest && standingOn(r.to, r); /* whoever reaches a base first gets it; the other runner stops short (version 85) */
     var cap = occ ? Math.max(r.p, 1 - SHORT / L) : 1;
     r.wait = !!occ && np >= cap;
     r.p = Math.min(np, cap);
@@ -932,7 +929,7 @@ function settleRunners() {
     var dest = r.dest != null ? r.dest : r.award ? r.awardB : (r.wait || r.p < 0.5) ? r.at : r.to;
     if (dest === 0) dest = 1;
     if (dest <= 3 && standingOn(dest, r)) { var alt = dest === r.at ? r.to : r.at; dest = alt === 0 ? 1 : alt; }
-    if (dest <= 3 && standingOn(dest, r)) { r.out = true; r.how = 'Out: no base open'; S.outs++; S.settledOut = (S.settledOut || 0) + 1; return; } /* now called on screen (version 84) */
+    if (dest <= 3 && standingOn(dest, r)) { r.out = true; S.outs++; return; }
     r.at = dest; r.to = null; r.p = 0; r.wait = false; r.dest = null;
     if (dest === 4) { r.scored = true; S.playRuns++; }
   });
@@ -1496,12 +1493,13 @@ function cpuHolder() {
   }
   var best = null, bm = -1e9, lead = null, dp = null;
   S.runners.forEach(function (r) {
-    var stuckF = r.wait && r.forced && r.fb === r.to; /* forced to a base he can't reach (its runner came back to it): a force play there gets him (version 84) */
-    if (!alive(r) || r.to == null || r.award || r.trot || (r.wait && !stuckF) || r.lead) return;
-    if (r.to <= 3 && standingOn(r.to, r) && !(r.forced && r.fb === r.to)) return; /* heading for an occupied base: a throw there gets nobody (version 72), unless he is forced there */
-    if (r.to < r.at) return; /* never throw at a runner going back: that only hands a base to the runner behind him */
-    var k = r.to, b = basePos(k), force = r.forced && r.fb === k;
-    var tRun = stuckF ? 600 : (1 - r.p) * legLen(r) / RSPD, dSelf = dist2(hp.x, hp.y, b[0], b[1]), tSelf = isOF(hid) ? 1e9 : dSelf / FSPD;
+    if (!alive(r) || r.to == null || r.award || r.trot || r.lead) return;
+    var fAway = r.forced && r.fb && (r.to !== r.fb || r.wait); /* forced, but turned back or stopped short: the force at that base still gets him (version 85) */
+    if (r.wait && !fAway) return;
+    if (!fAway && r.to <= 3 && standingOn(r.to, r)) return; /* heading for an occupied base: a throw there gets nobody (version 72) */
+    if (!fAway && r.to < r.at) return; /* never throw at a runner going back: that only hands a base to the runner behind him */
+    var k = fAway ? r.fb : r.to, b = basePos(k), force = r.forced && r.fb === k;
+    var tRun = fAway ? 600 : (1 - r.p) * legLen(r) / RSPD, dSelf = dist2(hp.x, hp.y, b[0], b[1]), tSelf = isOF(hid) ? 1e9 : dSelf / FSPD;
     var cov = coverFor(k); if (cov === hid) cov = null;
     var tThr = 1e9;
     if (cov) {
@@ -1639,9 +1637,9 @@ function battedStep(dIn) {
   checkOuts(); if (S.phase !== 'batted') return;
   slides();
   /* the play is over once every runner is standing on a base and the ball is held: by the pitcher, or by anyone for 2 seconds */
-  var busy = anyMoving() || !!S.thr || !S.holder;
+  var busy = anyOff() || !!S.thr || !S.holder; /* never ends with a runner off a base (version 85) */
   S.live.still = busy ? 0 : S.live.still + 1;
-  if (S.live.still > (S.holder === 'P' && onMound() ? 45 : 120) || S.playT > 1800) endLive('done');
+  if (S.live.still > (S.holder === 'P' && onMound() ? 45 : 120)) endLive('done');
 }
 /* the pitcher is back on the mound (the play can end quickly only then) */
 function onMound() { var f = S.F.P; return dist2(f.x, f.y, S.pOff || 0, 61.6) < 6; }
@@ -1650,11 +1648,12 @@ function checkOuts() {
   if (!S.holder) return;
   var h = S.F[S.holder], by = ' by the ' + FNAME[S.holder];
   for (var i = 0; i < S.runners.length; i++) {
-    var r = S.runners[i]; if (!alive(r) || r.award || r.trot || r.to == null) continue;
-    if (r.forced && r.to === r.fb) {
+    var r = S.runners[i]; if (!alive(r) || r.award || r.trot) continue;
+    if (r.forced && r.fb && !(r.to == null && r.at === r.fb)) { /* forced and not yet standing on that base, even if he turned back (version 85) */
       var fp = basePos(r.fb);
       if (dist2(h.x, h.y, fp[0], fp[1]) < FORCE_R) { runnerOut(r, 'Forced out at ' + BNAME[r.fb] + by, true); if (S.phase !== 'batted') return; continue; }
     }
+    if (r.to == null) continue;
     var rp = rPos(r), tx = (h.x - rp[0]) * KX, ty = (h.y - rp[1]) * KY;
     if (Math.sqrt(tx * tx + ty * ty) < TAG_PX) { runnerOut(r, 'Tagged out' + by, false); if (S.phase !== 'batted') return; }
   }
@@ -1679,9 +1678,8 @@ function endLive(why, how) {
     result('OUT', how + (n0 ? ' · ' + (n0 === 1 ? '1 run scored first' : n0 + ' runs scored first') : ''), 'out'); return;
   }
   if (why === 'last') { var n1 = commitRuns(); if (S.wo) return; result(L.kind === 'steal' ? 'CAUGHT STEALING' : L.kind === 'pick' ? 'PICKED OFF' : 'OUT', how + (n1 ? ' · ' + runsText(n1) : ''), S.abOver ? 'ab' : 'pitch'); return; }
-  S.settledOut = 0; settleRunners();
+  settleRunners();
   if (S.outs >= 3) { S.playRuns = 0; result('OUT', 'Caught off base', 'out'); return; }
-  if (S.settledOut) { sfx('bark', null, 0.05); }
   var n = commitRuns(); if (S.wo) return;
   var sub = n ? runsText(n) : null, title = null, kind = S.abOver ? 'ab' : 'pitch';
   if (L.kind === 'hit') {
@@ -1696,7 +1694,6 @@ function endLive(why, how) {
   else if (n) { title = n > 1 ? n + ' RUNS SCORE' : 'RUN SCORES'; sub = null; }
   else if (S.playOuts > 0) title = L.kind === 'steal' ? 'CAUGHT STEALING' : L.kind === 'pick' ? 'PICKED OFF' : null;
   else if (L.kind === 'steal' && S.runners.some(function (r) { return alive(r) && !r.bat && r.at > r.snap; })) title = 'STOLEN BASE';
-  if (S.settledOut) { title = title || 'OUT'; sub = (sub ? sub + ' · ' : '') + (S.settledOut > 1 ? S.settledOut + ' runners out: no base open' : 'Runner out: no base open'); }
   result(title, sub, kind);
 }
 /* fielders move and throw; also runs after the call (free = true) until the next batter */
