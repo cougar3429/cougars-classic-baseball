@@ -63,6 +63,37 @@ def main():
         if len(common) < 20: problems.append(f'only {len(common)} ticks to compare')
         if bad: problems.append(f'the phones disagree from tick {bad[0]} ({len(bad)} of {len(common)} checked ticks)')
         if info[0]['me'] != 'you' or info[1]['me'] != 'cpu': problems.append(f"teams {info[0]['me']}/{info[1]['me']}")
+        # game over: REMATCH and MAIN MENU on both; Ann asks, Bob accepts, a new game starts with home and away swapped and the phones agree;
+        # then the next game ends, Bob asks, Ann declines and Bob is told
+        rm = {}
+        vis0 = ann.evaluate('() => window.__ccb.S.vis')
+        for f in (ann, bob): f.evaluate('() => window.__ccbi.endGame()')
+        rm['buttons'] = [A.locator('#again').inner_text(), A.locator('#fmenu').is_visible(), B.locator('#again').inner_text()]
+        if rm['buttons'] != ['REMATCH', True, 'REMATCH']: problems.append(f"game over buttons {rm['buttons']}")
+        A.locator('#again').click()
+        try: B.locator('#racc').wait_for(state='visible', timeout=5000); rm['asked'] = B.locator('#frm').inner_text()
+        except Exception: problems.append('Bob was not asked for the rematch')
+        B.locator('#racc').click()
+        try:
+            for f in (ann, bob): f.wait_for_function('() => window.__ccb.S && !window.__ccb.S.over && window.__ccb.NET.gn === 1', timeout=5000)
+        except Exception: problems.append('the rematch did not start on both phones')
+        rm['vis'] = [vis0] + [f.evaluate('() => window.__ccb.S.vis') for f in (ann, bob)]
+        if not (rm['vis'][1] == rm['vis'][2] != vis0): problems.append(f"home and away not swapped: {rm['vis']}")
+        ann.evaluate(DRIVE, 55); bob.evaluate(DRIVE, 66); pg.wait_for_timeout(5000)
+        for f in (ann, bob): f.evaluate('() => clearInterval(window.__drive)')
+        pg.wait_for_timeout(1500)
+        info3 = [f.evaluate("() => ({ t: window.__ccb.S.t, hashes: window.__ccb.RB.hashes })") for f in (ann, bob)]
+        common3 = sorted(set(info3[0]['hashes']) & set(info3[1]['hashes']), key=int)
+        bad3 = [k for k in common3 if info3[0]['hashes'][k] != info3[1]['hashes'][k]]
+        if len(common3) < 5 or bad3: problems.append(f'rematch game: {len(common3)} checked ticks, disagree at {bad3[:1]}')
+        rm['checked'] = len(common3)
+        for f in (ann, bob): f.evaluate('() => window.__ccbi.endGame()')
+        B.locator('#again').click(); A.locator('#rdec').click(timeout=5000)
+        try: B.locator('#frm', has_text='said no').wait_for(timeout=5000); rm['declined'] = B.locator('#frm').inner_text()
+        except Exception: problems.append('Bob was not told Ann said no')
+        # Ann changes her mind: she can still ask, and Bob accepts (a third game, so the rest of the test has a live game)
+        A.locator('#again').click(); B.locator('#racc').click(timeout=5000)
+        for f in (ann, bob): f.wait_for_function('() => window.__ccb.S && !window.__ccb.S.over && window.__ccb.NET.gn === 2', timeout=5000)
         # Bob's connection drops for 6 s (everything he sends or receives is lost): Ann gets the choices and waits; when Bob is back, lost moves are resent and play picks up
         bob.evaluate('() => { window.__mockDrop = true; }')
         try: A.locator('#netwait').wait_for(state='visible', timeout=8000); shown = A.locator('#nwh').inner_text()
@@ -112,9 +143,10 @@ def main():
     print(f'dropout: choices shown as {shown!r}, play picked up: {healed}, checked ticks after: {len(common2)}')
     print(f'time limit: {gone!r}; picked up when Bob came back: {back_after}')
     print(f'quit: Ann told {told!r}; after FINISH VS CPU: {cpu}')
+    print(f'rematch: {rm}')
     for x in problems + errs[:5]: print('   ', x)
     ok = not problems and not errs
-    print('PASS' if ok else 'FAIL', '- online 2-player: lobby, deny, accept, play, agree, dropout and reconnect, wait time limit, quit, finish vs CPU')
+    print('PASS' if ok else 'FAIL', '- online 2-player: lobby, deny, accept, play, agree, rematch (accept, swap, agree, decline), dropout and reconnect, wait time limit, quit, finish vs CPU')
     sys.exit(0 if ok else 1)
 
 

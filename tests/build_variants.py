@@ -17,7 +17,7 @@ OUT = HERE / 'build'
 # internal functions the scenario scripts call through window.__ccbi
 HOOKS = ['runnerOut', 'foulReturn', 'startTrot', 'commitRuns', 'endLive', 'batterToFirst', 'moveRunners',
          'settleRunners', 'snapRunners', 'resetPlay', 'mkBall', 'homeWins', 'wallHit', 'giveBall', 'takeLeads',
-         'gameOver', 'afterResult', 'callPick', 'pickSettled']
+         'gameOver', 'afterResult', 'callPick', 'pickSettled', 'endGame']
 
 # both sides run by the computer (version 69: the game has a switch for this, S.ai)
 CPU_BOTH = [
