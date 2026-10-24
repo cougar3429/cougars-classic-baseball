@@ -166,7 +166,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 92</small>
+    <small id="ver">Version 93</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -207,7 +207,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 92</small>
+    <small class="lver" id="lver">Version 93</small>
   </section>
 
   <section class="screen" id="netmsg" hidden>
@@ -2145,7 +2145,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = 92; /* only games on the same build are listed */
+var PROTO = 93; /* only games on the same build are listed */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
@@ -2361,10 +2361,17 @@ $('p2').addEventListener('click', function () { pressGroup('p1', 'p2', false); s
 /* ============ screens ============ */
 function setTheme(name) { themeName = name; theme = THEMES[name]; document.body.classList.toggle('day', name === 'day'); fieldCache = null; }
 function pressGroup(a, b, first) { $(a).setAttribute('aria-pressed', String(first)); $(b).setAttribute('aria-pressed', String(!first)); }
+/* full screen on phones; when the phone drops it (switching apps, a notification), the next tap brings it back (user, Oct 24, version 93).
+   A page may only ask for full screen during a tap, so it can't come back by itself. */
+var wantFull = false;
+function goFull() {
+  try { if (document.documentElement.requestFullscreen && window.matchMedia('(pointer: coarse)').matches && !document.fullscreenElement) document.documentElement.requestFullscreen().then(function () { if (screen.orientation && screen.orientation.lock) return screen.orientation.lock('landscape'); }).catch(function () { }); } catch (e) { }
+}
+['pointerup', 'touchend'].forEach(function (ev) { document.addEventListener(ev, function () { if (wantFull && !document.fullscreenElement) goFull(); }, true); });
 $('start').addEventListener('click', function () {
   audio(); sfx('click'); var two = $('p2').getAttribute('aria-pressed') === 'true';
   $('bfrow').hidden = two; $('go').textContent = two ? 'FIND A GAME' : 'PLAY BALL'; $('setnote').textContent = two ? 'Mercy: the game ends when a team leads by this many runs. When you host, your innings and mercy rule are used.' : 'Mercy: the game ends when a team leads by this many runs. Selfie and coin flip come later.';
-  try { if (document.documentElement.requestFullscreen && window.matchMedia('(pointer: coarse)').matches) document.documentElement.requestFullscreen().then(function () { if (screen.orientation && screen.orientation.lock) return screen.orientation.lock('landscape'); }).catch(function () { }); } catch (e) { }
+  goFull(); wantFull = true;
   $('title').hidden = true; $('setup').hidden = false;
 });
 $('inm').addEventListener('click', function () { opts.innings = Math.max(1, opts.innings - 1); $('inv').textContent = opts.innings; sfx('click'); });

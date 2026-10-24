@@ -44,6 +44,7 @@ def main():
         for loc, name in ((A, 'Ann'), (B, 'Bob')):
             loc.locator('#p2').click(); loc.locator('#start').click(); loc.locator('#go').click()
             loc.locator('#pname').fill(name); loc.locator('#pname').dispatch_event('change')
+        for f in (ann, bob): f.wait_for_function('() => window.__ccb.NET.lobby', timeout=8000) # HOST A GAME does nothing until the lobby is connected
         A.locator('#host').click()
         B.locator('#games button', has_text='ASK TO JOIN').click(timeout=5000)
         A.locator('#reqs button', has_text='DENY').click(timeout=5000)
