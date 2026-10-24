@@ -157,7 +157,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 81</small>
+    <small id="ver">Version 82</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -248,7 +248,7 @@ var CONTACT_T = 6, POWER_CT = 4, SWING_LEN = 16, POWER_LEN = 12, BUNT_LEN = 26, 
 var BALLMAX = 4.0, DECAY = 0.997, FRICTION = 0.004;
 var WINDUP_T = 40;
 /* batter placement: at contact the level bat sits on the plate's top edge (y 352) and its tip reaches past the plate (x 433) */
-var BAT_S = 0.873, BAT_LEN = 33, BAT_X = 398, BAT_Y = 347.5 + 22.3 * 0.873;
+var BAT_S = 0.873, BAT_LEN = 29.5, /* drawn length only (version 82; was 33): hitting uses BAT_REACH */ BAT_X = 398, BAT_Y = 347.5 + 22.3 * 0.873;
 var PI = 3.141592653589793;
 
 /* deterministic helpers (sim uses only these + basic arithmetic + sqrt) */
@@ -448,6 +448,22 @@ function drawFielder(c, x, y, s, col, o) {
   c.beginPath(); c.ellipse(0, -32.6, 5.9, 1.3, 0, 0, 7); F(c, col);
   c.restore();
 }
+/* a bat shape along angle a from the hands: knob, thin handle, gradual taper, rounded barrel, one outline all the way round (version 82) */
+var BAT_PROFILE = [[-2.2, 1.45], [-1.5, 1.45], [-1.1, 0.7], [0, 0.7], [0.42, 0.78], [0.62, 1.15], [0.78, 1.62], [0.9, 1.75], [0.97, 1.7]]; /* [fraction of length (negative = behind the hands, in units), half-width] */
+function drawBat(c, hx, hy, a) {
+  var L = BAT_LEN, ux = Math.cos(a), uy = Math.sin(a), px = -uy, py = ux, top = [], bot = [];
+  BAT_PROFILE.forEach(function (q) { var d = q[0] < 0 ? q[0] : q[0] * L, w = q[1]; top.push([hx + ux * d + px * w, hy + uy * d + py * w]); bot.unshift([hx + ux * d - px * w, hy + uy * d - py * w]); });
+  var ex = hx + ux * L * 0.97, ey = hy + uy * L * 0.97;
+  c.beginPath(); c.moveTo(top[0][0], top[0][1]);
+  top.forEach(function (q) { c.lineTo(q[0], q[1]); });
+  c.arc(ex, ey, 1.7, a - PI / 2, a + PI / 2); /* rounded end of the barrel */
+  bot.forEach(function (q) { c.lineTo(q[0], q[1]); });
+  c.closePath();
+  c.fillStyle = theme.bat; c.fill();
+  c.lineJoin = 'round'; c.strokeStyle = theme.outline || 'rgba(60,35,15,0.55)'; c.lineWidth = 0.8; c.stroke();
+  /* a soft highlight along the barrel */
+  c.strokeStyle = 'rgba(255,255,255,0.35)'; c.lineWidth = 0.6; c.beginPath(); c.moveTo(hx + ux * L * 0.62 + px * 0.5, hy + uy * L * 0.62 + py * 0.5); c.lineTo(hx + ux * L * 0.93 + px * 0.8, hy + uy * L * 0.93 + py * 0.8); c.stroke();
+}
 /* side-on right-handed batter facing the plate (screen right), head toward pitcher */
 function drawBatter(c, x, y, s, col, pose) {
   var T = theme;
@@ -460,11 +476,7 @@ function drawBatter(c, x, y, s, col, pose) {
   c.beginPath(); c.moveTo(-4.6, -29); c.bezierCurveTo(-5.4, -24, -4.8, -19, -3.6, -15.5); c.lineTo(5.4, -15.5); c.bezierCurveTo(6.8, -20, 6.8, -25, 4.6, -29); c.closePath(); F(c, col);
   c.fillStyle = T.dark; c.fillRect(-3.9, -17.2, 9.4, 1.6);
   var hx = pose.hx, hy = pose.hy, a = pose.a;
-  var tx = hx + Math.cos(a) * BAT_LEN, ty = hy + Math.sin(a) * BAT_LEN;
-  var mx = hx + Math.cos(a) * (BAT_LEN - 8), my = hy + Math.sin(a) * (BAT_LEN - 8);
-  if (theme.outline) limb(c, hx, hy, tx, ty, 2.2, T.bat);
-  c.strokeStyle = T.bat; c.lineCap = 'round'; c.lineWidth = 2.1; c.beginPath(); c.moveTo(hx, hy); c.lineTo(tx, ty); c.stroke();
-  c.lineWidth = 3.3; c.beginPath(); c.moveTo(mx, my); c.lineTo(tx, ty); c.stroke();
+  drawBat(c, hx, hy, a);
   limb(c, 3.5, -26, hx, hy, 3.4, col);
   limb(c, -1.5, -25, hx, hy, 3.4, col);
   circ(c, hx, hy, 1.9); F(c, T.dark);
