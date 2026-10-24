@@ -52,6 +52,7 @@ body.day { background: #4f9e44; }
 #toast.on { opacity: 1; }
 #toast b { display: block; font-family: var(--font-display); font-weight: 400; font-size: 34px; color: var(--cream); -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; text-shadow: 0 3px 0 var(--ink); white-space: nowrap; }
 #toast b.big { font-size: 46px; color: var(--gold); }
+#toast span[hidden] { display: none; }
 #toast span { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 6px; background: rgba(22,32,43,0.8); font-size: 13px; font-weight: 600; }
 #hint { position: absolute; left: 50%; top: 48px; transform: translateX(-50%); padding: 3px 10px; border-radius: 8px; background: rgba(22,32,43,0.72); font-size: 12px; font-weight: 600; white-space: nowrap; pointer-events: none; }
 
@@ -162,7 +163,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 89</small>
+    <small id="ver">Version 90</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -203,7 +204,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 89</small>
+    <small class="lver" id="lver">Version 90</small>
   </section>
 
   <section class="screen" id="netmsg" hidden>
@@ -777,6 +778,7 @@ function callPick() {
   S.pick = true; S.pickQ = 0; S.pickAt = S.t;
   S.runners.forEach(function (r) {
     if (!alive(r)) return;
+    r.pickFrom = r.at;
     if (r.lead) { var g = r.go; r.lead = false; r.go = false; if (!g) reverse(r); }
     else if (r.go && r.to == null && r.at < 3 && !standingOn(r.at + 1, r)) { r.go = false; r.to = r.at + 1; r.p = 0; }
   });
@@ -799,6 +801,7 @@ function closePlay(k) {
 /* direction + button: every runner who can reach that base heads for it, forward or back */
 function sendRunner(r, T) {
   if (!alive(r) || r.trot || r.award) return false;
+  if (r.slide > 0) return false; /* once he starts his slide he can't stop it or turn around (user, Oct 24, version 90) */
   if (r.lead) {
     if (S.phase === 'ready') { /* before the pitch: an order to steal (or to stay) */
       if (T === r.to && T <= 3) { r.go = true; return true; }
@@ -1046,7 +1049,7 @@ function cpuRunners() {
     } else if (!r.forced && r.to > r.at && r.rev < 1 && S.t % 4 === 0) {
       var L = legLen(r), rem = (1 - r.p) * L / RSPD;
       /* clearly not going to make it: back to the base he left, if it is open */
-      if (ballETA(r.to) + 20 < rem && r.at >= 1 && !standingOn(r.at, r)) reverse(r);
+      if (r.slide <= 0 && ballETA(r.to) + 20 < rem && r.at >= 1 && !standingOn(r.at, r)) reverse(r);
     }
   });
 }
@@ -1171,7 +1174,9 @@ function holdSpot(id) {
 function pickSettled() {
   if (!S.pickRun || anyStealing() || S.pickQ) return false;
   S.pick = false; S.pickRun = false; S.lock = false;
-  toast('STOLEN BASE', null, 70); sfx('slide'); hint(); return true;
+  /* only a runner who ended up on a base past the one he started on stole it; a runner who went back to his base stole nothing (version 90) */
+  if (S.runners.some(function (r) { return alive(r) && r.to == null && r.pickFrom != null && r.at > r.pickFrom; })) { toast('STOLEN BASE', null, 70); sfx('slide'); }
+  hint(); return true;
 }
 /* a pickoff throw pressed early is held until the man covering is on the bag (at most 1.5 s) */
 function pickReady() {
@@ -2008,6 +2013,7 @@ function stepOffPose(k) {
 }
 function ring(c, x, y, sc) { c.save(); c.strokeStyle = '#ffd23f'; c.lineWidth = 2; c.beginPath(); c.ellipse(x, y, 13 * sc, 4.4 * sc, 0, 0, 7); c.stroke(); c.restore(); }
 function render() {
+  swingStep();
   if (!fieldCache) buildField();
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(fieldCache, 0, 0);
   ctx.setTransform(K * DPR, 0, 0, K * DPR, 0, 0);
@@ -2072,11 +2078,20 @@ function pitcherPose() {
   if (S.phase === 'ready' && S.ball === null) return st ? { side: true, hand: [-0.5, -19.5], glove: [1, -19.5], ball: true } : { hand: [-3, -20], glove: [3, -20], ball: true };
   return { ball: S.phase === 'ready' };
 }
+/* catch-up swing (user, Oct 24, version 90): online, the other player's swing can show up on this screen after most of it has
+   already happened; it is still drawn from the start, sped up until it catches up. Drawing only. */
+var SWV = { key: null, t: 0 };
+function swingStep() {
+  var sw = S && S.sw; if (!sw || sw.type === 'bunt') { SWV.key = null; return; }
+  var key = (S.t - sw.t) + sw.type;
+  if (key !== SWV.key) { SWV.key = key; SWV.t = Math.min(sw.t, 1); }
+  else SWV.t = Math.min(sw.t, SWV.t + (sw.t - SWV.t > 1 ? 2.5 : 1));
+}
 function batterPose() {
   var sw = S.sw;
   if (sw && sw.type === 'bunt') return { hx: 4, hy: -22.3, a: 0 };
   if (sw) {
-    var ct = sw.ct || CONTACT_T, ln = sw.len || SWING_LEN, t = Math.min(sw.t, ln), a;
+    var ct = sw.ct || CONTACT_T, ln = sw.len || SWING_LEN, t = Math.min(SWV.key != null ? SWV.t : sw.t, ln), a;
     if (t <= ct) a = (-107 - (253 * t / ct)) * PI / 180; else a = (-360 - 170 * (t - ct) / (ln - ct)) * PI / 180;
     var k = Math.min(1, t / ct); return { hx: -4.8 + 10 * k, hy: -28.6 + 6.3 * k, a: a };
   }
@@ -2118,7 +2133,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = 89; /* only games on the same build are listed */
+var PROTO = 90; /* only games on the same build are listed */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
@@ -2387,6 +2402,6 @@ layout(); setTheme('day'); pressGroup('mon', 'moff', opts.murmur); $('mv').textC
 $('fl').innerHTML = coachSVG('red', 'neutral'); $('fr').innerHTML = coachSVG('blue', 'neutral');
 $('hint').textContent = '';
 requestAnimationFrame(frame);
-window.__ccb = { get S() { return S; }, tick: function (IN) { tick(IN); }, newGame: function (o) { var g = {}; if (o) for (var k in o) { if (k === 'seed' || k === 'ai' || k === 'me' || k === 'vis') g[k] = o[k]; else opts[k] = o[k]; } newGame(g); }, save: save, load: load, syncView: syncView, RB: RB, packIn: packIn, NET: NET, quiet: function (q) { QUIET = !!q; }, get ME() { return ME; }, newRunner: function (a) { return newRunner(a, null); }, human: human };
+window.__ccb = { get S() { return S; }, get SWV() { return SWV; }, tick: function (IN) { tick(IN); }, newGame: function (o) { var g = {}; if (o) for (var k in o) { if (k === 'seed' || k === 'ai' || k === 'me' || k === 'vis') g[k] = o[k]; else opts[k] = o[k]; } newGame(g); }, save: save, load: load, syncView: syncView, RB: RB, packIn: packIn, NET: NET, quiet: function (q) { QUIET = !!q; }, get ME() { return ME; }, newRunner: function (a) { return newRunner(a, null); }, human: human };
 })();
 </script>

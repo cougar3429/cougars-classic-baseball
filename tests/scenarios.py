@@ -36,6 +36,18 @@ CHECKS = {
   S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(-100, 150); T.I.giveBall('LF'); S.F.LF.x = -100; S.F.LF.y = 150; S.gatherT = 9999;
   T.press('r'); return { ok: T.rs() === '2', runnersAfterSendingToFirst: T.rs() }; }""",
 
+'pickoff: a runner who broke and went back to his base is no stolen base; the toast shows no old second line': r'''() => { T.start(true); const S = T.C.S; T.put([2]); T.run(80);
+  const r = S.runners[0]; T.press('l'); T.I.callPick(); const broke = r.to === 3; T.run(3); T.press('u'); const back = r.to === 2;
+  S.lastToast = { text: 'STRIKE 1', sub: 'Out of reach', end: S.t + 1, big: false }; document.getElementById('ts').textContent = 'Out of reach'; document.getElementById('ts').hidden = false;
+  let stole = false; for (let i = 0; i < 300 && S.pick; i++) { T.C.tick(); if (S.pick) T.I.pickSettled(); if (S.lastToast && S.lastToast.text === 'STOLEN BASE') stole = true; }
+  T.until(() => r.to == null, 300); const ts = document.getElementById('ts'); ts.hidden = true;
+  /* the live site has no wrapper page: switch off the test page's own [hidden] rule (it hid the bug) */
+  const wrap = [...document.styleSheets].find(x => [...x.cssRules].some(c => c.cssText.includes('!important') && c.selectorText === '[hidden]')); if (wrap) wrap.disabled = true;
+  const subShows = getComputedStyle(ts).display !== 'none'; if (wrap) wrap.disabled = false;
+  return { ok: broke && back && !stole && r.at === 2 && !subShows, broke, wentBack: back, stolenBaseCalled: stole, base: r.at, oldSubStillShows: subShows }; }''',
+'a sliding runner cannot stop or turn around': r'''() => { T.start(true); const S = T.C.S; T.put([2]); const r = S.runners[0]; r.lead = false; r.to = 3; r.p = 0.85; r.slide = 20; T.I.snapRunners();
+  S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(40, 60); T.I.giveBall('3B'); S.gatherT = 9999;
+  T.press('u'); return { ok: r.at === 2 && r.to === 3, runner: r.at + '>' + r.to }; }''',
 'pickoff: one tap steps off (runners dive back), tap again goes back on the rubber': r"""() => { T.start(false); const S = T.C.S; T.put([1, 2]); T.run(80); const leads = T.rs();
   T.press(null); const pick = S.pick; T.run(70); const back = T.rs(); T.press(null);
   return { ok: pick && back === '1,2' && !S.pick, leads, steppedOffWithOneTap: pick, afterCall: back, backOnRubber: !S.pick }; }""",
