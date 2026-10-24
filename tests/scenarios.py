@@ -150,6 +150,17 @@ CHECKS = {
   const steersInGame = ev(document.body, 'KeyA');
   const back = !!document.getElementById('sback');
   return { ok: blockedInBox.length === 0 && steersInGame && back, blockedInBox, steersInGame, setupBack: back }; }""",
+'runners on 1st and 2nd: two runners are never sent to the same base (before, during and after the pitch)': r"""() => {
+  const run = (seq) => { T.start(true); const S = T.C.S; T.put([1, 2]); T.I.takeLeads(); T.run(40);
+    for (const step of seq) { if (step === 'windup') T.until(() => S.phase === 'windup', 400);
+      else if (step === 'stealplay') { S.runners.forEach(r => { r.lead = false; r.go = false; }); const a = S.runners.find(r => r.at === 1), b = S.runners.find(r => r.at === 2); a.to = null; b.to = 3; b.p = 0.3; S.phase = 'batted'; S.live = { kind: 'steal', still: 0 }; S.bb = T.I.mkBall(0, -21); T.I.giveBall('C'); }
+      else T.press(step); }
+    const a = S.runners.find(r => r.snap === 1 || r.at === 1 && !r.bat), b = S.runners.find(r => r !== a && !r.bat);
+    const dest = r => r.lead ? (r.go ? r.to : r.at) : (r.to == null ? r.at : r.to);
+    return { a: dest(a), b: dest(b) }; };
+  const cases = { upBeforePitch: run(['u']), thirdThenUp: run(['l', 'u', 'windup']), upInWindup: run(['windup', 'u']), upOnStealPlay: run(['stealplay', 'u']) };
+  const ok = Object.values(cases).every(c => c.a !== c.b) && cases.thirdThenUp.a === 2 && cases.thirdThenUp.b === 3 && cases.upOnStealPlay.a === 2 && cases.upOnStealPlay.b === 3;
+  return { ok, cases }; }""",
 }
 
 failed = 0

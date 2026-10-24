@@ -157,7 +157,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 82</small>
+    <small id="ver">Version 83</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -820,8 +820,9 @@ function sendRunner(r, T) {
   if (r.next && T === r.to) { r.next = null; return true; }
   return false;
 }
-function rLine(r) { return r.to == null ? r.at : r.at + (r.to - r.at) * r.p; } /* where he is along the bases: 1.5 = halfway from first to second */
-function rDir(r) { return r.to == null || r.wait ? 0 : r.to > r.at ? 1 : -1; }
+/* where he is along the bases: 1.5 = halfway from first to second; a runner holding his lead counts as on his base (version 83) */
+function rLine(r) { return r.to == null || r.lead ? r.at : r.at + (r.to - r.at) * r.p; }
+function rDir(r) { if (r.lead) return r.go ? 1 : 0; return r.to == null || r.wait ? 0 : r.to > r.at ? 1 : -1; }
 /* the base he would run to on this command, or null if the command doesn't move him toward one */
 function nextFor(r, T) {
   var x = rLine(r); if (T > x + 0.001) return Math.min(T, Math.floor(x + 0.001) + 1); if (T < x - 0.001) return Math.max(T, Math.ceil(x - 0.001) - 1); return null;
@@ -839,8 +840,13 @@ function blocked(r, T) {
   });
 }
 function commandRunners(T) {
+  /* two runners never head for the same base: when a trailing runner can come up to base T on this press,
+     a runner leaving T (ordered to steal, or running on) is not called back to it (version 83) */
+  var comeUp = T >= 2 && T <= 4 && S.runners.some(function (o) { return alive(o) && !o.trot && o.at === T - 1 && (o.to == null || o.to === T); });
   var any = false, list = S.runners.slice().sort(function (a, b) { return T >= rLine(a) && T >= rLine(b) ? rLine(b) - rLine(a) : rLine(a) - rLine(b); }); /* lead runner first */
-  list.forEach(function (r) { if (S.phase !== 'ready' && blocked(r, T)) return; if (sendRunner(r, T)) any = true; });
+  /* decide from where everyone is at the moment of the press, then move them (so one runner's move can't unblock another) */
+  var go = list.filter(function (r) { return !(comeUp && r.at === T && ((r.lead && r.go) || (!r.lead && r.to === T + 1 && !r.wait))) && !blocked(r, T); });
+  go.forEach(function (r) { if (sendRunner(r, T)) any = true; });
   return any;
 }
 function arrive(r) {
