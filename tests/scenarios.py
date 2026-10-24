@@ -115,10 +115,20 @@ CHECKS = {
   const a = S.runners.find(r => r.at === 1), b = S.runners.find(r => r.at === 2); [a, b].forEach(r => { r.lead = false; r.go = false; }); a.to = 2; a.p = 0.4; b.to = null;
   T.press('r'); return { ok: a.to === 1 && b.to == null && b.at === 2, trailing: T.rs() }; }""",
 
-'runners on 1st and 2nd: third then second moves both up; second first is ignored while it is occupied': r"""() => { T.start(true); const S = T.C.S; T.put([1, 2]); T.hit(0, 0.2);
+'live play, runners on 1st and 2nd: second is ignored while occupied; after third, up calls the lead runner back (he always obeys)': r"""() => { T.start(true); const S = T.C.S; T.put([1, 2]); T.hit(0, 0.2);
   const a = S.runners.find(r => !r.bat && r.at === 1), b = S.runners.find(r => !r.bat && r.at === 2); [a, b].forEach(r => { r.forced = false; r.to = null; r.p = 0; });
-  T.press('u'); const ignored = a.to == null && b.to == null; T.press('l'); T.press('u');
-  return { ok: ignored && b.to === 3 && a.to === 2, secondFirstIgnored: ignored, runners: T.rs() }; }""",
+  T.press('u'); const ignored = a.to == null && b.to == null; T.press('l'); const leadWent = b.to === 3; T.press('u');
+  const leadBack = b.to === 2 || (b.to == null && b.at === 2);
+  return { ok: ignored && leadWent && leadBack && a.to == null && a.at === 1, secondFirstIgnored: ignored, runners: T.rs() }; }""",
+
+'Case A: lead runner halfway to third, batter on first: up brings the lead runner back and the batter stays': r"""() => { T.start(true); const S = T.C.S; T.put([2]); T.hit(-10, 0.25);
+  const lead = S.runners.find(r => !r.bat && r.at === 2); T.until(() => S.batR.to == null && S.batR.at === 1, 400); T.press('l'); T.until(() => lead.to === 3 && lead.p >= 0.45, 400);
+  T.press('u'); return { ok: lead.to === 2 && S.batR.to == null, lead: lead.at + '>' + lead.to, batter: S.batR.at + '>' + S.batR.to }; }""",
+
+'Case B: a forced lead runner can turn back; the trailing runner forced to that base is then forced out there, with the out called': r"""() => { T.start(true); const S = T.C.S; T.put([1, 2]); T.hit(-10, 0.6);
+  const lead = S.runners.find(r => !r.bat && r.at === 2), mid = S.runners.find(r => !r.bat && r.at === 1); T.until(() => lead.to === 3 && lead.p >= 0.45, 400);
+  T.press('u'); const back = lead.to === 2; T.until(() => S.phase !== 'batted', 900);
+  return { ok: back && !lead.out && lead.at === 2 && mid.out && /out/i.test(mid.how || ''), leadTurnedBack: back, lead: lead.out ? 'out' : 'at ' + lead.at, middle: mid.out ? mid.how : 'safe' }; }""",
 
 'the catcher throws the ball back to the pitcher after a pitch that is not hit': r"""() => { let saw = 0, ready = false, call = '';
   for (let k = 0; k < 12 && !saw; k++) { T.start(true); const S = T.C.S; S.runners = [];   /* you bat and never swing: the computer's pitch is caught */
@@ -159,7 +169,7 @@ CHECKS = {
     const dest = r => r.lead ? (r.go ? r.to : r.at) : (r.to == null ? r.at : r.to);
     return { a: dest(a), b: dest(b) }; };
   const cases = { upBeforePitch: run(['u']), thirdThenUp: run(['l', 'u', 'windup']), upInWindup: run(['windup', 'u']), upOnStealPlay: run(['stealplay', 'u']) };
-  const ok = Object.values(cases).every(c => c.a !== c.b) && cases.thirdThenUp.a === 2 && cases.thirdThenUp.b === 3 && cases.upOnStealPlay.a === 2 && cases.upOnStealPlay.b === 3;
+  const ok = Object.values(cases).every(c => c.a !== c.b) && cases.thirdThenUp.a === 2 && cases.thirdThenUp.b === 3 && cases.upOnStealPlay.a === 1 && cases.upOnStealPlay.b === 2; /* live play: up calls the lead runner back (version 84) */
   return { ok, cases }; }""",
 }
 
