@@ -157,7 +157,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 87</small>
+    <small id="ver">Version 88</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -197,7 +197,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 87</small>
+    <small class="lver" id="lver">Version 88</small>
   </section>
 
   <section class="screen" id="netmsg" hidden>
@@ -811,7 +811,7 @@ function sendRunner(r, T) {
   }
   if (r.to == null) {
     if (T === r.at + 1 && T <= 4) { r.to = T; r.p = 0; return true; }
-    if (T === r.at - 1 && T >= 1 && (r.bat || T >= r.snap)) { r.to = T; r.p = 0; return true; } /* never back past the base he started the play on */
+    /* a runner standing on a base during a live play never goes back to the base behind him (user, Oct 24, version 88); only a runner between bases can turn back */
     return false;
   }
   if (T === r.at && T >= 1) { reverse(r); return true; } /* any runner may turn back to avoid a tag; a forced runner stays forced (version 85) */
@@ -939,7 +939,7 @@ function commitRuns() {
   var n = S.playRuns; S.playRuns = 0; if (!n) return 0;
   S.score[batSide()] += n;
   S.faces = { bat: 'happy', pit: 'mad' }; S.faceT = 300; updatePortraits(); updateHUD();
-  sfx('cheer', null, 0.15);
+  crowd(batSide(), 0.15);
   if (!S.wo && homeWins(0)) walkOff();
   else if (!S.wo && homeMercy()) mercyEnd();
   return n;
@@ -1297,7 +1297,7 @@ function pitchEnd() {
   var kx = S.F.C.x; S.ball = null;
   if (c.k === 'K') {
     S.abOver = true; S.batterGone = true; S.outs++;
-    result('STRIKEOUT', null, 'out'); sfx('bark', null, 0.15); sfx(side === ME ? 'boo' : 'cheer', null, 0.6);
+    result('STRIKEOUT', null, 'out'); sfx('bark', null, 0.15); sfx(side === homeSide() ? 'boo' : 'cheer', null, 0.6);
   } else if (c.k === 'S') { result(c.text, c.sub, 'pitch'); sfx('strike', null, 0.12); }
   else if (c.k === 'BB') {
     S.abOver = true; S.batterGone = true; batterToFirst(true);
@@ -1615,7 +1615,7 @@ function cpuDefense() {
 }
 /* the call comes the moment the ball is judged foul; the ball keeps rolling while it shows */
 function callFoul() {
-  if (S.bb.bunt && S.s >= 2) { var ks = batSide(); S.outs++; S.stats[ks].k++; S.batterGone = true; result('STRIKEOUT', 'Foul bunt with two strikes', 'out'); sfx('bark', null, 0.1); sfx(ks === ME ? 'boo' : 'cheer', null, 0.5); return; }
+  if (S.bb.bunt && S.s >= 2) { var ks = batSide(); S.outs++; S.stats[ks].k++; S.batterGone = true; result('STRIKEOUT', 'Foul bunt with two strikes', 'out'); sfx('bark', null, 0.1); sfx(ks === homeSide() ? 'boo' : 'cheer', null, 0.5); return; }
   if (S.s < 2) S.s++; result('FOUL BALL', null, 'pitch'); sfx('foul');
 }
 function battedStep(dIn) {
@@ -1625,7 +1625,7 @@ function battedStep(dIn) {
     bb.v = bb.v * DECAY - FRICTION; if (bb.v < 0) bb.v = 0;
     bb.x += bb.ux * bb.v; bb.y += bb.uy * bb.v; bb.dist += bb.v; bb.h = 0; backstops(bb);
     if (bb.v < 0.05 || bb.t > 240) {
-      if (bb.bunt && S.s >= 2) { var ks = batSide(); S.outs++; S.stats[ks].k++; S.batterGone = true; result('STRIKEOUT', 'Foul bunt with two strikes', 'out'); sfx('bark', null, 0.1); sfx(ks === ME ? 'boo' : 'cheer', null, 0.5); return; }
+      if (bb.bunt && S.s >= 2) { var ks = batSide(); S.outs++; S.stats[ks].k++; S.batterGone = true; result('STRIKEOUT', 'Foul bunt with two strikes', 'out'); sfx('bark', null, 0.1); sfx(ks === homeSide() ? 'boo' : 'cheer', null, 0.5); return; }
       if (S.s < 2) S.s++; result('FOUL BALL', null, 'pitch'); sfx('foul');
     }
     return;
@@ -1689,7 +1689,7 @@ function endLive(why, how) {
     if (b && b.scored) { title = 'INSIDE-THE-PARK HR!'; S.stats[side].h++; S.stats[side].hr++; sfx('fanfare'); }
     else if (b && !b.out) {
       if (S.playOuts > 0 && b.at === 1) title = "FIELDER'S CHOICE";
-      else { title = ['', 'SINGLE', 'DOUBLE', 'TRIPLE'][b.at] || 'SAFE'; S.stats[side].h++; sfx('cheer', null, 0.3); }
+      else { title = ['', 'SINGLE', 'DOUBLE', 'TRIPLE'][b.at] || 'SAFE'; S.stats[side].h++; crowd(side, 0.3); }
     }
     else { title = n ? (n > 1 ? n + ' RUNS SCORE' : 'RUN SCORES') : null; sub = null; } /* the out itself was already called */
   }
@@ -1782,7 +1782,7 @@ function wallHit(d) {
     else if (homeMercy()) { S.wo = true; S.mercyEnd = true; tag = (tag ? tag + ' · ' : '') + 'Mercy rule'; }
     result(n === 4 ? 'GRAND SLAM!' : 'HOME RUN!', (tag ? tag + ' · ' : '') + Math.round(ch) + '% chance: ' + Math.round(frac * 100) + '% speed + ' + HR_BONUS + (u >= 0.5 ? ' + 10 near the line' : ''), 'ab', true);
     S.rt = Math.max(S.rt, trotTicks()); if (S.wo) S.after = 'walkoff';
-    sfx('fanfare'); sfx('cheer', null, 0.3);
+    sfx('fanfare'); crowd(batSide(), 0.3);
     S.faces = { bat: 'happy', pit: 'mad' }; S.faceT = 300; updatePortraits(); updateHUD();
     return;
   }
@@ -1817,6 +1817,8 @@ function afterResult() {
   if (kind === 'side') { S.half++; if (gameOver()) return endGame(); startHalf(); return; }
   S.phase = 'ready'; S.pt = 0; S.cpuP = null; S.pickQ = 0; S.pickRun = false; takeLeads(); updateHUD(); hint();
 }
+/* the crowd roots for the home team: cheers when its batters do something good, boos when the visitors do (user, Oct 24) */
+function crowd(side, delay) { sfx(side === homeSide() ? 'cheer' : 'boo', null, delay); }
 function homeSide() { return S.vis === 'you' ? 'cpu' : 'you'; }
 function gameOver() {
   var N = opts.innings, h = S.half, vis = S.score[S.vis], home = S.score[homeSide()];
@@ -1830,6 +1832,16 @@ function gameOver() {
    save() copies the whole game; load() puts a copy back. After re-running ticks quietly, syncView() redraws the screen from S. */
 function save() { return typeof structuredClone === 'function' ? structuredClone(S) : JSON.parse(JSON.stringify(S)); }
 function load(copy) { S = typeof structuredClone === 'function' ? structuredClone(copy) : JSON.parse(JSON.stringify(copy)); }
+/* smoothing (version 88): when a re-run moves the ball, it is drawn gliding from where it was shown to where it really is
+   over about 1/8 s instead of jumping. Drawing only; the game itself is not touched. */
+var GLIDE = { px: 0, py: 0, bx: 0, by: 0 };
+function ballSpots() { return { p: S && S.ball && !S.bb ? [S.ball.fx + GLIDE.px, S.ball.fy + GLIDE.py] : null, b: S && S.bb && !S.holder && !S.bb.gone ? [S.bb.x + GLIDE.bx, S.bb.y + GLIDE.by] : null }; }
+function glideFrom(o) {
+  var n = ballSpots(), near = function (a, b) { return a && b && Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) < 40; };
+  if (near(o.p, n.p)) { GLIDE.px += o.p[0] - n.p[0]; GLIDE.py += o.p[1] - n.p[1]; } else { GLIDE.px = GLIDE.py = 0; }
+  if (near(o.b, n.b)) { GLIDE.bx += o.b[0] - n.b[0]; GLIDE.by += o.b[1] - n.b[1]; } else { GLIDE.bx = GLIDE.by = 0; }
+}
+function glideStep() { for (var k in GLIDE) { GLIDE[k] *= 0.7; if (Math.abs(GLIDE[k]) < 0.05) GLIDE[k] = 0; } }
 function syncView() {
   if (!S) return;
   updateHUD(); updatePortraits(); hint();
@@ -1897,9 +1909,10 @@ var RB = {
     if (this.dirty == null) return;
     var m = this.dirty, end = S.t; this.dirty = null;
     if (!this.snaps[m]) return;
+    var before = ballSpots();
     load(this.snaps[m]); QUIET = true;
     try { while (S.t < end) this.run1(); } finally { QUIET = false; }
-    this.rolls++; this.rolled += end - m + 1; syncView();
+    this.rolls++; this.rolled += end - m + 1; syncView(); glideFrom(before);
   },
   trim: function () {
     var keep = Math.min(this.confirmed(), S.t) - 2;
@@ -2031,9 +2044,10 @@ function render() {
   }
   list.sort(function (a, b) { return a.y - b.y; }).forEach(function (o) { o.d(); });
   if (S.ball && !S.bb && (S.phase === 'pitch' || S.phase === 'result')) {
-    if (S.phase === 'pitch' || S.ball.fy > -17) drawBall(ctx, S.ball.fx, Math.max(S.ball.fy, -19), 7);
+    var gy = S.ball.fy + GLIDE.py; if (S.phase === 'pitch' || gy > -17) drawBall(ctx, S.ball.fx + GLIDE.px, Math.max(gy, -19), 7);
   }
-  if (S.bb && !S.holder && !S.bb.gone) drawBall(ctx, S.bb.x, S.bb.y, S.thr ? (S.bb.h || 0) + 4 : 3, !!S.thr);
+  if (S.bb && !S.holder && !S.bb.gone) drawBall(ctx, S.bb.x + GLIDE.bx, S.bb.y + GLIDE.by, S.thr ? (S.bb.h || 0) + 4 : 3, !!S.thr);
+  glideStep();
   var rb = retPos(); if (rb && rb.started && !rb.done) drawBall(ctx, rb.x, rb.y, rb.h, true);
 }
 function pitcherPose() {
@@ -2098,16 +2112,19 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = 87; /* only games on the same build are listed */
+var PROTO = 88; /* only games on the same build are listed */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
-  SEND_MS: 100, lastFlush: 0, ackSent: -1,
-  out: function (t, p) { this.log[t] = p; this.lastSent = t; },
-  /* every 100 ms: all moves the opponent hasn't confirmed, plus how far this phone has received (version 86).
-     A fixed 10 messages a second per phone stays well under Supabase's limit of 100 per second for the project. */
+  SEND_MS: 100, FAST_MS: 50, lastFlush: 0, ackSent: -1, newMove: false, lastOut: null,
+  out: function (t, p) { this.log[t] = p; this.lastSent = t; if (!this.lastOut || !sameIn(this.lastOut, p)) this.newMove = true; this.lastOut = p; },
+  /* all moves the opponent hasn't confirmed, plus how far this phone has received (version 86). Sent at once when a move changes,
+     but at most every 50 ms; otherwise every 100 ms (version 88). At most 20 messages a second per phone, under Supabase's limit
+     of 100 per second for the project. */
   flush: function (now) {
-    if (!this.ch || now - this.lastFlush < this.SEND_MS) return;
+    if (!this.ch) return;
+    var gap = now - this.lastFlush; if (gap < this.FAST_MS || (gap < this.SEND_MS && !this.newMove)) return;
+    this.newMove = false;
     var k = RB.confirmed(); if (this.lastSent <= this.oppAck && k === this.ackSent) return;
     this.lastFlush = now; this.ackSent = k;
     var a = this.oppAck + 1, b = Math.min(this.lastSent, a + 600), r = [], last = null;

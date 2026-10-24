@@ -28,6 +28,10 @@ CHECKS = {
 'foul ball sends a stealing runner back': r"""() => { T.start(true); const S = T.C.S; T.put([1]); const r = S.runners[0]; r.lead = false; r.to = null; T.I.snapRunners();
   r.to = 2; r.p = 0.4; T.I.foulReturn(); for (let i = 0; i < 300; i++) T.I.moveRunners(); return { ok: T.rs() === '1', runners: T.rs() }; }""",
 
+'a runner standing on a base never goes back on a command (runner who reached third stays; the runner on first goes to second)': r'''() => { T.start(true); const S = T.C.S; T.put([1, 3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); T.I.snapRunners();
+  const r3 = S.runners.find(r => r.at === 3), r1 = S.runners.find(r => r.at === 1); r3.snap = 2;
+  S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(40, 60); T.I.giveBall('3B'); S.gatherT = 9999;
+  T.press('u'); return { ok: r3.at === 3 && r3.to == null && r1.to === 2, third: r3.at + '>' + r3.to, first: r1.at + '>' + r1.to }; }''',
 'runner never goes back past the base he started on': r"""() => { T.start(true); const S = T.C.S; T.put([2]); const r = S.runners[0]; r.lead = false; r.to = null; T.I.snapRunners();
   S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(-100, 150); T.I.giveBall('LF'); S.F.LF.x = -100; S.F.LF.y = 150; S.gatherT = 9999;
   T.press('r'); return { ok: T.rs() === '2', runnersAfterSendingToFirst: T.rs() }; }""",
