@@ -137,6 +137,13 @@ CHECKS = {
     const cv = document.getElementById('cv'), k = cv.width / 844, d = cv.getContext('2d').getImageData(Math.round(420 * k), Math.round(146 * k), Math.max(1, Math.round(4 * k)), Math.max(1, Math.round(3 * k))).data;
     let rr = 0, bl = 0; for (let i = 0; i < d.length; i += 4) { rr += d[i]; bl += d[i + 2]; }
     S.rt = 1; done({ ok: rr > bl, red: rr, blue: bl }); }))); }""",
+'holding runners: the quickest pickoff to any base is caught on the bag, from anywhere on the rubber': r"""() => { const res = [];
+  for (const base of [1, 2, 3]) for (const slide of [-6, 0, 6]) { T.start(false); const S = T.C.S; T.put([base]); S.pOff = slide; S.F.P.x = slide; T.I.resetPlay(); T.I.takeLeads();
+    const id = { 1: '1B', 2: '2B', 3: '3B' }[base], b = { 1: [60.2, 63.6], 2: [0, 127.3], 3: [-60.2, 63.6] }[base];
+    T.press(null); T.hold({ 1: 'r', 2: 'u', 3: 'l' }[base]); T.C.tick(); T.release();
+    let n = 0; while ((S.thr || S.queued != null || S.windT > 0) && n < 200) { T.C.tick(); n++; }
+    const f = S.F[id]; res.push({ base, slide, caughtBy: S.holder, offBag: S.holder ? +Math.hypot(f.x - b[0], f.y - b[1]).toFixed(2) : null }); }
+  return { ok: res.every(r => r.caughtBy === { 1: '1B', 2: '2B', 3: '3B' }[r.base] && r.offBag < 1.5), plays: res }; }""",
 }
 
 failed = 0

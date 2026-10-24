@@ -157,7 +157,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 79</small>
+    <small id="ver">Version 80</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -1118,10 +1118,23 @@ function stealCover() {
    called off, they drift back to their spots */
 function coverForPick() {
   ['1B', '2B', '3B'].forEach(function (id) {
-    var f = S.F[id], h = FDEF[id], k = COVER[id], b = BASES[k];
+    var f = S.F[id], k = COVER[id], b = BASES[k];
     if (S.pick && (standingOn(k) || S.pickQ === k || S.runners.some(function (r) { return alive(r) && !r.lead && r.to === k && r.to > r.at; }))) { if (dist2(f.x, f.y, b[0], b[1]) > 0.4) moveToward(id, b[0], b[1], FSPD); }
-    else if (dist2(f.x, f.y, h.x, h.y) > 0.4) moveToward(id, h.x, h.y, FSPD * 0.7);
+    else { var h = holdSpot(id); if (dist2(f.x, f.y, h[0], h[1]) > 0.4) moveToward(id, h[0], h[1], FSPD * 0.7); }
   });
+}
+/* holding the runner (version 80): with a runner on his base, a baseman never stands farther from the bag than he can cover
+   before the quickest possible pickoff throw gets there (step off, then throw at once: 1 tick + the wind-up + the flight) */
+function pickReach(k) {
+  var b = BASES[k], t = 1 + WIND_IF + dist2(S.pOff || 0, 61.6, b[0], b[1]) / THROW;
+  return Math.max(0, FSPD * (t - ACCEL_T / 2 - 4)); /* a few ticks to spare, so he is on the bag when it arrives */
+}
+function holdSpot(id) {
+  var h = FDEF[id], k = COVER[id], b = BASES[k];
+  if (!standingOn(k)) return [h.x, h.y];
+  var d = dist2(h.x, h.y, b[0], b[1]), R = pickReach(k);
+  if (d <= R) return [h.x, h.y];
+  return [b[0] + (h.x - b[0]) * R / d, b[1] + (h.y - b[1]) * R / d];
 }
 /* every runner who broke on the pickoff reached his base before the throw: stolen base, pitcher steps off */
 function pickSettled() {
@@ -1302,7 +1315,7 @@ function wildPitch() {
 }
 function resetPlay(keepF) {
   S.cpuRunning = false; S.cpuRunTo = 0; S.animStart = null; S.gatherT = 0; S.windT = 0; S.thrWait = 0; S.pivot = false; S.quick = false; S.queued = null; S.followT = 0; S.followId = null; S.freePlay = false; S.autoRun = 0; S.safeHold = 0;
-  if (!keepF) { S.F = homePos(); S.F.P.x = S.pOff || 0; }
+  if (!keepF) { S.F = homePos(); S.F.P.x = S.pOff || 0; ['1B', '2B', '3B'].forEach(function (id) { var hs = holdSpot(id); S.F[id].x = hs[0]; S.F[id].y = hs[1]; }); } /* basemen start each pitch holding their runners */
   S.ctl = 'P'; S.holder = null; S.thr = null; S.playT = 0; S.rd = null; S.cpuChase = null; S.cpuThrow = 0; S.thrFrom = null; S.thrT = 0; S.live = null; S.wildWait = false; S.holdT = 0;
 }
 function defenseHuman() { return !S.ai[pitSide()]; }
