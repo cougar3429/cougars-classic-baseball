@@ -166,7 +166,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 91</small>
+    <small id="ver">Version 92</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -207,7 +207,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 91</small>
+    <small class="lver" id="lver">Version 92</small>
   </section>
 
   <section class="screen" id="netmsg" hidden>
@@ -1071,6 +1071,10 @@ function tick(IN) {
   var bIn = bH ? inB : cpuBatter();
   if (bH) humanRunning(inB);
   if (S.sw && (S.phase === 'batted' || S.phase === 'result')) { S.sw.t++; if (S.sw.t > BUNT_LEN + 4) S.sw = null; }
+  /* down + button in the bunt stance goes back to the hitting stance (user, Oct 24, version 92); the press is used up, so it doesn't square again */
+  if (bH && bIn.btn && bIn.dir === 'd' && S.sw && S.sw.type === 'bunt' && !S.sw.hit && !S.sw.miss && (S.phase === 'ready' || S.phase === 'windup' || S.phase === 'pitch')) {
+    S.sw = null; bIn = { dir: null, btn: false, vx: 0, vy: 0 };
+  }
   if ((S.phase === 'ready' || S.phase === 'windup') && bIn.btn && bIn.dir === 'd' && !S.sw) S.sw = { t: 0, type: 'bunt', hit: false, miss: false };
   /* bunt aim: you steer with left/right up to contact; the computer picks one when it squares around */
   if (S.sw && S.sw.type === 'bunt' && !S.sw.hit) {
@@ -1209,6 +1213,8 @@ function doPickoff(base) {
 function mkBall(x, y) { return { bunt: false, x: x, y: y, ux: 0, uy: 1, v: 0, ev: 0, dist: 0, h: 0, foul: false, wall: true, t: 99, gone: false, touched: true, fairLocked: true }; }
 /* batter can move in the box until he starts a swing (before, during the wind-up and while the pitch is coming) */
 function moveBatter(bH, bIn) {
+  /* in the bunt stance up and down still move him; left and right aim the bunt (version 92) */
+  if (bH && !bIn.btn && bIn.vy && S.sw && S.sw.type === 'bunt' && !S.sw.hit) { S.bOff.y = Math.max(-4, Math.min(6, S.bOff.y + bIn.vy * 0.15)); return; }
   if (bH && !bIn.btn && (bIn.vx || bIn.vy) && !S.sw) { S.bOff.x = Math.max(-4, Math.min(3, S.bOff.x + bIn.vx * 0.15)); S.bOff.y = Math.max(-4, Math.min(6, S.bOff.y + bIn.vy * 0.15)); }
 }
 function release() {
@@ -2139,7 +2145,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = 91; /* only games on the same build are listed */
+var PROTO = 92; /* only games on the same build are listed */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,

@@ -61,6 +61,12 @@ CHECKS = {
   T.hold('r'); T.C.human.btn = true; T.C.tick(); T.C.human.btn = false; const off = S.pick; T.run(30); const threw = !!S.thr || S.phase !== 'ready'; T.release();
   return { ok: off === false || !threw, steppedOff: off, threw }; }""",
 
+'bunt stance: up/down move him, left/right aim, other presses do nothing, down + button goes back to hitting': r'''() => { T.start(true); const S = T.C.S; S.runners = [];
+  T.press('d'); const inBunt = !!(S.sw && S.sw.type === 'bunt'); const y0 = S.bOff.y, x0 = S.bOff.x;
+  T.hold('u'); T.run(10); const movedUp = S.bOff.y > y0; T.hold('l'); T.run(5); const aimL = S.sw && S.sw.aim === 'l', xSame = S.bOff.x === x0; T.release(); T.C.tick();
+  T.press(null); T.press('u'); T.press('l'); T.press('r'); const stillBunt = !!(S.sw && S.sw.type === 'bunt');
+  T.press('d'); T.run(3); const out = !S.sw; T.press('d'); const back = !!(S.sw && S.sw.type === 'bunt');
+  return { ok: inBunt && movedUp && aimL && xSame && stillBunt && out && back, inBunt, movedUp, aimLeft: aimL, sidewaysDidNotMove: xSame, otherPressesIgnored: stillBunt, downButtonLeft: out, downButtonSquaresAgain: back }; }''',
 'bunt fielded fully in foul ground is foul': r"""() => { T.start(true); const S = T.C.S; S.runners = []; const a = 50 * Math.PI / 180;
   S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.abOver = true; S.batterGone = true; S.playT = 0;
   S.bb = { bunt: true, x: 0, y: 1, ux: -Math.sin(a), uy: Math.cos(a), v: 0.45, ev: 0.45, dist: 0, h: 0, hPeak: 0, foul: false, wall: false, t: 0, gone: false };
