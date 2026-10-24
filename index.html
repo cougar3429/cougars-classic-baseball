@@ -2049,7 +2049,7 @@ var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd
 var PROTO = 78; /* only games on the same build are listed */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
-  log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null,
+  log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
   out: function (t, p) {
     this.log[t] = p; this.lastSent = t;
     if (!this.pend) { this.pend = { a: t, b: t, r: [[t, p]] }; this.lastP = p; this.changed = true; return; }
@@ -2074,6 +2074,12 @@ var NET = {
   watch: function (now) {
     if (!this.stepOk) { if (!this.stallAt) this.stallAt = now; else if (now - this.stallAt > 3000 && !this.wait) showWait('stall'); }
     else { this.stallAt = 0; if (this.wait && this.wait !== 'quit') hideWait(); }
+    /* WAIT FOR RECONNECT lasts 30 s, with a countdown; then the opponent counts as disconnected */
+    if (this.wait && this.waitUntil) {
+      var left = Math.ceil((this.waitUntil - now) / 1000);
+      if (left <= 0) { this.waitUntil = 0; showWait('gone'); }
+      else if (left !== this.shownSec) { this.shownSec = left; $('nwait').textContent = 'WAITING… ' + left; }
+    }
   },
   recv: function (m) {
     if (m.k != null && m.k > this.oppAck) { for (var x in this.log) if (+x <= m.k) delete this.log[x]; this.oppAck = m.k; }
@@ -2198,14 +2204,17 @@ function beginOnline() {
 function showWait(why) {
   if (!NET.live || (S && S.over)) return;
   if (NET.wait === 'quit') return;
-  NET.wait = why; var n = NET.oppName || 'Your opponent';
+  NET.wait = why; NET.waitUntil = 0; var n = NET.oppName || 'Your opponent', end = why === 'quit' || why === 'gone';
   $('quit').hidden = true; $('netwait').hidden = false;
-  $('nwh').textContent = why === 'quit' ? 'Opponent Quit' : 'Connection Lost';
-  $('nwp').textContent = why === 'quit' ? n + ' quit the game. Finish it against the computer, or quit.' : why === 'lost' ? n + ' lost the connection. Wait for them to come back, finish against the computer, or quit.' : 'Waiting for ' + n + '. Their phone may be locked or in another app. Wait for them, finish against the computer, or quit.';
-  $('nwait').hidden = why === 'quit'; $('nwait').disabled = false; $('nwait').textContent = 'WAIT FOR RECONNECT';
+  $('nwh').textContent = why === 'quit' ? 'Opponent Quit' : why === 'gone' ? 'Disconnected' : 'Connection Lost';
+  $('nwp').textContent = why === 'quit' ? n + ' quit the game. Finish it against the computer, or quit.' : why === 'gone' ? n + " didn't come back. Finish the game against the computer, or quit." : why === 'lost' ? n + ' lost the connection. Wait for them to come back, finish against the computer, or quit.' : 'Waiting for ' + n + '. Their phone may be locked or in another app. Wait for them, finish against the computer, or quit.';
+  $('nwait').hidden = end; $('nwait').disabled = false; $('nwait').textContent = 'WAIT FOR RECONNECT';
 }
-function hideWait() { NET.wait = null; $('netwait').hidden = true; }
-$('nwait').addEventListener('click', function () { sfx('click'); $('nwait').disabled = true; $('nwait').textContent = 'WAITING…'; $('nwp').textContent = 'Waiting for ' + (NET.oppName || 'your opponent') + '. The game picks up by itself when they are back.'; });
+function hideWait() { NET.wait = null; NET.waitUntil = 0; $('netwait').hidden = true; }
+$('nwait').addEventListener('click', function () {
+  sfx('click'); $('nwait').disabled = true; NET.waitUntil = performance.now() + NET.WAIT_MS; NET.shownSec = -1; $('nwait').textContent = 'WAITING… ' + Math.round(NET.WAIT_MS / 1000);
+  $('nwp').textContent = 'Waiting up to ' + Math.round(NET.WAIT_MS / 1000) + ' seconds for ' + (NET.oppName || 'your opponent') + '. The game picks up by itself when they are back.';
+});
 $('ncpu').addEventListener('click', function () {
   sfx('click'); if (!S) return;
   S.ai[RB.them] = true; NET.leave(true); acc = 0; S.paused = false; /* the computer takes over their team; this phone plays on alone */

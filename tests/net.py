@@ -81,6 +81,19 @@ def main():
         bad2 = [k for k in common2 if info2[0]['hashes'][k] != info2[1]['hashes'][k]]
         if bad2: problems.append(f'after the dropout the phones disagree from tick {bad2[0]}')
         if not all(b > a + 100 for a, b in zip(t_before, [i['t'] for i in info2])): problems.append('play did not continue after the dropout')
+        # the wait has a time limit (30 s in the game, 3 s here): when it runs out Ann sees Disconnected with only FINISH VS CPU and QUIT GAME;
+        # if Bob comes back anyway, play still picks up by itself
+        ann.evaluate('() => { window.__ccb.NET.WAIT_MS = 3000; }')
+        bob.evaluate('() => { window.__mockDrop = true; }')
+        gone = None
+        try:
+            A.locator('#netwait').wait_for(state='visible', timeout=8000); A.locator('#nwait').click()
+            A.locator('#nwh', has_text='Disconnected').wait_for(timeout=7000); gone = A.locator('#nwp').inner_text()
+            if not A.locator('#nwait').is_hidden(): problems.append('WAIT FOR RECONNECT still offered after the time limit')
+        except Exception: problems.append('the wait did not time out into Disconnected')
+        bob.evaluate('() => { window.__mockDrop = false; }')
+        try: A.locator('#netwait').wait_for(state='hidden', timeout=10000); back_after = True
+        except Exception: back_after = False; problems.append('play did not pick up when Bob came back after the time limit')
         # Bob quits: Ann gets the choices without WAIT, picks FINISH VS CPU, and her game goes on against the computer
         B.locator('#menu').click(); B.locator('#qyes').click()
         try: A.locator('#nwp', has_text='quit').wait_for(timeout=5000); told = A.locator('#nwp').inner_text()
@@ -97,10 +110,11 @@ def main():
         print(f"{who}: tick {i['t']}, half {i['half']}, score {i['score']}, re-runs {i['rolls']} ({i['rolled']} ticks)")
     print(f'scoreboard labels Ann/Bob: {names}; checked ticks {len(common)}')
     print(f'dropout: choices shown as {shown!r}, play picked up: {healed}, checked ticks after: {len(common2)}')
+    print(f'time limit: {gone!r}; picked up when Bob came back: {back_after}')
     print(f'quit: Ann told {told!r}; after FINISH VS CPU: {cpu}')
     for x in problems + errs[:5]: print('   ', x)
     ok = not problems and not errs
-    print('PASS' if ok else 'FAIL', '- online 2-player: lobby, deny, accept, play, agree, dropout and reconnect, quit, finish vs CPU')
+    print('PASS' if ok else 'FAIL', '- online 2-player: lobby, deny, accept, play, agree, dropout and reconnect, wait time limit, quit, finish vs CPU')
     sys.exit(0 if ok else 1)
 
 
