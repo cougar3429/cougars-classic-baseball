@@ -144,6 +144,12 @@ CHECKS = {
     let n = 0; while ((S.thr || S.queued != null || S.windT > 0) && n < 200) { T.C.tick(); n++; }
     const f = S.F[id]; res.push({ base, slide, caughtBy: S.holder, offBag: S.holder ? +Math.hypot(f.x - b[0], f.y - b[1]).toFixed(2) : null }); }
   return { ok: res.every(r => r.caughtBy === { 1: '1B', 2: '2B', 3: '3B' }[r.base] && r.offBag < 1.5), plays: res }; }""",
+'W A S D type into the name box but still steer in the game; Game Setup has a Back button': r"""() => {
+  const box = document.getElementById('pname'), ev = (el, code) => { const e = new KeyboardEvent('keydown', { code, key: code.slice(-1).toLowerCase(), bubbles: true, cancelable: true }); el.dispatchEvent(e); document.dispatchEvent(new KeyboardEvent('keyup', { code, bubbles: true })); return e.defaultPrevented; };
+  const blockedInBox = ['KeyW', 'KeyA', 'KeyS', 'KeyD'].filter(c => ev(box, c));
+  const steersInGame = ev(document.body, 'KeyA');
+  const back = !!document.getElementById('sback');
+  return { ok: blockedInBox.length === 0 && steersInGame && back, blockedInBox, steersInGame, setupBack: back }; }""",
 }
 
 failed = 0

@@ -157,10 +157,11 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 80</small>
+    <small id="ver">Version 81</small>
   </section>
 
   <section class="screen" id="setup" hidden>
+    <button class="lback" id="sback" type="button">BACK</button>
     <h1>Game Setup</h1>
     <div class="row"><label>Innings</label>
       <div class="stepper"><button type="button" id="inm" aria-label="Fewer innings">−</button><output id="inv">3</output><button type="button" id="inp" aria-label="More innings">+</button></div>
@@ -660,11 +661,14 @@ dpad.addEventListener('pointerup', padUp); dpad.addEventListener('pointercancel'
 btnEl.addEventListener('pointerdown', function (e) { e.preventDefault(); human.btn = true; btnEl.classList.add('on'); audio(); });
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { btnEl.addEventListener(ev, function () { btnEl.classList.remove('on'); }); });
 var KEYS = { ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r' };
+function typing(e) { var t = e.target; return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable); } /* keys typed into the name box are letters, not controls */
 window.addEventListener('keydown', function (e) {
+  if (typing(e)) return;
   if (KEYS[e.code]) { e.preventDefault(); if (human.keyDir.indexOf(KEYS[e.code]) < 0) human.keyDir.push(KEYS[e.code]); showPad(); }
   else if ((e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyJ') && S && !e.repeat && !document.activeElement.closest('.screen')) { e.preventDefault(); human.btn = true; btnEl.classList.add('on'); }
 });
 window.addEventListener('keyup', function (e) {
+  if (typing(e)) return;
   if (KEYS[e.code]) { var i = human.keyDir.indexOf(KEYS[e.code]); if (i >= 0) human.keyDir.splice(i, 1); showPad(); }
   if (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyJ') btnEl.classList.remove('on');
 });
@@ -2254,6 +2258,7 @@ $('host').addEventListener('click', function () {
 });
 $('pname').addEventListener('change', function () { NET.name = myName(); try { localStorage.setItem('ccb-name', NET.name); } catch (e) { } trackMe(); });
 $('lback').addEventListener('click', function () { sfx('click'); if (NET.asked && NET.lobby) NET.lobby.send({ type: 'broadcast', event: 'unreq', payload: { to: NET.asked, from: NET.id } }); lobbyClose(); $('setup').hidden = false; });
+$('sback').addEventListener('click', function () { sfx('click'); $('setup').hidden = true; $('title').hidden = false; });
 $('p1').addEventListener('click', function () { pressGroup('p1', 'p2', true); sfx('click'); });
 $('p2').addEventListener('click', function () { pressGroup('p1', 'p2', false); sfx('click'); });
 
