@@ -157,7 +157,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 85</small>
+    <small id="ver">Version 86</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -709,7 +709,7 @@ function other(side) { return side === 'you' ? 'cpu' : 'you'; }
 function batSide() { return (S.half % 2 === 0) ? S.vis : other(S.vis); }
 function pitSide() { return other(batSide()); }
 /* labels from this phone's point of view */
-function tag(side) { return side === ME ? 'YOU' : S.ai[side] ? 'CPU' : (NET.oppName || 'OPP').toUpperCase(); }
+function tag(side) { if (side === ME) return NET.oppName && !S.ai[other(ME)] ? (NET.name || 'Player').toUpperCase() : 'YOU'; return S.ai[side] ? 'CPU' : (NET.oppName || 'OPP').toUpperCase(); } /* online: both players' names (version 86) */
 function wins(side, it) { return (side === ME ? 'You win' : S.ai[side] ? 'The computer wins' : (NET.oppName || 'Your opponent') + ' wins') + (it ? ' it' : ''); }
 function teamColor(side) { return side === S.vis ? 'red' : 'blue'; }
 function startHalf() {
@@ -2074,7 +2074,7 @@ function frame(now) {
   if (!last) last = now; acc += Math.min(250, now - last); last = now;
   if (NET.live && S && !S.over) {
     while (acc >= TICK) { var m = RB.step(readHuman()); NET.stepOk = !!m; if (!m) { acc = 0; break; } NET.out(m.t, m.i); acc -= TICK; } /* null: waiting on the opponent */
-    NET.flush(); NET.resend(now); NET.watch(now);
+    NET.flush(now); NET.watch(now);
   } else if (S && !S.over && !S.paused) { while (acc >= TICK) { tick(); acc -= TICK; } } else acc = 0;
   render();
   requestAnimationFrame(frame);
@@ -2086,30 +2086,24 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = 78; /* only games on the same build are listed */
+var PROTO = 86; /* only games on the same build are listed */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
-  out: function (t, p) {
-    this.log[t] = p; this.lastSent = t;
-    if (!this.pend) { this.pend = { a: t, b: t, r: [[t, p]] }; this.lastP = p; this.changed = true; return; }
-    if (!sameIn(this.lastP, p)) { this.pend.r.push([t, p]); this.changed = true; }
-    this.pend.b = t; this.lastP = p;
-  },
-  flush: function () {
-    var pd = this.pend; if (!pd || !this.ch) return;
-    if (!this.changed && pd.b - pd.a < 5) return;
-    this.ch.send({ type: 'broadcast', event: 'in', payload: { a: pd.a, b: pd.b, r: pd.r, k: RB.confirmed() } });
-    this.pend = null; this.changed = false;
-  },
-  /* moves the opponent hasn't confirmed are sent again (they were lost while a phone was away) */
-  resend: function (now) {
-    if (!this.ch || now - this.lastResend < 600 || this.lastSent - this.oppAck <= 20) return;
-    this.lastResend = now;
+  SEND_MS: 100, lastFlush: 0, ackSent: -1,
+  out: function (t, p) { this.log[t] = p; this.lastSent = t; },
+  /* every 100 ms: all moves the opponent hasn't confirmed, plus how far this phone has received (version 86).
+     A fixed 10 messages a second per phone stays well under Supabase's limit of 100 per second for the project. */
+  flush: function (now) {
+    if (!this.ch || now - this.lastFlush < this.SEND_MS) return;
+    var k = RB.confirmed(); if (this.lastSent <= this.oppAck && k === this.ackSent) return;
+    this.lastFlush = now; this.ackSent = k;
     var a = this.oppAck + 1, b = Math.min(this.lastSent, a + 600), r = [], last = null;
     for (var t = a; t <= b; t++) { var p = this.log[t]; if (!p) continue; if (!r.length || !sameIn(last, p)) r.push([t, p]); last = p; }
-    if (r.length) { if (r[0][0] !== a) a = r[0][0]; this.ch.send({ type: 'broadcast', event: 'in', payload: { a: a, b: b, r: r, k: RB.confirmed() } }); }
+    if (r.length && r[0][0] !== a) a = r[0][0];
+    this.ch.send({ type: 'broadcast', event: 'in', payload: r.length ? { a: a, b: b, r: r, k: k } : { a: 1, b: 0, r: [], k: k } });
   },
+  resend: function () { },
   /* the opponent's moves stopped arriving: after 3 s the waiting player gets the choices; they close by themselves when play picks up */
   watch: function (now) {
     if (!this.stepOk) { if (!this.stallAt) this.stallAt = now; else if (now - this.stallAt > 3000 && !this.wait) showWait('stall'); }
@@ -2123,7 +2117,7 @@ var NET = {
   },
   recv: function (m) {
     if (m.k != null && m.k > this.oppAck) { for (var x in this.log) if (+x <= m.k) delete this.log[x]; this.oppAck = m.k; }
-    var j = 0, r = m.r;
+    var j = 0, r = m.r; if (!r || !r.length) return;
     for (var t = m.a; t <= m.b; t++) { while (j + 1 < r.length && r[j + 1][0] <= t) j++; RB.recv(t, r[j][1]); }
   },
   leave: function (tell) {
@@ -2212,16 +2206,29 @@ function startOnline(role, g, oppName, oppId) {
   lobbyClose(true); /* stay in the lobby channel a moment so the answer gets through before this listing disappears */
   NET.role = role; NET.oppName = oppName; NET.oppId = oppId; NET.g = g; NET.heard = false; NET.started = false;
   $('netmsg').hidden = false; $('nmh').textContent = 'Starting'; $('nmp').textContent = 'Connecting to ' + oppName + '…'; $('nmok').textContent = 'CANCEL';
+  NET.early = []; NET.rejoins = 0;
+  joinGame();
+}
+/* the game's own channel; if Supabase cuts it (an error, a timeout, too many messages), it is joined again after a short pause (version 86) */
+function joinGame() {
+  var g = NET.g, oppName = NET.oppName;
   var ch = NET.sb.channel('ccb-g-' + g.room, { config: { presence: { key: NET.id }, broadcast: { self: false } } });
   NET.ch = ch;
-  NET.early = [];
+  var lost = function () {
+    if (NET.ch !== ch) return; /* already replaced */
+    if (!NET.started) { oppGone("Couldn't connect to the game."); return; }
+    if (!NET.live) return;
+    NET.ch = null; try { NET.sb.removeChannel(ch); } catch (e) { }
+    NET.rejoins++; setTimeout(function () { if (NET.live && !NET.ch) joinGame(); }, Math.min(5000, 1000 * NET.rejoins));
+  };
   ch.on('broadcast', { event: 'in' }, function (m) { if (NET.live) NET.recv(m.payload); else NET.early.push(m.payload); }) /* moves that arrive before this phone has started are kept */
     .on('broadcast', { event: 'hi' }, function () { NET.heard = true; })
     .on('broadcast', { event: 'bye' }, function () { if (NET.live) showWait('quit'); else oppGone(oppName + ' left the game.'); })
     .on('presence', { event: 'leave' }, function (m) { if (m.key !== NET.oppId) return; if (NET.live) showWait('lost'); else oppGone(oppName + ' lost the connection.'); })
+    .on('system', {}, function (m) { if (m && m.status === 'error') lost(); })
     .subscribe(function (status) {
-      if (status === 'SUBSCRIBED') { ch.track({ name: NET.name }); greet(); }
-      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') oppGone("Couldn't connect to the game.");
+      if (status === 'SUBSCRIBED') { ch.track({ name: NET.name }); if (!NET.started) greet(); else NET.rejoins = 0; }
+      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') lost();
     });
 }
 /* both phones say hi until each has heard the other, then the game starts */
@@ -2236,7 +2243,7 @@ function beginOnline() {
   var g = NET.g; opts.innings = g.innings; opts.mercy = g.mercy;
   $('netmsg').hidden = true; audio(); if (opts.murmur) murmur(true); $('menu').hidden = false;
   newGame({ seed: g.seed, ai: { you: false, cpu: false }, me: NET.role === 'host' ? 'you' : 'cpu', vis: g.vis });
-  RB.start(ME, 1); NET.pend = null; NET.lastP = null; NET.log = {}; NET.oppAck = 0; NET.lastSent = 0; NET.stepOk = true; NET.stallAt = 0; NET.live = true; acc = 0;
+  RB.start(ME, 1); NET.log = {}; NET.oppAck = 0; NET.lastSent = 0; NET.lastFlush = 0; NET.ackSent = -1; NET.stepOk = true; NET.stallAt = 0; NET.live = true; acc = 0;
   (NET.early || []).forEach(function (m) { NET.recv(m); }); NET.early = [];
   updatePortraits(); hint();
 }
