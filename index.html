@@ -66,6 +66,10 @@ body.day { background: #4f9e44; }
 #btn { position: absolute; right: 26px; bottom: 26px; width: 88px; height: 88px; border-radius: 50%; border: 3px solid var(--ink); background: var(--red); box-shadow: inset 0 -6px 0 #a52520, 0 4px 0 var(--ink); touch-action: none; padding: 0; }
 #btn.on { transform: translateY(3px); box-shadow: inset 0 -3px 0 #a52520, 0 1px 0 var(--ink); }
 #menu { position: absolute; right: 54px; top: 74px; height: 34px; padding: 0 10px; border-radius: 8px; border: 2px solid var(--ink); background: var(--cream); color: var(--ink); font: 700 13px var(--font-body); letter-spacing: 0.06em; }
+#volpop { position: absolute; right: 12px; top: 114px; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 2px solid var(--ink); border-radius: 8px; background: var(--cream); color: var(--ink); font: 700 13px var(--font-body); box-shadow: 0 3px 0 var(--ink); z-index: 5; }
+#volpop[hidden] { display: none; }
+#volpop input, .row input[type=range] { width: 140px; accent-color: var(--gold); margin: 0; }
+.volv { min-width: 38px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; font-size: 13px; }
 #mute { position: absolute; right: 12px; top: 74px; width: 34px; height: 34px; border-radius: 8px; border: 2px solid var(--ink); background: var(--cream); color: var(--ink); padding: 0; display: flex; align-items: center; justify-content: center; }
 
 .screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: rgba(10,22,16,0.86); text-align: center; padding: 16px; box-sizing: border-box; }
@@ -134,7 +138,8 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     <div class="tm home"><b id="sh">0</b><small>HOME</small></div>
   </div>
   <button id="menu" type="button" hidden>MENU</button>
-  <button id="mute" type="button" aria-label="Mute sound" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M4 9h4l5-4v14l-5-4H4z"/><path id="mutewave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  <button id="mute" type="button" aria-label="Volume" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M4 9h4l5-4v14l-5-4H4z"/><path id="mutewave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  <div id="volpop" hidden><input type="range" id="vol" min="0" max="100" step="5" aria-label="Volume"><span class="volv" id="volv">100%</span></div>
 
   <div id="toast"><b id="tt">PLAY BALL</b><span id="ts" hidden></span></div>
   <div id="hint">Hold a direction, then tap the button to pitch</div>
@@ -157,7 +162,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 88</small>
+    <small id="ver">Version 89</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -177,6 +182,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     <div class="row"><label>Murmur</label>
       <div class="seg" role="group" aria-label="Crowd murmur"><button type="button" id="mon" aria-pressed="true">ON</button><button type="button" id="moff" aria-pressed="false">OFF</button></div>
     </div>
+    <div class="row"><label for="svol">Volume</label><input type="range" id="svol" min="0" max="100" step="5"><span class="volv" id="svolv">100%</span></div>
     <p id="setnote">Mercy: the game ends when a team leads by this many runs. Selfie and coin flip come later.</p>
     <button class="big-btn" id="go" type="button">PLAY BALL</button>
   </section>
@@ -197,7 +203,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 88</small>
+    <small class="lver" id="lver">Version 89</small>
   </section>
 
   <section class="screen" id="netmsg" hidden>
@@ -544,7 +550,7 @@ function audio() {
   if (!A) {
     var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
     A = new AC(); var comp = A.createDynamicsCompressor(); comp.connect(A.destination);
-    master = A.createGain(); master.gain.value = muted ? 0 : 0.85; master.connect(comp);
+    master = A.createGain(); master.gain.value = volGain(); master.connect(comp);
   }
   if (A.state === 'suspended') A.resume();
   return A;
@@ -2112,7 +2118,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = 88; /* only games on the same build are listed */
+var PROTO = 89; /* only games on the same build are listed */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
@@ -2355,10 +2361,25 @@ $('again').addEventListener('click', function () { if (NET.ch || NET.live) { NET
 $('menu').addEventListener('click', function () { if (!S || S.over) return; if (!NET.live) S.paused = true; $('quit').hidden = false; sfx('click'); });
 $('qno').addEventListener('click', function () { $('quit').hidden = true; if (S) S.paused = false; $('menu').blur(); sfx('click'); });
 $('qyes').addEventListener('click', function () { $('quit').hidden = true; if (NET.live) NET.leave(true); S = null; murmur(false); $('menu').hidden = true; $('hint').textContent = ''; $('toast').classList.remove('on'); $('sb').classList.remove('hide'); $('title').hidden = false; sfx('click'); });
-$('mute').addEventListener('click', function () {
-  muted = !muted; $('mute').setAttribute('aria-pressed', String(muted)); $('mutewave').style.display = muted ? 'none' : '';
-  if (audio()) master.gain.setTargetAtTime(muted ? 0 : 0.85, A.currentTime, 0.05);
+/* volume (user, Oct 24, version 89): one level for all sound, set from the speaker button in a game or on the setup screen; saved on this device */
+var vol = 100;
+try { var sv = parseInt(localStorage.getItem('ccb-vol'), 10); if (sv >= 0 && sv <= 100) vol = sv; } catch (e) { }
+function volGain() { var v = vol / 100; return 0.85 * v * v; }
+function setVol(p, save) {
+  vol = Math.max(0, Math.min(100, p | 0)); muted = vol === 0;
+  $('vol').value = vol; $('svol').value = vol; $('volv').textContent = vol + '%'; $('svolv').textContent = vol + '%';
+  $('mutewave').style.display = muted ? 'none' : '';
+  if (A && master) master.gain.setTargetAtTime(volGain(), A.currentTime, 0.05);
+  if (save) try { localStorage.setItem('ccb-vol', String(vol)); } catch (e) { }
+}
+function volPop(open) { $('volpop').hidden = !open; $('mute').setAttribute('aria-expanded', String(open)); }
+setVol(vol, false);
+$('mute').addEventListener('click', function () { audio(); volPop($('volpop').hidden); $('mute').blur(); });
+['vol', 'svol'].forEach(function (id) {
+  $(id).addEventListener('input', function () { audio(); setVol(+$(id).value, false); });
+  $(id).addEventListener('change', function () { setVol(+$(id).value, true); sfx('click'); $(id).blur(); });
 });
+document.addEventListener('pointerdown', function (e) { if (!$('volpop').hidden && !$('volpop').contains(e.target) && !$('mute').contains(e.target)) volPop(false); }, true);
 
 $('tips').checked = opts.tips;
 $('tips').addEventListener('change', function () { opts.tips = $('tips').checked; try { localStorage.setItem('ccb-tips', opts.tips ? 'on' : 'off'); } catch (e) { } sfx('click'); });
