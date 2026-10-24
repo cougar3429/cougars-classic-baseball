@@ -44,7 +44,11 @@ def main():
         for loc, name in ((A, 'Ann'), (B, 'Bob')):
             loc.locator('#p2').click(); loc.locator('#start').click(); loc.locator('#go').click()
             loc.locator('#pname').fill(name); loc.locator('#pname').dispatch_event('change')
-        for f in (ann, bob): f.wait_for_function('() => window.__ccb.NET.lobby', timeout=8000) # HOST A GAME does nothing until the lobby is connected
+        early_host = [f.evaluate("() => [document.getElementById('host').textContent, document.getElementById('host').disabled, !!window.__ccb.NET.lobbyReady]") for f in (ann, bob)]
+        for t in early_host:
+            if not t[2] and (t[0] != 'CONNECTING…' or not t[1]): problems.append(f'HOST A GAME before the lobby connected: {t}')
+        for f in (ann, bob): f.wait_for_function('() => window.__ccb.NET.lobbyReady', timeout=8000) # HOST A GAME shows CONNECTING… until the lobby is connected
+        if A.locator('#host').inner_text() != 'HOST A GAME' or A.locator('#host').is_disabled(): problems.append('HOST A GAME not ready after connecting')
         A.locator('#host').click()
         B.locator('#games button', has_text='ASK TO JOIN').click(timeout=5000)
         A.locator('#reqs button', has_text='DENY').click(timeout=5000)
@@ -145,6 +149,7 @@ def main():
     print(f'time limit: {gone!r}; picked up when Bob came back: {back_after}')
     print(f'quit: Ann told {told!r}; after FINISH VS CPU: {cpu}')
     print(f'rematch: {rm}')
+    print(f'host button right after opening the lobby: {early_host}')
     for x in problems + errs[:5]: print('   ', x)
     ok = not problems and not errs
     print('PASS' if ok else 'FAIL', '- online 2-player: lobby, deny, accept, play, agree, rematch (accept, swap, agree, decline), dropout and reconnect, wait time limit, quit, finish vs CPU')
