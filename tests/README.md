@@ -14,7 +14,7 @@ Headless browser tests for `index.html`. None of this is served as part of the g
 ./tests/run_all.sh
 ```
 
-Rebuilds the test pages, runs the rule checks, a 3-game soak, a 2-game two-phone rollback check and a 15-second online 2-player check. Exit code is non-zero if anything fails.
+Rebuilds the test pages, runs the rule checks, a 3-game soak, a 2-game two-phone rollback check, a 15-second online 2-player check and the coach selfie check. Exit code is non-zero if anything fails.
 
 | Script | What it does | Typical use |
 |---|---|---|
@@ -24,6 +24,7 @@ Rebuilds the test pages, runs the rule checks, a 3-game soak, a 2-game two-phone
 | `rates.py [n] [steals\|bunts\|both]` | Your steal and bunt success rates against the computer. Version 73: steals about 50% safe, bunts about 10-12% hits. | Tuning difficulty. |
 | `rollback.py [games] [max_lag] [max_ticks]` | Two-phone check: a host and a guest copy of the game play each other through the rollback engine (`RB`) with a fake network (random lag, out of order); a third copy gets both players' inputs with no lag. All three must end with exactly the same game. Serves `build/` on a local port so the three copies can share one page. | After any change to the game logic: catches anything that makes the phones disagree. |
 | `net.py [seconds] [lag_ms]` | Online 2-player: two copies of the real game (`build/net.html`, with `mock_supabase.js` standing in for supabase-js) go through the real lobby buttons (host, ask, deny, ask again, accept), play at real speed over a laggy simulated network, and must agree at every checked tick; then one phone's connection drops for 6 s (the other must offer WAIT FOR RECONNECT / FINISH VS CPU / QUIT GAME, and play must pick up by itself when it is back, with lost moves resent); then one quits and the other finishes against the computer. | After any change to the lobby, the network code or the game logic. |
+| `selfie.py` | Coach selfies (version 1.01): the face check on test photos (a real face passes; noise, a plain shape, a too-dark and a too-blurry photo fail with the right message), the camera screen end to end with Chromium's fake camera (SNAP, USE IT, saved on the phone, thumbnails, your HUD portrait in a 1-player game, NO SELFIE), and happy/mad really changed. Needs cdn.jsdelivr.net (the face-api library and a sample photo). `net.py` checks that the other phone gets your selfie. | After any change to the selfie code. |
 | `live_net.py [seconds]` | The same online game against the REAL Supabase project (needs network access to the project and cdn.jsdelivr.net; not part of run_all.sh). | Before pushing a change to the online code. |
 | `adv.py [games]` | Whole games where runners use the tricks found while testing (turn back when the ball closes in, go when they throw elsewhere). Version 73: about 0.3 to 0.45 runs per half-inning. | Checking a running exploit is closed. Edit `ADV` for a new trick. |
 | `catcher_throw.py` | You as catcher throwing out a stealer after 0 to 16 ticks of delay, per pitch type. | Tuning `C_THROW`/`C_WIND`. |
@@ -56,7 +57,7 @@ Add an entry to `CHECKS` in `scenarios.py`: a JS function that sets up a situati
 
 ## Online play
 
-- The game loads supabase-js 2.117.3 from cdn.jsdelivr.net only when 2 PLAYER is picked, and talks to the Supabase project in `SB_URL` with the publishable key. Realtime only (Presence on `ccb-lobby`, Broadcast on `ccb-g-<room>`); no database tables.
+- The game loads supabase-js 2.117.3 from cdn.jsdelivr.net only when 2 PLAYER is picked, and talks to the Supabase project in `SB_URL` with the publishable key. Realtime only (Presence on `ccb-lobby`, Broadcast on `ccb-g-<room>`); no database tables. Selfies go over the game channel as a `face` message (a 128 px JPEG, about 6-10 KB, plus landmarks), answered by `faceok`.
 - The Claude artifact viewer blocks connections to Supabase, so online play works only on the live GitHub Pages site. Claude's cloud workspace can't reach Supabase either, so tests use `mock_supabase.js`.
 
 ## Publishing reminders

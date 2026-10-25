@@ -41,7 +41,31 @@ body.day { background: #4f9e44; }
 .por { top: 8px; display: flex; align-items: center; gap: 8px; }
 #pl { left: 12px; } #pr { right: 12px; flex-direction: row-reverse; }
 .por .face { width: 56px; height: 56px; border-radius: 50%; border: 3px solid var(--ink); box-sizing: border-box; overflow: hidden; box-shadow: 0 3px 0 var(--ink); background: var(--cream); }
-.por .face svg { display: block; width: 100%; height: 100%; }
+.por .face svg, .por .face img, .sthumb svg, .sthumb img, .moods img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* coach selfie (version 1.01): button with a thumbnail on the title and 2 Player screens, and the camera screen */
+.selbtn { display: flex; align-items: center; gap: 8px; border: 2px solid var(--ink); border-radius: 10px; background: var(--cream); color: var(--ink); font: 700 14px var(--font-body); padding: 3px 12px 3px 4px; min-height: 44px; box-shadow: 0 3px 0 var(--ink); cursor: pointer; }
+.sthumb { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--ink); box-sizing: border-box; overflow: hidden; background: var(--cream); flex: none; }
+.trow { display: flex; gap: 14px; align-items: center; }
+.nrow { display: flex; gap: 8px; align-items: stretch; }
+.nrow #pname { flex: 1; min-width: 0; }
+#cam { flex-direction: row; gap: 24px; background: #0b1a12; } /* opaque: the screen it opened from stays underneath */
+.camview { position: relative; width: 300px; height: 300px; border-radius: 16px; overflow: hidden; border: 3px solid var(--ink); background: #0b1510; flex: none; box-shadow: 0 4px 0 var(--ink); }
+.camview video, .camview canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.camview video { transform: scaleX(-1); }
+.camview canvas[hidden], .camview video[hidden] { display: none; }
+.oval { position: absolute; left: 50%; top: 47%; width: 160px; height: 210px; transform: translate(-50%, -50%); border: 3px dashed var(--gold); border-radius: 50%; pointer-events: none; box-shadow: 0 0 0 999px rgba(10,22,16,0.35); }
+.oval[hidden] { display: none; }
+.camside { display: flex; flex-direction: column; align-items: center; gap: 12px; max-width: 380px; }
+.camside h1 { font-size: 30px; }
+#camp { min-height: 40px; }
+#camp.bad { color: var(--gold); font-weight: 700; }
+.moods { display: flex; gap: 14px; }
+.moods[hidden] { display: none; }
+.moods figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; }
+.moods .mf { width: 64px; height: 64px; border-radius: 50%; border: 3px solid var(--ink); overflow: hidden; background: var(--cream); }
+#cam .big-btn { font-size: 16px; padding: 8px 16px; min-height: 44px; }
+#cam .big-btn[hidden] { display: none; }
+#cam .big-btn:disabled { opacity: 0.5; cursor: default; }
 .por .lab { display: flex; flex-direction: column; gap: 2px; }
 #pr .lab { align-items: flex-end; }
 .por .role { padding: 2px 8px; border-radius: 6px; background: var(--ink); color: var(--gold); font-family: var(--font-display); font-size: 11px; }
@@ -160,14 +184,17 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 
   <section class="screen" id="title">
     <h1>Cougar's Classic<br>Baseball</h1>
-    <p>Play the computer, or another player online. Selfies and the coin flip come in a later build.</p>
-    <div class="seg" role="group" aria-label="Players">
-      <button type="button" id="p1" aria-pressed="true">1 PLAYER</button>
-      <button type="button" id="p2" aria-pressed="false">2 PLAYER</button>
+    <p>Play the computer, or another player online. The coin flip comes in a later build.</p>
+    <div class="trow">
+      <div class="seg" role="group" aria-label="Players">
+        <button type="button" id="p1" aria-pressed="true">1 PLAYER</button>
+        <button type="button" id="p2" aria-pressed="false">2 PLAYER</button>
+      </div>
+      <button type="button" class="selbtn" id="self1" aria-label="Coach selfie"><span class="sthumb"></span>SELFIE</button>
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 100</small>
+    <small id="ver">Version 1.01</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -188,7 +215,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       <div class="seg" role="group" aria-label="Crowd murmur"><button type="button" id="mon" aria-pressed="true">ON</button><button type="button" id="moff" aria-pressed="false">OFF</button></div>
     </div>
     <div class="row"><label for="svol">Volume</label><input type="range" id="svol" min="0" max="100" step="5"><span class="volv" id="svolv">100%</span></div>
-    <p id="setnote">Mercy: the game ends when a team leads by this many runs. Selfie and coin flip come later.</p>
+    <p id="setnote">Mercy: the game ends when a team leads by this many runs. The coin flip comes later.</p>
     <button class="big-btn" id="go" type="button">PLAY BALL</button>
   </section>
 
@@ -197,7 +224,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     <div class="lobby">
       <div class="lcol">
         <label class="lname" for="pname">Your name</label>
-        <input id="pname" maxlength="10" autocomplete="off" spellcheck="false">
+        <div class="nrow"><input id="pname" maxlength="10" autocomplete="off" spellcheck="false"><button type="button" class="selbtn" id="self2" aria-label="Coach selfie"><span class="sthumb"></span>SELFIE</button></div>
         <button class="big-btn" id="host" type="button">HOST A GAME</button>
         <p id="hstat" class="lstat">Host a game, or ask to join one from the list.</p>
         <div id="reqs" class="reqs"></div>
@@ -208,7 +235,18 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 100</small>
+    <small class="lver" id="lver">Version 1.01</small>
+  </section>
+
+  <section class="screen" id="cam" hidden>
+    <div class="camview"><video id="camv" playsinline muted autoplay></video><canvas id="camshot" hidden></canvas><div class="oval" id="oval"></div></div>
+    <div class="camside">
+      <h1>Coach Selfie</h1>
+      <p id="camp">Line up your face in the oval and tap SNAP. Your photo is used in the game.</p>
+      <div class="moods" id="cammoods" hidden></div>
+      <div class="frow"><button class="big-btn" id="snap" type="button">SNAP</button><button class="big-btn" id="camuse" type="button" hidden>USE IT</button><button class="big-btn alt" id="retake" type="button" hidden>RETAKE</button></div>
+      <div class="frow"><button class="big-btn alt" id="camno" type="button">NO SELFIE</button><button class="big-btn alt" id="camback" type="button">CANCEL</button></div>
+    </div>
   </section>
 
   <section class="screen" id="netmsg" hidden>
@@ -548,6 +586,75 @@ function coachSVG(team, mood) {
   if (red) s += '<path d="M31 53 C35 50 39 51 40 52 C41 51 45 50 49 53 C46 56 42 55 40 54 C38 55 34 56 31 53 Z" fill="#8f8f96"/>';
   if (mood === 'mad') s += '<path d="M63 17 l5 5 M68 17 l-5 5 M66 14 v3 M66 22 v3" stroke="#e0413b" stroke-width="2" stroke-linecap="round"/>';
   return s + '</svg>';
+}
+
+/* ============ coach selfies (version 1.01) ============
+   One photo per phone, taken live in the game (no uploads or photo library). A face check (face-api, loaded from the CDN only
+   when the camera opens) makes sure it is a real face, then the photo is cropped to the face at 128 x 128 and saved on this phone.
+   It replaces this player's cartoon coach in the HUD portraits only (field players are too small). Happy and mad are made by
+   warping the photo at its face landmarks (mouth corners, brows), plus a light red flush for mad. In 2-player the photo
+   (a JPEG of about 5-10 KB) and its landmarks go to the other phone over the game channel. Presentation only: never part of S. */
+var FACE_LIB = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js', FACE_MODELS = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model';
+var SELF_PX = 128, LM_KEYS = ['ml', 'mr', 'mt', 'mb', 'b1o', 'b1m', 'b1i', 'b2i', 'b2m', 'b2o', 'e1', 'e2'];
+var mySelfie = null;
+function validSelfie(o) {
+  if (!o || typeof o !== 'object' || typeof o.img !== 'string' || o.img.length > 60000 || !/^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(o.img) || !o.lm) return false;
+  return LM_KEYS.every(function (k) { var p = o.lm[k]; return p && p.length === 2 && isFinite(p[0]) && isFinite(p[1]) && p[0] > -1 && p[0] < 2 && p[1] > -1 && p[1] < 2; });
+}
+function cleanSelfie(o) { var lm = {}; LM_KEYS.forEach(function (k) { lm[k] = [+o.lm[k][0], +o.lm[k][1]]; }); return { img: o.img, lm: lm }; }
+try { var savedSelf = JSON.parse(localStorage.getItem('ccb-selfie') || 'null'); if (validSelfie(savedSelf)) mySelfie = cleanSelfie(savedSelf); } catch (e) { }
+/* the face shown for a team: this phone's selfie for its own team, the opponent's (sent over) in an online game, else the cartoon coach */
+function faceFor(side) { if (side === ME) return mySelfie; if (NET.oppFace && NET.g) return NET.oppFace; return null; }
+function setFace(el, f, team, mood) {
+  if (!f) { el.innerHTML = coachSVG(team, mood); return; }
+  el.textContent = ''; var im = new Image(); im.alt = 'Coach selfie' + (mood !== 'neutral' ? ', ' + mood : '');
+  im.src = (f.moods && f.moods[mood]) || f.img; el.appendChild(im);
+  if (!f.moods && !f.making) makeMoods(f, function () { if (S) updatePortraits(); selfThumbs(); });
+}
+function selfThumbs() { document.querySelectorAll('.sthumb').forEach(function (el) { setFace(el, mySelfie, 'red', 'neutral'); }); }
+/* happy and mad: each output pixel is taken from the photo moved back by the sum of a few smooth pushes around the landmarks */
+function makeMoods(f, done) {
+  f.making = true; var im = new Image();
+  im.onload = function () {
+    var N = SELF_PX, c = document.createElement('canvas'); c.width = c.height = N; var g = c.getContext('2d');
+    g.drawImage(im, 0, 0, N, N); var src = g.getImageData(0, 0, N, N).data, L = f.lm;
+    var P = function (k) { return [L[k][0] * N, L[k][1] * N]; };
+    var e1 = P('e1'), e2 = P('e2'), ed = Math.max(12, Math.sqrt((e2[0] - e1[0]) * (e2[0] - e1[0]) + (e2[1] - e1[1]) * (e2[1] - e1[1])));
+    var cx = (e1[0] + e2[0]) / 2, side = function (p) { return p[0] < cx ? -1 : 1; };
+    var push = function (p, dx, dy, r) { return { x: p[0], y: p[1], dx: dx * ed, dy: dy * ed, r: r * ed }; };
+    var ml = P('ml'), mr = P('mr'), mb = P('mb'), mt = P('mt');
+    var happy = [push(ml, 0.08 * side(ml), -0.17, 0.24), push(mr, 0.08 * side(mr), -0.17, 0.24), push(mb, 0, 0.07, 0.2),
+      push([e1[0], e1[1] + 0.5 * ed], 0, -0.07, 0.26), push([e2[0], e2[1] + 0.5 * ed], 0, -0.07, 0.26),
+      push([e1[0], e1[1] + 0.12 * ed], 0, -0.035, 0.12), push([e2[0], e2[1] + 0.12 * ed], 0, -0.035, 0.12)];
+    var b1i = P('b1i'), b2i = P('b2i');
+    var mad = [push(b1i, -0.09 * side(b1i), 0.13, 0.2), push(b2i, -0.09 * side(b2i), 0.13, 0.2), push(P('b1o'), 0, -0.04, 0.2), push(P('b2o'), 0, -0.04, 0.2),
+      push(ml, -0.04 * side(ml), 0.13, 0.22), push(mr, -0.04 * side(mr), 0.13, 0.22), push(mt, 0, 0.03, 0.15)];
+    var warp = function (list, flush) {
+      var out = g.createImageData(N, N), d = out.data;
+      for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
+        var sx = x, sy = y;
+        for (var i = 0; i < list.length; i++) { var q = list[i], ux = x - q.x - q.dx, uy = y - q.y - q.dy, w = Math.exp(-(ux * ux + uy * uy) / (2 * q.r * q.r)); sx -= q.dx * w; sy -= q.dy * w; }
+        sx = Math.max(0, Math.min(N - 1.001, sx)); sy = Math.max(0, Math.min(N - 1.001, sy));
+        var x0 = sx | 0, y0 = sy | 0, fx = sx - x0, fy = sy - y0, o = (y * N + x) * 4;
+        for (var ch = 0; ch < 3; ch++) {
+          var a = src[(y0 * N + x0) * 4 + ch], b = src[(y0 * N + x0 + 1) * 4 + ch], cc = src[((y0 + 1) * N + x0) * 4 + ch], dd = src[((y0 + 1) * N + x0 + 1) * 4 + ch];
+          d[o + ch] = (a * (1 - fx) + b * fx) * (1 - fy) + (cc * (1 - fx) + dd * fx) * fy;
+        }
+        d[o + 3] = 255;
+      }
+      g.putImageData(out, 0, 0);
+      if (flush) { /* a light red flush over the face, like the cartoon coach's */
+        var fy0 = (e1[1] + mb[1]) / 2, rg = g.createRadialGradient(cx, fy0, 0, cx, fy0, 1.25 * ed);
+        rg.addColorStop(0, 'rgba(224,65,59,0.30)'); rg.addColorStop(0.7, 'rgba(224,65,59,0.18)'); rg.addColorStop(1, 'rgba(224,65,59,0)');
+        g.fillStyle = rg; g.fillRect(0, 0, N, N);
+      }
+      return c.toDataURL('image/jpeg', 0.9);
+    };
+    try { f.moods = { neutral: f.img, happy: warp(happy, false), mad: warp(mad, true) }; } catch (e) { f.moods = { neutral: f.img, happy: f.img, mad: f.img }; }
+    f.making = false; if (done) done();
+  };
+  im.onerror = function () { f.making = false; };
+  im.src = f.img;
 }
 
 /* ============ sound ============ */
@@ -2000,8 +2107,8 @@ function updateHUD() {
 function updatePortraits() {
   if (QUIET) return;
   var bat = batSide(), pit = other(bat);
-  $('fl').innerHTML = coachSVG(teamColor(bat), S.faces ? S.faces.bat : 'neutral');
-  $('fr').innerHTML = coachSVG(teamColor(pit), S.faces ? S.faces.pit : 'neutral');
+  setFace($('fl'), faceFor(bat), teamColor(bat), S.faces ? S.faces.bat : 'neutral');
+  setFace($('fr'), faceFor(pit), teamColor(pit), S.faces ? S.faces.pit : 'neutral');
   $('wl').textContent = tag(bat); $('wr').textContent = tag(pit);
 }
 function endGame() {
@@ -2172,7 +2279,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = 100; /* only games on the same build are listed */
+var PROTO = '1.01'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
@@ -2298,7 +2405,7 @@ function startOnline(role, g, oppName, oppId) {
   lobbyClose(true); /* stay in the lobby channel a moment so the answer gets through before this listing disappears */
   NET.role = role; NET.oppName = oppName; NET.oppId = oppId; NET.g = g; NET.heard = false; NET.started = false;
   $('netmsg').hidden = false; $('nmh').textContent = 'Starting'; $('nmp').textContent = 'Connecting to ' + oppName + '…'; $('nmok').textContent = 'CANCEL';
-  NET.early = []; NET.rejoins = 0; NET.gn = 0;
+  NET.early = []; NET.rejoins = 0; NET.gn = 0; NET.oppFace = null; NET.faceAcked = false; NET.faceTries = 0; clearTimeout(NET.faceT);
   joinGame();
 }
 /* the game's own channel; if Supabase cuts it (an error, a timeout, too many messages), it is joined again after a short pause (version 86) */
@@ -2315,6 +2422,8 @@ function joinGame() {
   };
   ch.on('broadcast', { event: 'in' }, function (m) { if (NET.live) NET.recv(m.payload); else NET.early.push(m.payload); }) /* moves that arrive before this phone has started are kept */
     .on('broadcast', { event: 'hi' }, function () { NET.heard = true; })
+    .on('broadcast', { event: 'face' }, function (m) { recvFace(m.payload); })
+    .on('broadcast', { event: 'faceok' }, function () { NET.faceAcked = true; })
     .on('broadcast', { event: 'bye' }, function () { if (S && S.over) rmGone(oppName + ' left.'); else if (NET.live) showWait('quit'); else oppGone(oppName + ' left the game.'); })
     .on('presence', { event: 'leave' }, function (m) { if (m.key !== NET.oppId) return; if (S && S.over) rmGone(oppName + ' lost the connection.'); else if (NET.live) showWait('lost'); else oppGone(oppName + ' lost the connection.'); })
     .on('broadcast', { event: 'rm' }, function () { rmAsk(); })
@@ -2340,7 +2449,22 @@ function beginOnline() {
   newGame({ seed: g.seed, ai: { you: false, cpu: false }, me: NET.role === 'host' ? 'you' : 'cpu', vis: g.vis });
   RB.start(ME, 1); NET.log = {}; NET.oppAck = 0; NET.lastSent = 0; NET.lastFlush = 0; NET.ackSent = -1; NET.stepOk = true; NET.stallAt = 0; NET.live = true; acc = 0;
   var early = NET.early || []; NET.early = []; early.forEach(function (m) { NET.recv(m); });
-  updatePortraits(); hint();
+  updatePortraits(); hint(); sendFace();
+}
+/* selfies online (version 1.01): this phone's selfie goes to the other phone once per game channel, every 1.5 s until it says it
+   has it (at most 8 tries); about 6-10 KB, well under Supabase's 256 KB per message. A phone with no selfie sends nothing,
+   and the other phone shows the cartoon coach. */
+function sendFace() {
+  clearTimeout(NET.faceT);
+  if (!mySelfie || NET.faceAcked || !NET.ch || NET.faceTries >= 8) return;
+  NET.faceTries++; NET.ch.send({ type: 'broadcast', event: 'face', payload: { img: mySelfie.img, lm: mySelfie.lm } });
+  NET.faceT = setTimeout(sendFace, 1500);
+}
+function recvFace(p) {
+  if (!validSelfie(p)) return;
+  if (NET.ch) NET.ch.send({ type: 'broadcast', event: 'faceok', payload: {} });
+  if (NET.oppFace && NET.oppFace.img === p.img) return;
+  NET.oppFace = cleanSelfie(p); if (S) updatePortraits();
 }
 /* why: 'stall' (moves stopped arriving), 'lost' (the server says the opponent dropped), 'quit' (the opponent quit) */
 function showWait(why) {
@@ -2397,9 +2521,110 @@ function goFull() {
   try { if (document.documentElement.requestFullscreen && window.matchMedia('(pointer: coarse)').matches && !document.fullscreenElement) document.documentElement.requestFullscreen().then(function () { if (screen.orientation && screen.orientation.lock) return screen.orientation.lock('landscape'); }).catch(function () { }); } catch (e) { }
 }
 ['pointerup', 'touchend'].forEach(function (ev) { document.addEventListener(ev, function () { if (wantFull && !document.fullscreenElement) goFull(); }, true); });
+/* ============ selfie camera (version 1.01) ============ */
+var CAM = { stream: null, cand: null, lib: null, from: null };
+var BLUR_MIN = 35; /* edge strength (variance of the Laplacian on the 128 px crop) below this is too blurry. Measured (tests/selfie.py):
+   a sharp test photo 938, blurred 2.5 px 51 (passes), 3 px 29 (too blurry); 4 px finds no face at all */
+function loadFaceLib() {
+  if (CAM.lib) return CAM.lib;
+  CAM.lib = new Promise(function (ok, bad) {
+    var go = function () { Promise.all([faceapi.nets.tinyFaceDetector.loadFromUri(FACE_MODELS), faceapi.nets.faceLandmark68TinyNet.loadFromUri(FACE_MODELS)]).then(ok, bad); };
+    if (window.faceapi) { go(); return; }
+    var sc = document.createElement('script'); sc.src = FACE_LIB; sc.onload = go; sc.onerror = bad; document.head.appendChild(sc);
+  });
+  CAM.lib.catch(function () { CAM.lib = null; }); /* try again next time */
+  return CAM.lib;
+}
+function camSay(t, bad) { $('camp').textContent = t; $('camp').classList.toggle('bad', !!bad); }
+function camState(st) {
+  var live = st === 'live', ok = st === 'ok';
+  $('camv').hidden = !live; $('camshot').hidden = live; $('oval').hidden = !live;
+  $('snap').hidden = !live; $('snap').disabled = !CAM.stream; $('camuse').hidden = !ok; $('retake').hidden = !(ok || st === 'fail'); $('retake').disabled = false;
+  $('cammoods').hidden = !ok; if (st === 'checking') $('retake').hidden = true;
+  $('camno').hidden = !mySelfie; /* back to the cartoon coach; only when a selfie is saved */
+}
+function camOpen(from) {
+  CAM.from = from; CAM.cand = null; $('cam').hidden = false; camState('live');
+  camSay('Line up your face in the oval and tap SNAP. Your photo is used in the game.');
+  loadFaceLib();
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { camSay('No camera here. Selfies work on the live site in your phone\'s browser.', true); return; }
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }).then(function (s) {
+    if ($('cam').hidden) { s.getTracks().forEach(function (t) { t.stop(); }); return; }
+    CAM.stream = s; var v = $('camv'); v.srcObject = s; v.play().catch(function () { }); $('snap').disabled = false;
+  }).catch(function (e) {
+    var n = e && e.name;
+    camSay(n === 'NotAllowedError' ? 'The camera is blocked for this page. Allow the camera in your browser\'s site settings, then try again.' : n === 'NotFoundError' || n === 'OverconstrainedError' ? 'No front camera found on this device.' : 'The camera isn\'t available here. Selfies work on the live site in your phone\'s browser.', true);
+  });
+}
+function camStop() { if (CAM.stream) CAM.stream.getTracks().forEach(function (t) { t.stop(); }); CAM.stream = null; $('camv').srcObject = null; }
+function camClose() { camStop(); $('cam').hidden = true; CAM.cand = null; selfThumbs(); }
+/* the photo as shown (mirrored), at most 640 px wide */
+function camGrab() {
+  var v = $('camv'), w = v.videoWidth, h = v.videoHeight; if (!w || !h) return null;
+  var k = Math.min(1, 640 / w), c = $('camshot'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+  var g = c.getContext('2d'); g.save(); g.translate(c.width, 0); g.scale(-1, 1); g.drawImage(v, 0, 0, c.width, c.height); g.restore();
+  return c;
+}
+/* check a photo: a real face (face-api), close enough, not too dark, not too blurry. Gives { ok, msg } or { ok, selfie } */
+function checkFace(c) {
+  return loadFaceLib().then(function () {
+    return faceapi.detectAllFaces(c, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 })).withFaceLandmarks(true);
+  }, function () { return 'nolib'; }).then(function (found) {
+    if (found === 'nolib') return { ok: false, msg: 'Couldn\'t load the face check. Check your connection, then tap RETAKE.' };
+    if (!found || !found.length) return { ok: false, msg: 'No face found. Face the camera with your face in the oval, in good light.' };
+    var best = found[0]; found.forEach(function (f) { if (f.detection.box.area > best.detection.box.area) best = f; });
+    var b = best.detection.box;
+    if (b.width < 0.14 * c.width) return { ok: false, msg: 'Move closer: your face is too small.' };
+    var sz = 1.3 * Math.max(b.width, b.height), x0 = b.x + b.width / 2 - sz / 2, y0 = b.y + b.height / 2 - 0.1 * b.height - sz / 2, N = SELF_PX;
+    var o = document.createElement('canvas'); o.width = o.height = N; var g = o.getContext('2d');
+    g.fillStyle = '#fbeee0'; g.fillRect(0, 0, N, N); g.drawImage(c, x0, y0, sz, sz, 0, 0, N, N);
+    var px = g.getImageData(0, 0, N, N).data, lum = [], sum = 0, cnt = 0;
+    for (var i = 0; i < N * N; i++) lum[i] = 0.299 * px[i * 4] + 0.587 * px[i * 4 + 1] + 0.114 * px[i * 4 + 2];
+    for (var y = N / 4; y < 3 * N / 4; y++) for (var x = N / 4; x < 3 * N / 4; x++) { sum += lum[y * N + x]; cnt++; }
+    if (sum / cnt < 45) return { ok: false, msg: 'Too dark: find more light, then retake.' };
+    var m = 0, m2 = 0, n = 0;
+    for (y = 1; y < N - 1; y++) for (x = 1; x < N - 1; x++) { var l = 4 * lum[y * N + x] - lum[y * N + x - 1] - lum[y * N + x + 1] - lum[(y - 1) * N + x] - lum[(y + 1) * N + x]; m += l; m2 += l * l; n++; }
+    var blur = m2 / n - (m / n) * (m / n);
+    if (blur < BLUR_MIN) return { ok: false, msg: 'Too blurry: hold still, then retake.' };
+    var P = best.landmarks.positions, at = function (i) { return [(P[i].x - x0) / sz, (P[i].y - y0) / sz]; };
+    var avg = function (a, z) { var s = [0, 0]; for (var i = a; i <= z; i++) { var q = at(i); s[0] += q[0]; s[1] += q[1]; } return [s[0] / (z - a + 1), s[1] / (z - a + 1)]; };
+    var lm = { ml: at(48), mr: at(54), mt: at(51), mb: at(57), b1o: at(17), b1m: at(19), b1i: at(21), b2i: at(22), b2m: at(24), b2o: at(26), e1: avg(36, 41), e2: avg(42, 47) };
+    var s = { img: o.toDataURL('image/jpeg', 0.8), lm: lm };
+    if (!validSelfie(s)) return { ok: false, msg: 'Something went wrong with that photo. Please retake.' };
+    return { ok: true, selfie: cleanSelfie(s), blur: blur, light: sum / cnt };
+  });
+}
+$('snap').addEventListener('click', function () {
+  sfx('click'); var c = camGrab(); if (!c) return;
+  camState('checking'); camSay(window.faceapi ? 'Checking…' : 'Getting the face check ready…');
+  checkFace(c).then(function (r) {
+    if ($('cam').hidden) return;
+    if (!r.ok) { camState('fail'); camSay(r.msg, true); return; }
+    CAM.cand = r.selfie;
+    makeMoods(CAM.cand, function () {
+      if ($('cam').hidden || !CAM.cand) return;
+      var box = $('cammoods'); box.textContent = '';
+      [['neutral', 'AS TAKEN'], ['happy', 'HAPPY'], ['mad', 'MAD']].forEach(function (m) {
+        var fig = document.createElement('figure'), d = document.createElement('div'), im = new Image(), cap = document.createElement('figcaption');
+        d.className = 'mf'; im.src = CAM.cand.moods[m[0]]; im.alt = m[1]; d.appendChild(im); cap.textContent = m[1]; fig.appendChild(d); fig.appendChild(cap); box.appendChild(fig);
+      });
+      camState('ok'); camSay('Looks good. Tap USE IT, or RETAKE.');
+    });
+  }).catch(function () { camState('fail'); camSay('Something went wrong with the face check. Tap RETAKE.', true); });
+});
+$('retake').addEventListener('click', function () { sfx('click'); CAM.cand = null; camState('live'); camSay('Line up your face in the oval and tap SNAP. Your photo is used in the game.'); });
+$('camuse').addEventListener('click', function () {
+  sfx('click'); if (!CAM.cand) return;
+  mySelfie = CAM.cand; try { localStorage.setItem('ccb-selfie', JSON.stringify({ img: mySelfie.img, lm: mySelfie.lm })); } catch (e) { }
+  camClose();
+});
+$('camno').addEventListener('click', function () { sfx('click'); mySelfie = null; try { localStorage.removeItem('ccb-selfie'); } catch (e) { } camClose(); });
+$('camback').addEventListener('click', function () { sfx('click'); camClose(); });
+$('self1').addEventListener('click', function () { audio(); sfx('click'); goFull(); wantFull = true; camOpen('title'); });
+$('self2').addEventListener('click', function () { sfx('click'); camOpen('lobby'); });
 $('start').addEventListener('click', function () {
   audio(); sfx('click'); var two = $('p2').getAttribute('aria-pressed') === 'true';
-  $('bfrow').hidden = two; $('go').textContent = two ? 'FIND A GAME' : 'PLAY BALL'; $('setnote').textContent = two ? 'Mercy: the game ends when a team leads by this many runs. When you host, your innings and mercy rule are used.' : 'Mercy: the game ends when a team leads by this many runs. Selfie and coin flip come later.';
+  $('bfrow').hidden = two; $('go').textContent = two ? 'LOBBY' : 'PLAY BALL'; $('setnote').textContent = two ? 'Mercy: the game ends when a team leads by this many runs. When you host, your innings and mercy rule are used.' : 'Mercy: the game ends when a team leads by this many runs. The coin flip comes later.';
   goFull(); wantFull = true;
   $('title').hidden = true; $('setup').hidden = false;
 });
@@ -2423,7 +2648,7 @@ $('bf').addEventListener('click', function () { opts.batFirst = true; pressGroup
 $('pf').addEventListener('click', function () { opts.batFirst = false; pressGroup('bf', 'pf', false); sfx('click'); });
 $('go').addEventListener('click', function () { $('go').blur(); $('setup').hidden = true;
   if ($('p2').getAttribute('aria-pressed') === 'true') { lobbyOpen(); return; }
-  audio(); if (opts.murmur) murmur(true); $('menu').hidden = false; newGame(); hint(); });
+  NET.g = null; NET.oppFace = null; audio(); if (opts.murmur) murmur(true); $('menu').hidden = false; newGame(); hint(); });
 /* rematch (user, Oct 24, version 91): either player asks, the other must accept; home and away swap; same innings and mercy */
 function rmSay(t) { $('frm').textContent = t; $('frm').hidden = !t; }
 function rmGone(t) { if (!$('final').hidden) { rmSay(t); $('again').hidden = true; $('racc').hidden = true; $('rdec').hidden = true; } NET.leave(false); }
@@ -2474,9 +2699,9 @@ document.addEventListener('pointerdown', function (e) { if (!$('volpop').hidden 
 $('tips').checked = opts.tips;
 $('tips').addEventListener('change', function () { opts.tips = $('tips').checked; try { localStorage.setItem('ccb-tips', opts.tips ? 'on' : 'off'); } catch (e) { } sfx('click'); });
 layout(); setTheme('day'); pressGroup('mon', 'moff', opts.murmur); $('mv').textContent = opts.mercy;
-$('fl').innerHTML = coachSVG('red', 'neutral'); $('fr').innerHTML = coachSVG('blue', 'neutral');
+$('fl').innerHTML = coachSVG('red', 'neutral'); $('fr').innerHTML = coachSVG('blue', 'neutral'); selfThumbs();
 $('hint').textContent = '';
 requestAnimationFrame(frame);
-window.__ccb = { get S() { return S; }, get SWV() { return SWV; }, get ZIP() { return ZIP; }, tick: function (IN) { tick(IN); }, newGame: function (o) { var g = {}; if (o) for (var k in o) { if (k === 'seed' || k === 'ai' || k === 'me' || k === 'vis') g[k] = o[k]; else opts[k] = o[k]; } newGame(g); }, save: save, load: load, syncView: syncView, RB: RB, packIn: packIn, NET: NET, quiet: function (q) { QUIET = !!q; }, get ME() { return ME; }, newRunner: function (a) { return newRunner(a, null); }, human: human };
+window.__ccb = { get S() { return S; }, get SWV() { return SWV; }, get ZIP() { return ZIP; }, tick: function (IN) { tick(IN); }, newGame: function (o) { var g = {}; if (o) for (var k in o) { if (k === 'seed' || k === 'ai' || k === 'me' || k === 'vis') g[k] = o[k]; else opts[k] = o[k]; } newGame(g); }, save: save, load: load, syncView: syncView, RB: RB, packIn: packIn, NET: NET, get selfie() { return mySelfie; }, setSelfie: function (o) { mySelfie = o && validSelfie(o) ? cleanSelfie(o) : null; selfThumbs(); }, checkFace: checkFace, quiet: function (q) { QUIET = !!q; }, get ME() { return ME; }, newRunner: function (a) { return newRunner(a, null); }, human: human };
 })();
 </script>

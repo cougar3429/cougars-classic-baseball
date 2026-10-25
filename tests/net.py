@@ -1,6 +1,7 @@
 """Online 2-player check: two copies of the real game (net.html, with a stand-in for supabase-js) play each other
 through the real lobby buttons: Ann hosts, Bob asks to join, Ann denies once, Bob asks again, Ann accepts.
 Both then play for a while with made-up inputs at real speed over a laggy simulated network.
+Ann has a coach selfie and Bob has none: Bob's HUD must show Ann's selfie for her team and Ann's must show the cartoon coach for Bob's.
 Passes when both phones have played and their game states agree at every checked tick (fingerprints of final
 states); when Bob's connection drops for 6 s, Ann is offered the choices and play picks up by itself when he is back
 (lost moves are resent); and when Bob quits, Ann can finish the game against the computer.
@@ -16,6 +17,17 @@ LAG = int(sys.argv[2]) if len(sys.argv) > 2 else 40
 
 PAGE = """<!doctype html><meta charset=utf8><body style="margin:0">
 <iframe id=a src="net.html" width=844 height=390></iframe><iframe id=b src="net.html" width=844 height=390></iframe>"""
+
+# a stand-in selfie (a plain 128 px JPEG with made-up face landmarks); the real face check is tested in selfie.py
+FAKE_SELFIE = """() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  g.fillStyle = '#d9a37a'; g.fillRect(0, 0, 128, 128); g.fillStyle = '#333'; g.fillRect(40, 50, 10, 6); g.fillRect(78, 50, 10, 6); g.fillRect(48, 90, 32, 6);
+  const p = (x, y) => [x / 128, y / 128];
+  window.__ccb.setSelfie({ img: c.toDataURL('image/jpeg', 0.8), lm: { ml: p(48, 92), mr: p(80, 92), mt: p(64, 89), mb: p(64, 97), b1o: p(36, 42), b1m: p(44, 40), b1i: p(52, 42),
+    b2i: p(76, 42), b2m: p(84, 40), b2o: p(92, 42), e1: p(45, 53), e2: p(83, 53) } }); return !!window.__ccb.selfie; }"""
+# which HUD portrait shows a team: { mine, theirs } as 'img' (a selfie) or 'coach'
+HUD_FACES = """() => { const C = window.__ccb, S = C.S, bat = S.half % 2 === 0 ? S.vis : (S.vis === 'you' ? 'cpu' : 'you'), el = id => document.getElementById(id);
+  const kind = e => e.querySelector('img') ? 'img' : 'coach', mine = bat === C.ME ? el('fl') : el('fr'), theirs = bat === C.ME ? el('fr') : el('fl');
+  return { mine: kind(mine), theirs: kind(theirs), tries: C.NET.faceTries || 0, acked: !!C.NET.faceAcked }; }"""
 
 # a made-up player: holds a direction for a while, taps the button now and then (runs inside each copy of the game)
 DRIVE = """(seed) => { let a = seed; const r = () => { a = (a * 1103515245 + 12345) & 0x7fffffff; return a / 0x7fffffff; };
@@ -49,6 +61,7 @@ def main():
             if not t[2] and (t[0] != 'CONNECTING…' or not t[1]): problems.append(f'HOST A GAME before the lobby connected: {t}')
         for f in (ann, bob): f.wait_for_function('() => window.__ccb.NET.lobbyReady', timeout=8000) # HOST A GAME shows CONNECTING… until the lobby is connected
         if A.locator('#host').inner_text() != 'HOST A GAME' or A.locator('#host').is_disabled(): problems.append('HOST A GAME not ready after connecting')
+        if not ann.evaluate(FAKE_SELFIE): problems.append("couldn't give Ann a selfie")
         A.locator('#host').click()
         B.locator('#games button', has_text='ASK TO JOIN').click(timeout=5000)
         A.locator('#reqs button', has_text='DENY').click(timeout=5000)
@@ -56,6 +69,13 @@ def main():
         B.locator('#games button', has_text='ASK TO JOIN').click(timeout=5000)
         A.locator('#reqs button', has_text='ACCEPT').click(timeout=5000)
         for f in (ann, bob): f.wait_for_function('() => window.__ccb.NET.live', timeout=8000)
+        faces = None
+        try:
+            bob.wait_for_function('() => !!window.__ccb.NET.oppFace', timeout=6000); ann.wait_for_function('() => window.__ccb.NET.faceAcked', timeout=6000)
+            faces = [f.evaluate(HUD_FACES) for f in (ann, bob)]
+            if faces[0]['mine'] != 'img' or faces[0]['theirs'] != 'coach' or faces[1]['mine'] != 'coach' or faces[1]['theirs'] != 'img': problems.append(f'selfies in the HUD (Ann, Bob): {faces}')
+            if faces[0]['tries'] > 3 or faces[1]['tries'] != 0: problems.append(f"selfie messages sent: Ann {faces[0]['tries']}, Bob {faces[1]['tries']}")
+        except Exception: problems.append("Bob never got Ann's selfie")
         names = [f.evaluate("() => document.getElementById('wl').textContent + '/' + document.getElementById('wr').textContent") for f in (ann, bob)]
         ann.evaluate(DRIVE, 11); bob.evaluate(DRIVE, 22)
         t0 = time.time()
@@ -149,10 +169,11 @@ def main():
     print(f'time limit: {gone!r}; picked up when Bob came back: {back_after}')
     print(f'quit: Ann told {told!r}; after FINISH VS CPU: {cpu}')
     print(f'rematch: {rm}')
+    print(f'selfies (Ann has one, Bob none): {faces}')
     print(f'host button right after opening the lobby: {early_host}')
     for x in problems + errs[:5]: print('   ', x)
     ok = not problems and not errs
-    print('PASS' if ok else 'FAIL', '- online 2-player: lobby, deny, accept, play, agree, rematch (accept, swap, agree, decline), dropout and reconnect, wait time limit, quit, finish vs CPU')
+    print('PASS' if ok else 'FAIL', '- online 2-player: lobby, deny, accept, play, agree, selfies, rematch (accept, swap, agree, decline), dropout and reconnect, wait time limit, quit, finish vs CPU')
     sys.exit(0 if ok else 1)
 
 
