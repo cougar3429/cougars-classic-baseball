@@ -9,6 +9,18 @@ import json, sys
 from common import page
 
 CHECKS = {
+'pickoff cover (version 1.13): the quickest pickoff to any base is caught on the bag, runner on that base or not, from anywhere on the rubber': r"""() => {
+  const BAG = { 1: [60.2, 63.6], 2: [0, 127.3], 3: [-60.2, 63.6] }, ID = { 1: '1B', 2: '2B', 3: '3B' }, DIR = { 1: 'r', 2: 'u', 3: 'l' }, bad = []; let n = 0;
+  for (const base of [1, 2, 3]) for (const bases of [[], [1], [2], [3], [1, 2, 3]]) for (const off of [-6, 0, 6]) {
+    T.start(false); const S = T.C.S; T.until(() => S.phase === 'ready', 600); T.put(bases); T.I.takeLeads(); S.pOff = off; S.F.P.x = off; T.run(120);
+    const bag = BAG[base], id = ID[base]; T.press(null); T.press(DIR[base]); let got = null, thrown = false; n++;
+    for (let k = 0; k < 300; k++) { T.C.tick(); if (S.thr) thrown = true; if (!thrown) continue;
+      if (S.holder && S.holder !== 'P') { got = S.holder === id ? Math.hypot(S.F[id].x - bag[0], S.F[id].y - bag[1]) : S.holder; break; }
+      if (!S.thr && !S.holder && S.bb && S.bb.v > 0) { got = 'rolled'; break; } }
+    if (!(typeof got === 'number' && got <= 1.5)) bad.push([base, bases, off, got]);
+  }
+  return { ok: !bad.length, cases: n, bad }; }""",
+
 'run scores sound (version 1.12): the ta-da plays when a runner crosses the plate, not on a home run trot': r"""() => {
   T.start(true); let S = T.C.S, played = []; const C = T.C; window.__sfxLog = played;
   T.put([3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); T.I.snapRunners(); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 160); T.I.batterToFirst(false);
