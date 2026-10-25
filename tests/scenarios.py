@@ -9,6 +9,10 @@ import json, sys
 from common import page
 
 CHECKS = {
+'recorded sounds (version 1.07): the crowd cheer (5 s) and the Yeah yell decode and play': r"""async () => {
+  window.__ccb.clips(); let c = []; for (let i = 0; i < 60 && c.length < 2; i++) { await new Promise(r => setTimeout(r, 50)); c = window.__ccb.clips(); }
+  const m = Object.fromEntries(c); return { ok: m.cheer > 4.9 && m.cheer < 5.2 && m.yeah > 0.3 && m.yeah < 0.8, clips: m }; }""",
+
 'swing label (version 1.05): CONTACT or POWER shows after the batter swings, nothing for a bunt': r"""() => {
   const el = document.getElementById('swl'), seen = [];
   for (const [dir, want] of [[null, 'CONTACT'], ['u', 'POWER'], ['d', null]]) {
