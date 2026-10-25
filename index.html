@@ -242,7 +242,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.10</small>
+    <small id="ver">Version 1.11</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -283,7 +283,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.10</small>
+    <small class="lver" id="lver">Version 1.11</small>
   </section>
 
   <section class="screen" id="cam" hidden>
@@ -835,7 +835,7 @@ var SFX = {
 var ZIP = null, ZIP_SEMIS = 7, ZIP_RISE = 5;
 function zipMult(sp) { var mid = 1.25, f = sp >= mid ? (sp - mid) / (SP_MAX - mid) : -(mid - sp) / (mid - SP_MIN); return Math.pow(2, Math.max(-1, Math.min(1, f)) * ZIP_SEMIS / 12); }
 function pitchSound() {
-  var on = !!(S && !S.over && S.phase === 'pitch' && S.ball && !S.bb && !muted && A && !document.hidden);
+  var on = !!(S && !S.over && S.phase === 'pitch' && S.ball && !S.bb && !muted && A && !document.hidden && !S.paused && !(NET.live && (!NET.stepOk || NET.wait))); /* silent while the game is frozen or waiting (version 1.11) */
   if (!on) { if (ZIP) { var z = ZIP; ZIP = null; z.g.gain.setTargetAtTime(0.0001, A.currentTime, 0.015); setTimeout(function () { try { z.o.stop(); } catch (e) { } }, 200); } return; }
   var t = A.currentTime, near = Math.max(0, Math.min(1, 1 - S.ball.fy / RELEASE_FY)), m = zipMult(START_SP[S.startDir] || S.ball.sp) * Math.pow(2, near * ZIP_RISE / 12);
   if (!ZIP) {
@@ -2388,7 +2388,6 @@ var LAG = {
     if (dt > this.frameMax) this.frameMax = dt; if (dt > this.frameWorst && dt < 5000) this.frameWorst = dt;
     if (NET.live) {
       if (!NET.stepOk && this.wasOk) this.waits++; this.wasOk = NET.stepOk;
-      if (NET.ch && now - this.pingAt > 2000) { this.pingAt = now; try { NET.ch.send({ type: 'broadcast', event: 'pg', payload: { t: now } }); } catch (e) { } }
     }
     if (now - this.shownAt < 250) return;
     var box = $('lagbox'); this.shownAt = now;
@@ -2413,8 +2412,13 @@ function lagLabels() { ['ver', 'lver'].forEach(function (id) { $(id).textContent
 function frame(now) {
   if (!last) last = now; var fdt = now - last; acc += Math.min(250, now - last); last = now; LAG.frame(now, fdt);
   if (NET.live && S && !S.over) {
+    acc -= NET.sync(); /* clock sync (version 1.11) */
     while (acc >= TICK) { var m = RB.step(readHuman()); NET.stepOk = !!m; if (!m) { acc = 0; break; } NET.out(m.t, m.i); acc -= TICK; } /* null: waiting on the opponent */
     NET.flush(now); NET.watch(now);
+  } else if (NET.live && S && S.over) {
+    /* game over here first (version 1.11): keep sending until the other phone has every move, and replay the end if a late move changes it */
+    acc = 0; RB.fix(); if (!S.over) { $('final').hidden = true; $('menu').hidden = false; if (opts.murmur) murmur(true); }
+    NET.flush(now);
   } else if (S && !S.over && !S.paused) { while (acc >= TICK) { tick(); acc -= TICK; } } else acc = 0;
   awake(!!S && !S.over);
   render();
@@ -2427,7 +2431,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.10'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.11'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
@@ -2448,8 +2452,21 @@ var NET = {
     this.ch.send({ type: 'broadcast', event: 'in', payload: r.length ? { a: a, b: b, r: r, k: k, g: this.gn } : { a: 1, b: 0, r: [], k: k, g: this.gn } });
   },
   resend: function () { },
+  /* clock sync (user, Oct 25, version 1.11): the two phones' game clocks drift apart (one starts a moment later, or stalls), and the one
+     ahead then has to guess the other's latest moves, which shows as snaps on curving pitches. Each phone estimates the other's game
+     tick from its newest move plus half the ping; while it is more than 3 ticks (50 ms) ahead, it runs 20% slower until level.
+     Returns how much time to take off this frame. */
+  remB: -1, remAt: 0, adv: 0,
+  sync: function () {
+    if (this.remB < 0) { this.adv = 0; return 0; }
+    var now = performance.now(); /* the same clock as remAt */
+    var oneWay = (LAG.rtt == null ? 100 : LAG.rtt) / 2, rem = this.remB - RB.DELAY + (now - this.remAt + oneWay) / TICK;
+    this.adv = S.t - rem;
+    return this.adv > 3 ? TICK * 0.2 : 0;
+  },
   /* the opponent's moves stopped arriving: after 3 s the waiting player gets the choices; they close by themselves when play picks up */
   watch: function (now) {
+    if (this.ch && now - LAG.pingAt > 2000) { LAG.pingAt = now; try { this.ch.send({ type: 'broadcast', event: 'pg', payload: { t: now } }); } catch (e) { } } /* round trip, for the clock sync and the readout */
     if (!this.stepOk) { if (!this.stallAt) this.stallAt = now; else if (now - this.stallAt > 3000 && !this.wait) showWait('stall'); }
     else { this.stallAt = 0; if (this.wait && this.wait !== 'quit') hideWait(); }
     /* WAIT FOR RECONNECT lasts 30 s, with a countdown; then the opponent counts as disconnected */
@@ -2461,6 +2478,7 @@ var NET = {
   },
   recv: function (m) {
     if ((m.g || 0) !== this.gn) { if ((m.g || 0) === this.gn + 1) this.early.push(m); return; } /* moves from another game of a rematch series */
+    if (m.r && m.r.length && m.b > this.remB) { this.remB = m.b; this.remAt = performance.now(); } /* the other phone's newest move, for the clock sync */
     if (m.k != null && m.k > this.oppAck) { for (var x in this.log) if (+x <= m.k) delete this.log[x]; this.oppAck = m.k; }
     var j = 0, r = m.r; if (!r || !r.length) return;
     for (var t = m.a; t <= m.b; t++) { while (j + 1 < r.length && r[j + 1][0] <= t) j++; RB.recv(t, r[j][1]); }
@@ -2597,7 +2615,7 @@ function beginOnline() {
   var g = NET.g; opts.innings = g.innings; opts.mercy = g.mercy;
   $('netmsg').hidden = true; audio(); if (opts.murmur) murmur(true); $('menu').hidden = false;
   newGame({ seed: g.seed, ai: { you: false, cpu: false }, me: NET.role === 'host' ? 'you' : 'cpu', vis: g.vis });
-  RB.start(ME, 1); NET.log = {}; NET.oppAck = 0; NET.lastSent = 0; NET.lastFlush = 0; NET.ackSent = -1; NET.stepOk = true; NET.stallAt = 0; NET.live = true; acc = 0;
+  RB.start(ME, 1); NET.remB = -1; NET.adv = 0; NET.log = {}; NET.oppAck = 0; NET.lastSent = 0; NET.lastFlush = 0; NET.ackSent = -1; NET.stepOk = true; NET.stallAt = 0; NET.live = true; acc = 0;
   var early = NET.early || []; NET.early = []; early.forEach(function (m) { NET.recv(m); });
   updatePortraits(); hint(); sendFace();
 }

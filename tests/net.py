@@ -81,9 +81,16 @@ def main():
             if faces[0]['tries'] > 3 or faces[1]['tries'] != 0: problems.append(f"selfie messages sent: Ann {faces[0]['tries']}, Bob {faces[1]['tries']}")
         except Exception: problems.append("Bob never got Ann's selfie")
         names = [f.evaluate("() => document.getElementById('wl').textContent + '/' + document.getElementById('wr').textContent") for f in (ann, bob)]
+        # clock sync (version 1.11): Bob's game clock loses 0.5 s and falls behind; Ann must slow down until they are level again
+        pg.wait_for_timeout(1500)
+        bob.evaluate('() => { const raf = window.requestAnimationFrame.bind(window); window.requestAnimationFrame = (cb) => raf((t) => cb(t - 500)); }') # Bob's game clock loses 0.5 s
+        gap = lambda: (ann.evaluate('() => window.__ccb.S.t') - bob.evaluate('() => window.__ccb.S.t'))
+        pg.wait_for_timeout(300); sync = {'after_stall': gap()}
         ann.evaluate(DRIVE, 11); bob.evaluate(DRIVE, 22)
         t0 = time.time()
         while time.time() - t0 < SECS: pg.wait_for_timeout(1000)
+        sync['later'] = gap(); sync['ann_adv'] = round(ann.evaluate('() => window.__ccb.NET.adv'), 1)
+        if sync['after_stall'] < 10 or abs(sync['later']) > 6: problems.append(f'clock sync: {sync}')
         lag = ann.evaluate("() => { const b = document.getElementById('lagbox'); return b.hidden ? null : b.textContent; }")
         import re as _re
         if not lag or not _re.search(r'DELAY \d+ ms', lag) or not _re.search(r'PING  \d+ ms', lag) or 'FIXES' not in lag or 'FRAME' not in lag: problems.append(f'lag readout: {lag!r}')
@@ -99,7 +106,11 @@ def main():
         # then the next game ends, Bob asks, Ann declines and Bob is told
         rm = {}
         vis0 = ann.evaluate('() => window.__ccb.S.vis')
-        for f in (ann, bob): f.evaluate('() => window.__ccbi.endGame()')
+        # game over on Ann's phone first (version 1.11): she keeps sending, so Bob gets every move she made and does not freeze
+        ann.evaluate('() => window.__ccbi.endGame()'); last_ann = ann.evaluate('() => window.__ccb.NET.lastSent'); pg.wait_for_timeout(1200)
+        over = {'ann_last': last_ann, 'bob_has': bob.evaluate('() => window.__ccb.RB.confirmed()')}
+        if over['bob_has'] < last_ann: problems.append(f'game over first on one phone: the other stopped getting moves {over}')
+        bob.evaluate('() => window.__ccbi.endGame()')
         rm['buttons'] = [A.locator('#again').inner_text(), A.locator('#fmenu').is_visible(), B.locator('#again').inner_text()]
         if rm['buttons'] != ['REMATCH', True, 'REMATCH']: problems.append(f"game over buttons {rm['buttons']}")
         A.locator('#again').click()
@@ -177,11 +188,12 @@ def main():
     print(f'quit: Ann told {told!r}; after FINISH VS CPU: {cpu}')
     print(f'rematch: {rm}')
     print(f'selfies (Ann has one, Bob none): {faces}')
+    print(f'clock sync (ticks Ann ahead of Bob): {sync}; game over first on Ann: {over}')
     print('lag readout (Ann):', (lag or '').replace(chr(10), ' | '))
     print(f'host button right after opening the lobby: {early_host}')
     for x in problems + errs[:5]: print('   ', x)
     ok = not problems and not errs
-    print('PASS' if ok else 'FAIL', '- online 2-player: lobby, deny, accept, play, agree, selfies, lag readout, rematch (accept, swap, agree, decline), dropout and reconnect, wait time limit, quit, finish vs CPU')
+    print('PASS' if ok else 'FAIL', '- online 2-player: lobby, deny, accept, play, agree, selfies, lag readout, clock sync, game over first on one phone, rematch (accept, swap, agree, decline), dropout and reconnect, wait time limit, quit, finish vs CPU')
     sys.exit(0 if ok else 1)
 
 
