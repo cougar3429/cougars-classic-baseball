@@ -102,9 +102,6 @@ body.day { background: #4f9e44; }
 .confetti i:nth-child(13) { left: 36px; animation-delay: 1.12s; --r: 564deg; }
 .confetti i:nth-child(14) { left: 5px; animation-delay: 1.21s; --r: -311deg; }
 @keyframes conf { 0% { transform: translateY(0) rotate(0); opacity: 1; } 85% { opacity: 1; } 100% { transform: translateY(62px) rotate(var(--r)); opacity: 0; } }
-.yell { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 4px; padding: 2px 7px; border-radius: 8px; border: 2px solid var(--ink); background: #fff; color: var(--ink); font: 700 10px var(--font-display); white-space: nowrap; pointer-events: none; }
-.yell[hidden] { display: none; }
-#pl .yell { left: 0; transform: none; } #pr .yell { left: auto; right: 0; transform: none; } /* kept on screen at the edges */
 @media (prefers-reduced-motion: reduce) { .confetti i { animation-duration: 2.6s; } .por .fw { transition: none; } }
 .por .lab { display: flex; flex-direction: column; gap: 2px; }
 #pr .lab { align-items: flex-end; }
@@ -118,6 +115,10 @@ body.day { background: #4f9e44; }
 #toast b.big { font-size: 46px; color: var(--gold); }
 #toast span[hidden] { display: none; }
 #toast span { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 6px; background: rgba(22,32,43,0.8); font-size: 13px; font-weight: 600; }
+/* which swing the batter took (user, Oct 24, version 1.05): bottom left, between the d-pad and the batter */
+#swl { position: absolute; left: 186px; bottom: 30px; padding: 3px 10px; border-radius: 8px; border: 2px solid var(--ink); background: var(--cream); color: var(--ink); font: 400 15px var(--font-display); letter-spacing: 0.04em; box-shadow: 0 3px 0 var(--ink); pointer-events: none; }
+#swl.pw { background: var(--gold); }
+#swl[hidden] { display: none; }
 #hint { position: absolute; left: 50%; top: 48px; transform: translateX(-50%); padding: 3px 10px; border-radius: 8px; background: rgba(22,32,43,0.72); font-size: 12px; font-weight: 600; white-space: nowrap; pointer-events: none; }
 
 #dpad { position: absolute; left: 18px; bottom: 14px; width: 136px; height: 136px; touch-action: none; }
@@ -194,8 +195,8 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 <div id="stage">
   <canvas id="cv" width="844" height="390"></canvas>
 
-  <div id="pl" class="hud por"><div class="fw"><div class="face" id="fl"></div><div class="smoke" id="sml" hidden><i></i><i></i><i></i><i></i></div><div class="confetti" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="yell" id="yll" hidden></div></div><div class="lab"><div class="role" id="rl">AT BAT</div><div class="who" id="wl">YOU</div></div></div>
-  <div id="pr" class="hud por"><div class="fw"><div class="face" id="fr"></div><div class="smoke" id="smr" hidden><i></i><i></i><i></i><i></i></div><div class="confetti" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="yell" id="ylr" hidden></div></div><div class="lab"><div class="role" id="rr">PITCHING</div><div class="who" id="wr">CPU</div></div></div>
+  <div id="pl" class="hud por"><div class="fw"><div class="face" id="fl"></div><div class="smoke" id="sml" hidden><i></i><i></i><i></i><i></i></div><div class="confetti" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><div class="lab"><div class="role" id="rl">AT BAT</div><div class="who" id="wl">YOU</div></div></div>
+  <div id="pr" class="hud por"><div class="fw"><div class="face" id="fr"></div><div class="smoke" id="smr" hidden><i></i><i></i><i></i><i></i></div><div class="confetti" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><div class="lab"><div class="role" id="rr">PITCHING</div><div class="who" id="wr">CPU</div></div></div>
   <div id="sb" class="hud">
     <div class="tm vis"><small>VIS</small><b id="sv">0</b></div>
     <div class="inn"><span id="ih">▲</span><b id="in">1</b></div>
@@ -212,6 +213,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 
   <div id="toast"><b id="tt">PLAY BALL</b><span id="ts" hidden></span></div>
   <div id="hint">Hold a direction, then tap the button to pitch</div>
+  <div id="swl" hidden></div>
 
   <div id="dpad" aria-label="Direction pad">
     <div class="arm u" data-d="u"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 6l7 9H5z"/></svg></div>
@@ -234,7 +236,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.04</small>
+    <small id="ver">Version 1.05</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -275,7 +277,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.04</small>
+    <small class="lver" id="lver">Version 1.05</small>
   </section>
 
   <section class="screen" id="cam" hidden>
@@ -791,6 +793,8 @@ var SFX = {
   thud: function (t) { boom(t, 160, 70, 0.12, 0.6); crack(t, 500, 0.05, 0.2); },
   mitt: function (t) { crack(t, 1500, 0.035, 0.7); boom(t, 180, 90, 0.06, 0.5); },
   glove: function (t) { crack(t, 1300, 0.03, 0.45); },
+  /* bobble (version 1.05): the ball smacks the glove, then a quick hollow double bounce as it pops loose */
+  bobble: function (t) { crack(t, 1300, 0.03, 0.45); var g = gain(); env(g, t + 0.05, 0.22, 0.004, 0.02, 0.06); var o = osc('sine', 520, t + 0.05, t + 0.14, g); o.frequency.exponentialRampToValueAtTime(260, t + 0.13); crack(t + 0.1, 700, 0.025, 0.3); crack(t + 0.16, 650, 0.02, 0.18); },
   wall: function (t) { boom(t, 95, 40, 0.3, 0.8); crack(t, 300, 0.1, 0.3); },
   strike: function (t) { var g = gain(); env(g, t, 0.16, 0.005, 0.07, 0.04); osc('square', 660, t, t + 0.12, g); var g2 = gain(); env(g2, t + 0.12, 0.16, 0.005, 0.1, 0.06); osc('square', 880, t + 0.12, t + 0.3, g2); },
   ball: function (t) { var g = gain(); env(g, t, 0.18, 0.005, 0.08, 0.1); osc('triangle', 440, t, t + 0.2, g); },
@@ -1245,12 +1249,12 @@ var NO_IN = { dir: null, btn: false, vx: 0, vy: 0 };
 var YELLS = ["Let's go!", 'Ha ha ha ha!', 'Woo hoo!'];
 function hrCelebrate(side) { S.hr = { side: side, t0: S.t, end: S.t + Math.max(300, S.rt) }; S.faceT = Math.max(S.faceT, S.hr.end - S.t); updatePortraits(); }
 /* bobble (user, Oct 24, version 1.04): a grounder still moving at over 80% of top speed when a fielder (any fielder) gets to it is bobbled 10% of the time:
-   it pops loose a few feet and he has to go get it again (he can't touch it for 0.3 s) */
-var BOBBLE_SP = 0.8 * BALLMAX, BOBBLE_P = 0.1;
+   it pops loose about 2 feet (version 1.05) and he has to go get it again (he can't touch it for 0.3 s) */
+var BOBBLE_SP = 0.8 * BALLMAX, BOBBLE_P = 0.2; /* 20% (user, Oct 24, version 1.05) */
 function bobble(id, bb) {
   var a = (rnd() * 2 - 1) * PI * 0.6, c = dcos(a), sn = dsin(a), ux = bb.ux * c - bb.uy * sn, uy = bb.ux * sn + bb.uy * c;
-  bb.ux = ux; bb.uy = uy; bb.v = 0.18 + rnd() * 0.08; bb.touched = true; S.bob = { id: id, t: S.t + 18 };
-  sfx('glove'); toast('BOBBLE', null, 50);
+  bb.ux = ux; bb.uy = uy; bb.v = 0.12 + rnd() * 0.03; /* rolls about 2 feet (version 1.05) */ bb.touched = true; S.bob = { id: id, t: S.t + 18 };
+  sfx('bobble'); /* a short sound, no call on screen (user, Oct 24, version 1.05) */
 }
 function react(happy, kind, ticks) { S.faces = {}; S.faces[happy] = 'happy'; S.faces[other(happy)] = 'mad'; S.faceKind = kind; S.faceT = ticks; updatePortraits(); }
 function tick(IN) {
@@ -2180,8 +2184,15 @@ function updatePortraits() {
   $('sml').hidden = mb !== 'mad'; $('smr').hidden = mp !== 'mad'; /* smoke off the head of any mad face (user, Oct 24, version 1.03) */
   $('wl').textContent = tag(bat); $('wr').textContent = tag(pit);
 }
-/* home run celebration on screen: grow, flash, confetti (CSS), and the yells, spoken with the phone's voice and shown in a bubble */
-var HRV = { mood: null, yellT: null, bub: 0 };
+/* after a swing, CONTACT or POWER shows for 1.5 s (bunts show nothing) */
+var SWL = { key: null, until: 0 };
+function swingLabel() {
+  var sw = S && !S.over && S.sw, now = performance.now();
+  if (sw && sw.type !== 'bunt') { var key = (S.t - sw.t) + sw.type; if (key !== SWL.key) { SWL.key = key; SWL.until = now + 1500; var el = $('swl'); el.textContent = sw.type === 'power' ? 'POWER' : 'CONTACT'; el.classList.toggle('pw', sw.type === 'power'); el.hidden = false; } }
+  if (SWL.until && (now > SWL.until || !S)) { SWL.until = 0; $('swl').hidden = true; }
+}
+/* home run celebration on screen: grow, flash, confetti (CSS), and the yells, spoken with the phone's voice (sound only, user, Oct 24) */
+var HRV = { mood: null, yellT: null };
 function hrView() {
   var on = S && S.hr && !S.over ? S.hr : null, left = on && on.side === batSide();
   $('pl').classList.toggle('hrc', !!on && left); $('pr').classList.toggle('hrc', !!on && !left);
@@ -2190,11 +2201,9 @@ function hrView() {
     if (mood !== HRV.mood) { HRV.mood = mood; setFace(left ? $('fl') : $('fr'), faceFor(on.side), teamColor(on.side), mood); }
   }
   if (S && S.yell && S.yell.t !== HRV.yellT && S.t - S.yell.t < 20) {
-    HRV.yellT = S.yell.t; var txt = YELLS[S.yell.k], b = on && !left ? $('ylr') : $('yll');
-    $('yll').hidden = $('ylr').hidden = true; b.textContent = txt.toUpperCase(); b.hidden = false; HRV.bub = performance.now() + 1200;
+    HRV.yellT = S.yell.t; var txt = YELLS[S.yell.k];
     if (!muted && window.speechSynthesis && window.SpeechSynthesisUtterance) { try { speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(txt); u.rate = 1.15; u.pitch = 1.4; u.volume = Math.min(1, vol / 100); speechSynthesis.speak(u); } catch (er) { } }
   }
-  if (HRV.bub && performance.now() > HRV.bub) { HRV.bub = 0; $('yll').hidden = $('ylr').hidden = true; }
 }
 function endGame() {
   S.over = true; S.phase = 'over'; if (QUIET) return; showFinal();
@@ -2244,7 +2253,7 @@ function stepOffPose(k) {
 }
 function ring(c, x, y, sc) { c.save(); c.strokeStyle = '#ffd23f'; c.lineWidth = 2; c.beginPath(); c.ellipse(x, y, 13 * sc, 4.4 * sc, 0, 0, 7); c.stroke(); c.restore(); }
 function render() {
-  swingStep(); pitchSound(); hrView();
+  swingStep(); pitchSound(); hrView(); swingLabel();
   if (!fieldCache) buildField();
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(fieldCache, 0, 0);
   ctx.setTransform(K * DPR, 0, 0, K * DPR, 0, 0);
@@ -2364,7 +2373,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.04'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.05'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
@@ -2788,6 +2797,6 @@ layout(); setTheme('day'); pressGroup('mon', 'moff', opts.murmur); $('mv').textC
 $('fl').innerHTML = coachSVG('red', 'neutral'); $('fr').innerHTML = coachSVG('blue', 'neutral'); selfThumbs();
 $('hint').textContent = '';
 requestAnimationFrame(frame);
-window.__ccb = { get S() { return S; }, get SWV() { return SWV; }, get ZIP() { return ZIP; }, tick: function (IN) { tick(IN); }, newGame: function (o) { var g = {}; if (o) for (var k in o) { if (k === 'seed' || k === 'ai' || k === 'me' || k === 'vis') g[k] = o[k]; else opts[k] = o[k]; } newGame(g); }, save: save, load: load, syncView: syncView, RB: RB, packIn: packIn, NET: NET, get selfie() { return mySelfie; }, setSelfie: function (o) { mySelfie = o && validSelfie(o) ? cleanSelfie(o) : null; selfThumbs(); }, checkFace: checkFace, quiet: function (q) { QUIET = !!q; }, get ME() { return ME; }, newRunner: function (a) { return newRunner(a, null); }, human: human };
+window.__ccb = { get S() { return S; }, get SWV() { return SWV; }, get ZIP() { return ZIP; }, tick: function (IN) { tick(IN); }, newGame: function (o) { var g = {}; if (o) for (var k in o) { if (k === 'seed' || k === 'ai' || k === 'me' || k === 'vis') g[k] = o[k]; else opts[k] = o[k]; } newGame(g); }, save: save, load: load, syncView: syncView, RB: RB, packIn: packIn, view: function () { swingLabel(); hrView(); }, NET: NET, get selfie() { return mySelfie; }, setSelfie: function (o) { mySelfie = o && validSelfie(o) ? cleanSelfie(o) : null; selfThumbs(); }, checkFace: checkFace, quiet: function (q) { QUIET = !!q; }, get ME() { return ME; }, newRunner: function (a) { return newRunner(a, null); }, human: human };
 })();
 </script>

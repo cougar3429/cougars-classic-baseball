@@ -9,6 +9,15 @@ import json, sys
 from common import page
 
 CHECKS = {
+'swing label (version 1.05): CONTACT or POWER shows after the batter swings, nothing for a bunt': r"""() => {
+  const el = document.getElementById('swl'), seen = [];
+  for (const [dir, want] of [[null, 'CONTACT'], ['u', 'POWER'], ['d', null]]) {
+    T.start(true); const S = T.C.S; S.cpuP = null; el.hidden = true; T.until(() => S.phase === 'pitch' && S.ball.fy < 25, 800);
+    T.press(dir); T.C.view();
+    seen.push([want, el.hidden ? null : el.textContent]);
+  }
+  return { ok: seen.every(([w, g]) => w === g), seen }; }""",
+
 'home run celebration (version 1.04): the hitting team portrait grows, flashes and has confetti; taps yell, at most one per half second': r"""() => {
   T.start(true); const S = T.C.S, el = id => document.getElementById(id);
   S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 200); S.bb.wall = false; S.bb.v = 4; T.I.batterToFirst(false); T.I.wallHit(200);
@@ -16,14 +25,16 @@ CHECKS = {
   T.run(2); T.press(null); const y1 = S.yell && S.yell.t; T.run(5); T.press(null); const y2 = S.yell && S.yell.t; T.run(35); T.press(null); const y3 = S.yell && S.yell.t;
   return { ok: !!y1 && y2 === y1 && y3 > y1 && S.yell.k >= 0 && S.yell.k <= 2 && S.hr.end - S.hr.t0 >= 300, y1, y2, y3, k: S.yell.k, len: S.hr.end - S.hr.t0 }; }""",
 
-'bobble (version 1.04): about 10% of grounders still over 80% speed at the fielder pop loose; slower ones never': r"""() => {
-  let hard = 0, bob = 0, soft = 0, softBob = 0;
+'bobble (version 1.05): about 20% of grounders still over 80% speed at the fielder pop loose about 2 feet, with no call; slower ones never': r"""() => {
+  let hard = 0, bob = 0, soft = 0, softBob = 0, minRoll = 99, maxRoll = 0, called = false;
   for (let i = 0; i < 400; i++) {
     T.start(false); const S = T.C.S; S.seed = 1000 + i; const fast = i % 2 === 0; T.hit(0, fast ? 4 : 2.2);
     for (let k = 0; k < 120 && !S.holder && !S.bob; k++) T.C.tick();
+    if (S.bob && fast) { const x0 = S.bb.x, y0 = S.bb.y; called = called || T.toast().includes('BOBBLE'); for (let k = 0; k < 60 && S.bb.v > 0; k++) { S.bb.v = S.bb.v * 0.997 - 0.004; if (S.bb.v < 0) S.bb.v = 0; S.bb.x += S.bb.ux * S.bb.v; S.bb.y += S.bb.uy * S.bb.v; }
+      const d = Math.hypot(S.bb.x - x0, S.bb.y - y0); minRoll = Math.min(minRoll, d); maxRoll = Math.max(maxRoll, d); }
     if (fast) { hard++; if (S.bob) bob++; } else { soft++; if (S.bob) softBob++; }
   }
-  const rate = bob / hard; return { ok: rate > 0.05 && rate < 0.17 && softBob === 0, hard, bob, rate: rate.toFixed(3), soft, softBob }; }""",
+  const rate = bob / hard; return { ok: rate > 0.13 && rate < 0.28 && softBob === 0 && maxRoll < 3.2 && minRoll > 1.2 && !called, hard, bob, rate: rate.toFixed(3), soft, softBob, roll: [minRoll.toFixed(2), maxRoll.toFixed(2)], called }; }""",
 
 'portraits (version 1.03): an out makes the batting team mad with smoke and the fielders happy for 5 s; a run reaction is not cut short': r"""() => { T.start(true); const S = T.C.S, el = id => document.getElementById(id);
   T.until(() => S.phase === 'ready', 600); S.b = 0; S.s = 2; S.cpuP = null;
