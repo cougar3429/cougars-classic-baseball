@@ -66,6 +66,18 @@ body.day { background: #4f9e44; }
 #cam .big-btn { font-size: 16px; padding: 8px 16px; min-height: 44px; }
 #cam .big-btn[hidden] { display: none; }
 #cam .big-btn:disabled { opacity: 0.5; cursor: default; }
+/* smoke off a mad face (version 1.03): grey puffs rising from the top of the portrait and fading */
+.fw { position: relative; }
+.smoke { position: absolute; left: 50%; top: 2px; width: 0; height: 0; pointer-events: none; }
+.smoke[hidden] { display: none; }
+.smoke i { position: absolute; left: -8px; top: 0; width: 18px; height: 18px; border-radius: 50%; background: rgba(140,140,150,0.95); box-shadow: 0 0 0 1.5px rgba(22,32,43,0.45); opacity: 0; animation: puff 1s ease-out infinite; }
+/* the portrait sits at the top of the screen, so the puffs billow out to the sides of the head rather than straight up */
+.smoke i:nth-child(1) { --x0: -14px; --dx: -30px; animation-delay: 0s; }
+.smoke i:nth-child(2) { --x0: 14px; --dx: 30px; animation-delay: 0.25s; }
+.smoke i:nth-child(3) { --x0: -8px; --dx: -24px; animation-delay: 0.5s; }
+.smoke i:nth-child(4) { --x0: 8px; --dx: 24px; animation-delay: 0.75s; }
+@keyframes puff { 0% { transform: translate(var(--x0), 6px) scale(0.4); opacity: 0.95; } 100% { transform: translate(var(--dx), -4px) scale(1.5); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .smoke i { animation-duration: 2.2s; } }
 .por .lab { display: flex; flex-direction: column; gap: 2px; }
 #pr .lab { align-items: flex-end; }
 .por .role { padding: 2px 8px; border-radius: 6px; background: var(--ink); color: var(--gold); font-family: var(--font-display); font-size: 11px; }
@@ -154,8 +166,8 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 <div id="stage">
   <canvas id="cv" width="844" height="390"></canvas>
 
-  <div id="pl" class="hud por"><div class="face" id="fl"></div><div class="lab"><div class="role" id="rl">AT BAT</div><div class="who" id="wl">YOU</div></div></div>
-  <div id="pr" class="hud por"><div class="face" id="fr"></div><div class="lab"><div class="role" id="rr">PITCHING</div><div class="who" id="wr">CPU</div></div></div>
+  <div id="pl" class="hud por"><div class="fw"><div class="face" id="fl"></div><div class="smoke" id="sml" hidden><i></i><i></i><i></i><i></i></div></div><div class="lab"><div class="role" id="rl">AT BAT</div><div class="who" id="wl">YOU</div></div></div>
+  <div id="pr" class="hud por"><div class="fw"><div class="face" id="fr"></div><div class="smoke" id="smr" hidden><i></i><i></i><i></i><i></i></div></div><div class="lab"><div class="role" id="rr">PITCHING</div><div class="who" id="wr">CPU</div></div></div>
   <div id="sb" class="hud">
     <div class="tm vis"><small>VIS</small><b id="sv">0</b></div>
     <div class="inn"><span id="ih">▲</span><b id="in">1</b></div>
@@ -194,7 +206,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.02</small>
+    <small id="ver">Version 1.03</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -235,7 +247,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.02</small>
+    <small class="lver" id="lver">Version 1.03</small>
   </section>
 
   <section class="screen" id="cam" hidden>
@@ -625,31 +637,15 @@ function makeMoods(f, done) {
     var ml = P('ml'), mr = P('mr'), mb = P('mb'), mt = P('mt');
     var happy = [push(ml, 0.08 * side(ml), -0.17, 0.24), push(mr, 0.08 * side(mr), -0.17, 0.24), push(mb, 0, 0.07, 0.2),
       push([e1[0], e1[1] + 0.5 * ed], 0, -0.07, 0.26), push([e2[0], e2[1] + 0.5 * ed], 0, -0.07, 0.26),
-      push([e1[0], e1[1] + 0.12 * ed], 0, -0.035, 0.12), push([e2[0], e2[1] + 0.12 * ed], 0, -0.035, 0.12)];
+      push([e1[0], e1[1] + 0.12 * ed], 0, -0.035, 0.12), push([e2[0], e2[1] + 0.12 * ed], 0, -0.035, 0.12),
+      /* brows (user, Oct 24, version 1.03): the opposite of mad's furrow, inner ends raised and spread apart, outer ends a little down */
+      push(P('b1i'), 0.1 * side(P('b1i')), -0.16, 0.2), push(P('b2i'), 0.1 * side(P('b2i')), -0.16, 0.2), push(P('b1m'), 0.03 * side(P('b1m')), -0.07, 0.17), push(P('b2m'), 0.03 * side(P('b2m')), -0.07, 0.17),
+      push(P('b1o'), 0, 0.04, 0.18), push(P('b2o'), 0, 0.04, 0.18)];
     var b1i = P('b1i'), b2i = P('b2i');
     /* mad: a deeper furrow (user, Oct 24, version 1.02): inner brows pulled well down and together, the middle of each brow down a little, outer ends up */
     var mad = [push(b1i, -0.15 * side(b1i), 0.22, 0.2), push(b2i, -0.15 * side(b2i), 0.22, 0.2), push(P('b1m'), -0.04 * side(P('b1m')), 0.08, 0.17), push(P('b2m'), -0.04 * side(P('b2m')), 0.08, 0.17),
       push(P('b1o'), 0, -0.06, 0.18), push(P('b2o'), 0, -0.06, 0.18),
       push(ml, -0.04 * side(ml), 0.13, 0.22), push(mr, -0.04 * side(mr), 0.13, 0.22), push(mt, 0, 0.03, 0.15)];
-    /* happy shows teeth (user, Oct 24, version 1.02): an open smile drawn between the lifted mouth corners, white upper teeth on a dark mouth */
-    var teeth = function () {
-      var a = [ml[0] + 0.08 * side(ml) * ed, ml[1] - 0.17 * ed], b = [mr[0] + 0.08 * side(mr) * ed, mr[1] - 0.17 * ed];
-      var mx = (a[0] + b[0]) / 2, my = (mt[1] + mb[1]) / 2, cy = (a[1] + b[1]) / 2, w = Math.abs(b[0] - a[0]);
-      var top = my - 0.01 * ed, bot = my + 0.18 * ed, ct = 2 * top - cy, cb = 2 * bot - cy;
-      var shape = function () { g.beginPath(); g.moveTo(a[0], a[1]); g.quadraticCurveTo(mx, ct, b[0], b[1]); g.quadraticCurveTo(mx, cb, a[0], a[1]); g.closePath(); };
-      /* matched to the photo's light: teeth are white blended toward the face's average colour, the mouth a dark shade of it */
-      var sr = 0, sg = 0, sb = 0, sn = 0;
-      for (var yy = Math.max(0, Math.round(e1[1])); yy < Math.min(N, Math.round(mb[1])); yy += 2) for (var xx = Math.max(0, Math.round(e1[0])); xx < Math.min(N, Math.round(e2[0])); xx += 2) { var q = (yy * N + xx) * 4; sr += src[q]; sg += src[q + 1]; sb += src[q + 2]; sn++; }
-      if (!sn) { sr = sg = sb = 180; sn = 1; }
-      sr /= sn; sg /= sn; sb /= sn; var lit = Math.min(1, (0.299 * sr + 0.587 * sg + 0.114 * sb) / 170);
-      var mix = function (c, w) { return Math.round(c * (1 - w) + w * (255 * (0.55 + 0.45 * lit))); };
-      g.save(); shape(); g.fillStyle = 'rgb(' + Math.round(sr * 0.28) + ',' + Math.round(sg * 0.14) + ',' + Math.round(sb * 0.12) + ')'; g.fill(); g.clip();
-      g.fillStyle = 'rgb(' + mix(sr, 0.72) + ',' + mix(sg, 0.72) + ',' + mix(sb, 0.72) + ')'; g.beginPath(); g.moveTo(a[0], a[1]); g.quadraticCurveTo(mx, ct, b[0], b[1]); g.lineTo(b[0], b[1] + 0.03 * ed); g.quadraticCurveTo(mx, ct + 0.22 * ed, a[0], a[1] + 0.03 * ed); g.closePath(); g.fill();
-      g.strokeStyle = 'rgba(70,40,30,0.35)'; g.lineWidth = 0.6;
-      for (var i = -2; i <= 2; i++) { var tx = mx + i * w / 7; g.beginPath(); g.moveTo(tx, top - 0.05 * ed); g.lineTo(tx, top + 0.12 * ed); g.stroke(); }
-      g.restore();
-      shape(); g.strokeStyle = 'rgba(110,40,35,0.6)'; g.lineWidth = 0.9; g.stroke();
-    };
     var warp = function (list, flush) {
       var out = g.createImageData(N, N), d = out.data;
       for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
@@ -664,15 +660,14 @@ function makeMoods(f, done) {
         d[o + 3] = 255;
       }
       g.putImageData(out, 0, 0);
-      if (flush === 'teeth') teeth();
-      else if (flush) { /* a light red flush over the face, like the cartoon coach's */
+      if (flush) { /* a light red flush over the face, like the cartoon coach's */
         var fy0 = (e1[1] + mb[1]) / 2, rg = g.createRadialGradient(cx, fy0, 0, cx, fy0, 1.25 * ed);
         rg.addColorStop(0, 'rgba(224,65,59,0.30)'); rg.addColorStop(0.7, 'rgba(224,65,59,0.18)'); rg.addColorStop(1, 'rgba(224,65,59,0)');
         g.fillStyle = rg; g.fillRect(0, 0, N, N);
       }
       return c.toDataURL('image/jpeg', 0.9);
     };
-    try { f.moods = { neutral: f.img, happy: warp(happy, 'teeth'), mad: warp(mad, true) }; } catch (e) { f.moods = { neutral: f.img, happy: f.img, mad: f.img }; }
+    try { f.moods = { neutral: f.img, happy: warp(happy, false), mad: warp(mad, true) }; } catch (e) { f.moods = { neutral: f.img, happy: f.img, mad: f.img }; }
     f.making = false; if (done) done();
   };
   im.onerror = function () { f.making = false; };
@@ -867,7 +862,7 @@ function newGame(g) {
     t: 0, seed: (g.seed != null ? g.seed : (Date.now() & 0x7fffffff)) | 0, ai: g.ai || { you: false, cpu: true }, half: 0, outs: 0, b: 0, s: 0, pOff: 0, bOff: { x: 0, y: 0 },
     score: { you: 0, cpu: 0 }, stats: { you: { h: 0, hr: 0, k: 0, bb: 0 }, cpu: { h: 0, hr: 0, k: 0, bb: 0 } },
     vis: g.vis || (opts.batFirst ? 'you' : 'cpu'), phase: 'ready', pt: 0, wt: 0, wlen: WINDUP_T, rt: 0, ball: null, bb: null, sw: null,
-    cpuP: null, cpuB: null, follow: 0, faces: null, faceT: 0, fielded: null, over: false, after: null, F: homePos(), ctl: 'P', holder: null, thr: null, playT: 0,
+    cpuP: null, cpuB: null, follow: 0, faces: null, faceT: 0, faceKind: null, fielded: null, over: false, after: null, F: homePos(), ctl: 'P', holder: null, thr: null, playT: 0,
     runners: [], live: null, lock: false, pick: false, playRuns: 0, playOuts: 0, batR: null, batterGone: false, abOver: false, stretch: false, cat: null
   };
   startHalf();
@@ -1106,7 +1101,7 @@ function settleRunners() {
 function commitRuns() {
   var n = S.playRuns; S.playRuns = 0; if (!n) return 0;
   S.score[batSide()] += n;
-  S.faces = { bat: 'happy', pit: 'mad' }; S.faceT = 300; updatePortraits(); updateHUD();
+  react(batSide(), 'run', 300); updateHUD();
   crowd(batSide(), 0.15);
   if (!S.wo && homeWins(0)) walkOff();
   else if (!S.wo && homeMercy()) mercyEnd();
@@ -1215,9 +1210,13 @@ function cpuRunners() {
 
 /* ============ simulation ============ */
 var NO_IN = { dir: null, btn: false, vx: 0, vy: 0 };
+/* portrait reactions, by team: the happy team and the mad one. A run: the scoring team happy, about 5 s.
+   An out (user, Oct 24, version 1.03): the batting team mad, the fielding team happy, about 5 s (user); a run's reaction is never cut short by an out. */
+function react(happy, kind, ticks) { S.faces = {}; S.faces[happy] = 'happy'; S.faces[other(happy)] = 'mad'; S.faceKind = kind; S.faceT = ticks; updatePortraits(); }
 function tick(IN) {
   if (!IN) { IN = {}; IN[ME] = readHuman(); }
   S.t++;
+  var outs0 = S.outs, half0 = S.half;
   if (S.faceT > 0) { S.faceT--; if (S.faceT === 0) { S.faces = null; updatePortraits(); } }
   if (S.follow > 0) S.follow--;
   var bat = batSide(), bH = !S.ai[bat], pH = !S.ai[other(bat)];
@@ -1251,6 +1250,7 @@ function tick(IN) {
       moveRunners();
       S.rt--; if (S.rt <= 0) afterResult(); break;
   }
+  if (S.half === half0 && S.outs > outs0 && !(S.faceT > 0 && S.faceKind === 'run')) react(pitSide(), 'out', 300);
 }
 /* your runners: direction + button during the wind-up, the first half of a pitch, and any live play (down + button also squares to bunt) */
 function humanRunning(inp) {
@@ -1960,7 +1960,7 @@ function wallHit(d) {
     result(n === 4 ? 'GRAND SLAM!' : 'HOME RUN!', (tag ? tag + ' · ' : '') + Math.round(ch) + '% chance: ' + Math.round(frac * 100) + '% speed + ' + HR_BONUS + (u >= 0.5 ? ' + 10 near the line' : ''), 'ab', true);
     S.rt = Math.max(S.rt, trotTicks()); if (S.wo) S.after = 'walkoff';
     sfx('fanfare'); crowd(batSide(), 0.3);
-    S.faces = { bat: 'happy', pit: 'mad' }; S.faceT = 300; updatePortraits(); updateHUD();
+    react(batSide(), 'run', 300); updateHUD();
     return;
   }
   var nx = bb.x / d, ny = bb.y / d, vx = bb.ux * bb.v, vy = bb.uy * bb.v, dot = vx * nx + vy * ny;
@@ -2129,8 +2129,9 @@ function updateHUD() {
 function updatePortraits() {
   if (QUIET) return;
   var bat = batSide(), pit = other(bat);
-  setFace($('fl'), faceFor(bat), teamColor(bat), S.faces ? S.faces.bat : 'neutral');
-  setFace($('fr'), faceFor(pit), teamColor(pit), S.faces ? S.faces.pit : 'neutral');
+  var mb = S.faces && S.faces[bat] || 'neutral', mp = S.faces && S.faces[pit] || 'neutral';
+  setFace($('fl'), faceFor(bat), teamColor(bat), mb); setFace($('fr'), faceFor(pit), teamColor(pit), mp);
+  $('sml').hidden = mb !== 'mad'; $('smr').hidden = mp !== 'mad'; /* smoke off the head of any mad face (user, Oct 24, version 1.03) */
   $('wl').textContent = tag(bat); $('wr').textContent = tag(pit);
 }
 function endGame() {
@@ -2301,7 +2302,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.02'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.03'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,

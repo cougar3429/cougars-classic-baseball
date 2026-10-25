@@ -9,6 +9,15 @@ import json, sys
 from common import page
 
 CHECKS = {
+'portraits (version 1.03): an out makes the batting team mad with smoke and the fielders happy for 5 s; a run reaction is not cut short': r"""() => { T.start(true); const S = T.C.S, el = id => document.getElementById(id);
+  T.until(() => S.phase === 'ready', 600); S.b = 0; S.s = 2; S.cpuP = null;
+  T.until(() => S.outs > 0, 3000); if (!S.outs) return { ok: false, why: 'no out' };
+  const out = { faces: JSON.stringify(S.faces), smokeBat: !el('sml').hidden, smokeField: !el('smr').hidden };
+  T.run(305); const later = JSON.stringify(S.faces);
+  /* a run's reaction is not cut short by an out on the same play */
+  T.I.commitRuns && (S.playRuns = 1, T.I.commitRuns()); const run = JSON.stringify(S.faces); S.outs++; T.C.tick(); const kept = JSON.stringify(S.faces) === run && S.faceKind === 'run';
+  return { ok: out.faces === '{"cpu":"happy","you":"mad"}' && out.smokeBat && !out.smokeField && later === 'null' && run === '{"you":"happy","cpu":"mad"}' && kept, out, later, run, kept }; }""",
+
 'bases-loaded walk forces in a run': r"""() => { T.start(true); const S = T.C.S;
   for (let k = 0; k < 40; k++) { T.until(() => S.phase === 'ready', 800); T.put([1, 2, 3]); S.b = 3; S.s = 0; S.cpuP = null;
     T.until(() => S.phase === 'result', 800); if (T.toast().startsWith('WALK')) { const before = S.score.you; T.until(() => S.phase === 'ready', 400); return { ok: S.score.you === before + 1, toast: T.toast(), runners: T.rs() }; } }
