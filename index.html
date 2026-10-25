@@ -167,7 +167,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 95</small>
+    <small id="ver">Version 96</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -208,7 +208,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 95</small>
+    <small class="lver" id="lver">Version 96</small>
   </section>
 
   <section class="screen" id="netmsg" hidden>
@@ -592,6 +592,11 @@ function cheerSnd(t, dur, peak) {
   [0.25, 0.6].forEach(function (o, i) { var g = gain(); var s = t + o; env(g, s, 0.05, 0.03, 0.25, 0.1); var w = osc('sine', 1900 + i * 300, s, s + 0.45, g); w.frequency.exponentialRampToValueAtTime(2600 + i * 200, s + 0.3); });
 }
 var SFX = {
+  /* a fielder's throw (user, Oct 24, version 96): the "Ffffeewww" sample as a quick burst at release, a breathy fff turning into a falling whistle */
+  fweew: function (t) {
+    var dur = 0.35, n = noise(dur), hp = A.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2500; var g = gain(); env(g, t, 0.35, 0.03, 0.12, 0.1); n.connect(hp); hp.connect(g); n.start(t); n.stop(t + dur + 0.05);
+    var g2 = gain(); env(g2, t + 0.08, 0.16, 0.04, 0.12, 0.11); var o = osc('sine', 1600, t + 0.08, t + dur, g2); o.frequency.exponentialRampToValueAtTime(700, t + dur);
+  },
   fanfare: function (t) { brass(587.33, t, 0.14); brass(369.99, t + 0.28, 0.11); brass(392.0, t + 0.405, 1.0); },
   safe: function (t) { /* option A, slowed a little (user, Oct 23): S, then AY, then F, in the OUT bark's voice */
     var hiss = function (t0, dur, freq, q, peak) { var n = noise(dur + 0.05), bp = A.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = q; var g = gain(); n.connect(bp); bp.connect(g); env(g, t0, peak, 0.015, dur * 0.55, dur * 0.4); n.start(t0); };
@@ -1468,7 +1473,7 @@ function throwTo(base) {
   if (BASES[base]) { var bg = basePos(base); tx = bg[0]; ty = bg[1]; } else if (who) { tx = S.F[who].x; ty = S.F[who].y; } else return;
   var d0 = dist2(h.x, h.y, tx, ty);
   S.cpuThrow = 0;
-  S.thr = { player: who, x: h.x, y: h.y, sx: h.x, sy: h.y, tx: tx, ty: ty, base: base, d0: d0, peak: Math.min(30, 4 + d0 * 0.2), sp: armFor(S.holder) }; S.thrFrom = S.holder; S.thrT = 12; S.holder = null; sfx('toss');
+  S.thr = { player: who, x: h.x, y: h.y, sx: h.x, sy: h.y, tx: tx, ty: ty, base: base, d0: d0, peak: Math.min(30, 4 + d0 * 0.2), sp: armFor(S.holder) }; S.thrFrom = S.holder; S.thrT = 12; S.holder = null; sfx('fweew'); /* replaces the old 'toss' swish (version 96) */
 }
 function baseCovered(base, exceptId) {
   var b = basePos(base), hit = false;
@@ -2163,7 +2168,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = 95; /* only games on the same build are listed */
+var PROTO = 96; /* only games on the same build are listed */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
