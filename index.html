@@ -194,7 +194,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.01</small>
+    <small id="ver">Version 1.02</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -235,14 +235,14 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.01</small>
+    <small class="lver" id="lver">Version 1.02</small>
   </section>
 
   <section class="screen" id="cam" hidden>
     <div class="camview"><video id="camv" playsinline muted autoplay></video><canvas id="camshot" hidden></canvas><div class="oval" id="oval"></div></div>
     <div class="camside">
       <h1>Coach Selfie</h1>
-      <p id="camp">Line up your face in the oval and tap SNAP. Your photo is used in the game.</p>
+      <p id="camp">Line up your face in the oval and tap SNAP. A neutral face works best. Your photo is used in the game.</p>
       <div class="moods" id="cammoods" hidden></div>
       <div class="frow"><button class="big-btn" id="snap" type="button">SNAP</button><button class="big-btn" id="camuse" type="button" hidden>USE IT</button><button class="big-btn alt" id="retake" type="button" hidden>RETAKE</button></div>
       <div class="frow"><button class="big-btn alt" id="camno" type="button">NO SELFIE</button><button class="big-btn alt" id="camback" type="button">CANCEL</button></div>
@@ -627,8 +627,29 @@ function makeMoods(f, done) {
       push([e1[0], e1[1] + 0.5 * ed], 0, -0.07, 0.26), push([e2[0], e2[1] + 0.5 * ed], 0, -0.07, 0.26),
       push([e1[0], e1[1] + 0.12 * ed], 0, -0.035, 0.12), push([e2[0], e2[1] + 0.12 * ed], 0, -0.035, 0.12)];
     var b1i = P('b1i'), b2i = P('b2i');
-    var mad = [push(b1i, -0.09 * side(b1i), 0.13, 0.2), push(b2i, -0.09 * side(b2i), 0.13, 0.2), push(P('b1o'), 0, -0.04, 0.2), push(P('b2o'), 0, -0.04, 0.2),
+    /* mad: a deeper furrow (user, Oct 24, version 1.02): inner brows pulled well down and together, the middle of each brow down a little, outer ends up */
+    var mad = [push(b1i, -0.15 * side(b1i), 0.22, 0.2), push(b2i, -0.15 * side(b2i), 0.22, 0.2), push(P('b1m'), -0.04 * side(P('b1m')), 0.08, 0.17), push(P('b2m'), -0.04 * side(P('b2m')), 0.08, 0.17),
+      push(P('b1o'), 0, -0.06, 0.18), push(P('b2o'), 0, -0.06, 0.18),
       push(ml, -0.04 * side(ml), 0.13, 0.22), push(mr, -0.04 * side(mr), 0.13, 0.22), push(mt, 0, 0.03, 0.15)];
+    /* happy shows teeth (user, Oct 24, version 1.02): an open smile drawn between the lifted mouth corners, white upper teeth on a dark mouth */
+    var teeth = function () {
+      var a = [ml[0] + 0.08 * side(ml) * ed, ml[1] - 0.17 * ed], b = [mr[0] + 0.08 * side(mr) * ed, mr[1] - 0.17 * ed];
+      var mx = (a[0] + b[0]) / 2, my = (mt[1] + mb[1]) / 2, cy = (a[1] + b[1]) / 2, w = Math.abs(b[0] - a[0]);
+      var top = my - 0.01 * ed, bot = my + 0.18 * ed, ct = 2 * top - cy, cb = 2 * bot - cy;
+      var shape = function () { g.beginPath(); g.moveTo(a[0], a[1]); g.quadraticCurveTo(mx, ct, b[0], b[1]); g.quadraticCurveTo(mx, cb, a[0], a[1]); g.closePath(); };
+      /* matched to the photo's light: teeth are white blended toward the face's average colour, the mouth a dark shade of it */
+      var sr = 0, sg = 0, sb = 0, sn = 0;
+      for (var yy = Math.max(0, Math.round(e1[1])); yy < Math.min(N, Math.round(mb[1])); yy += 2) for (var xx = Math.max(0, Math.round(e1[0])); xx < Math.min(N, Math.round(e2[0])); xx += 2) { var q = (yy * N + xx) * 4; sr += src[q]; sg += src[q + 1]; sb += src[q + 2]; sn++; }
+      if (!sn) { sr = sg = sb = 180; sn = 1; }
+      sr /= sn; sg /= sn; sb /= sn; var lit = Math.min(1, (0.299 * sr + 0.587 * sg + 0.114 * sb) / 170);
+      var mix = function (c, w) { return Math.round(c * (1 - w) + w * (255 * (0.55 + 0.45 * lit))); };
+      g.save(); shape(); g.fillStyle = 'rgb(' + Math.round(sr * 0.28) + ',' + Math.round(sg * 0.14) + ',' + Math.round(sb * 0.12) + ')'; g.fill(); g.clip();
+      g.fillStyle = 'rgb(' + mix(sr, 0.72) + ',' + mix(sg, 0.72) + ',' + mix(sb, 0.72) + ')'; g.beginPath(); g.moveTo(a[0], a[1]); g.quadraticCurveTo(mx, ct, b[0], b[1]); g.lineTo(b[0], b[1] + 0.03 * ed); g.quadraticCurveTo(mx, ct + 0.22 * ed, a[0], a[1] + 0.03 * ed); g.closePath(); g.fill();
+      g.strokeStyle = 'rgba(70,40,30,0.35)'; g.lineWidth = 0.6;
+      for (var i = -2; i <= 2; i++) { var tx = mx + i * w / 7; g.beginPath(); g.moveTo(tx, top - 0.05 * ed); g.lineTo(tx, top + 0.12 * ed); g.stroke(); }
+      g.restore();
+      shape(); g.strokeStyle = 'rgba(110,40,35,0.6)'; g.lineWidth = 0.9; g.stroke();
+    };
     var warp = function (list, flush) {
       var out = g.createImageData(N, N), d = out.data;
       for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
@@ -643,14 +664,15 @@ function makeMoods(f, done) {
         d[o + 3] = 255;
       }
       g.putImageData(out, 0, 0);
-      if (flush) { /* a light red flush over the face, like the cartoon coach's */
+      if (flush === 'teeth') teeth();
+      else if (flush) { /* a light red flush over the face, like the cartoon coach's */
         var fy0 = (e1[1] + mb[1]) / 2, rg = g.createRadialGradient(cx, fy0, 0, cx, fy0, 1.25 * ed);
         rg.addColorStop(0, 'rgba(224,65,59,0.30)'); rg.addColorStop(0.7, 'rgba(224,65,59,0.18)'); rg.addColorStop(1, 'rgba(224,65,59,0)');
         g.fillStyle = rg; g.fillRect(0, 0, N, N);
       }
       return c.toDataURL('image/jpeg', 0.9);
     };
-    try { f.moods = { neutral: f.img, happy: warp(happy, false), mad: warp(mad, true) }; } catch (e) { f.moods = { neutral: f.img, happy: f.img, mad: f.img }; }
+    try { f.moods = { neutral: f.img, happy: warp(happy, 'teeth'), mad: warp(mad, true) }; } catch (e) { f.moods = { neutral: f.img, happy: f.img, mad: f.img }; }
     f.making = false; if (done) done();
   };
   im.onerror = function () { f.making = false; };
@@ -2279,7 +2301,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.01'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.02'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
@@ -2523,6 +2545,7 @@ function goFull() {
 ['pointerup', 'touchend'].forEach(function (ev) { document.addEventListener(ev, function () { if (wantFull && !document.fullscreenElement) goFull(); }, true); });
 /* ============ selfie camera (version 1.01) ============ */
 var CAM = { stream: null, cand: null, lib: null, from: null };
+var CAM_TIP = 'Line up your face in the oval and tap SNAP. A neutral face works best. Your photo is used in the game.';
 var BLUR_MIN = 35; /* edge strength (variance of the Laplacian on the 128 px crop) below this is too blurry. Measured (tests/selfie.py):
    a sharp test photo 938, blurred 2.5 px 51 (passes), 3 px 29 (too blurry); 4 px finds no face at all */
 function loadFaceLib() {
@@ -2545,7 +2568,7 @@ function camState(st) {
 }
 function camOpen(from) {
   CAM.from = from; CAM.cand = null; $('cam').hidden = false; camState('live');
-  camSay('Line up your face in the oval and tap SNAP. Your photo is used in the game.');
+  camSay(CAM_TIP);
   loadFaceLib();
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { camSay('No camera here. Selfies work on the live site in your phone\'s browser.', true); return; }
   navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }).then(function (s) {
@@ -2612,7 +2635,7 @@ $('snap').addEventListener('click', function () {
     });
   }).catch(function () { camState('fail'); camSay('Something went wrong with the face check. Tap RETAKE.', true); });
 });
-$('retake').addEventListener('click', function () { sfx('click'); CAM.cand = null; camState('live'); camSay('Line up your face in the oval and tap SNAP. Your photo is used in the game.'); });
+$('retake').addEventListener('click', function () { sfx('click'); CAM.cand = null; camState('live'); camSay(CAM_TIP); });
 $('camuse').addEventListener('click', function () {
   sfx('click'); if (!CAM.cand) return;
   mySelfie = CAM.cand; try { localStorage.setItem('ccb-selfie', JSON.stringify({ img: mySelfie.img, lm: mySelfie.lm })); } catch (e) { }
