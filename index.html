@@ -78,6 +78,34 @@ body.day { background: #4f9e44; }
 .smoke i:nth-child(4) { --x0: 8px; --dx: 24px; animation-delay: 0.75s; }
 @keyframes puff { 0% { transform: translate(var(--x0), 6px) scale(0.4); opacity: 0.95; } 100% { transform: translate(var(--dx), -4px) scale(1.5); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .smoke i { animation-duration: 2.2s; } }
+/* home run celebration (version 1.04): the hitting team's portrait grows 50%, confetti falls over it, and taps yell */
+.por .fw { transition: transform 0.25s; }
+#pl .fw { transform-origin: 20px 20px; } #pr .fw { transform-origin: 36px 20px; }
+.por.hrc { z-index: 6; }
+.por.hrc .fw { transform: scale(1.5); }
+.confetti { position: absolute; left: -6px; right: -6px; top: -4px; height: 0; pointer-events: none; display: none; }
+.por.hrc .confetti { display: block; }
+.confetti i { position: absolute; top: 0; width: 5px; height: 8px; border-radius: 1px; opacity: 0; animation: conf 1.3s linear infinite; }
+.confetti i:nth-child(odd) { background: var(--gold); } .confetti i:nth-child(3n) { background: var(--red); } .confetti i:nth-child(4n) { background: var(--blue); } .confetti i:nth-child(5n) { background: #5fd17a; } .confetti i:nth-child(7n) { background: #fff; }
+.confetti i:nth-child(1) { left: 0px; animation-delay: 0.00s; --r: 300deg; }
+.confetti i:nth-child(2) { left: 37px; animation-delay: 0.09s; --r: -347deg; }
+.confetti i:nth-child(3) { left: 6px; animation-delay: 0.19s; --r: 394deg; }
+.confetti i:nth-child(4) { left: 43px; animation-delay: 0.28s; --r: -441deg; }
+.confetti i:nth-child(5) { left: 12px; animation-delay: 0.37s; --r: 488deg; }
+.confetti i:nth-child(6) { left: 49px; animation-delay: 0.46s; --r: -535deg; }
+.confetti i:nth-child(7) { left: 18px; animation-delay: 0.56s; --r: 582deg; }
+.confetti i:nth-child(8) { left: 55px; animation-delay: 0.65s; --r: -329deg; }
+.confetti i:nth-child(9) { left: 24px; animation-delay: 0.74s; --r: 376deg; }
+.confetti i:nth-child(10) { left: 61px; animation-delay: 0.84s; --r: -423deg; }
+.confetti i:nth-child(11) { left: 30px; animation-delay: 0.93s; --r: 470deg; }
+.confetti i:nth-child(12) { left: 67px; animation-delay: 1.02s; --r: -517deg; }
+.confetti i:nth-child(13) { left: 36px; animation-delay: 1.12s; --r: 564deg; }
+.confetti i:nth-child(14) { left: 5px; animation-delay: 1.21s; --r: -311deg; }
+@keyframes conf { 0% { transform: translateY(0) rotate(0); opacity: 1; } 85% { opacity: 1; } 100% { transform: translateY(62px) rotate(var(--r)); opacity: 0; } }
+.yell { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 4px; padding: 2px 7px; border-radius: 8px; border: 2px solid var(--ink); background: #fff; color: var(--ink); font: 700 10px var(--font-display); white-space: nowrap; pointer-events: none; }
+.yell[hidden] { display: none; }
+#pl .yell { left: 0; transform: none; } #pr .yell { left: auto; right: 0; transform: none; } /* kept on screen at the edges */
+@media (prefers-reduced-motion: reduce) { .confetti i { animation-duration: 2.6s; } .por .fw { transition: none; } }
 .por .lab { display: flex; flex-direction: column; gap: 2px; }
 #pr .lab { align-items: flex-end; }
 .por .role { padding: 2px 8px; border-radius: 6px; background: var(--ink); color: var(--gold); font-family: var(--font-display); font-size: 11px; }
@@ -166,8 +194,8 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 <div id="stage">
   <canvas id="cv" width="844" height="390"></canvas>
 
-  <div id="pl" class="hud por"><div class="fw"><div class="face" id="fl"></div><div class="smoke" id="sml" hidden><i></i><i></i><i></i><i></i></div></div><div class="lab"><div class="role" id="rl">AT BAT</div><div class="who" id="wl">YOU</div></div></div>
-  <div id="pr" class="hud por"><div class="fw"><div class="face" id="fr"></div><div class="smoke" id="smr" hidden><i></i><i></i><i></i><i></i></div></div><div class="lab"><div class="role" id="rr">PITCHING</div><div class="who" id="wr">CPU</div></div></div>
+  <div id="pl" class="hud por"><div class="fw"><div class="face" id="fl"></div><div class="smoke" id="sml" hidden><i></i><i></i><i></i><i></i></div><div class="confetti" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="yell" id="yll" hidden></div></div><div class="lab"><div class="role" id="rl">AT BAT</div><div class="who" id="wl">YOU</div></div></div>
+  <div id="pr" class="hud por"><div class="fw"><div class="face" id="fr"></div><div class="smoke" id="smr" hidden><i></i><i></i><i></i><i></i></div><div class="confetti" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="yell" id="ylr" hidden></div></div><div class="lab"><div class="role" id="rr">PITCHING</div><div class="who" id="wr">CPU</div></div></div>
   <div id="sb" class="hud">
     <div class="tm vis"><small>VIS</small><b id="sv">0</b></div>
     <div class="inn"><span id="ih">▲</span><b id="in">1</b></div>
@@ -206,7 +234,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.03</small>
+    <small id="ver">Version 1.04</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -247,7 +275,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.03</small>
+    <small class="lver" id="lver">Version 1.04</small>
   </section>
 
   <section class="screen" id="cam" hidden>
@@ -862,7 +890,7 @@ function newGame(g) {
     t: 0, seed: (g.seed != null ? g.seed : (Date.now() & 0x7fffffff)) | 0, ai: g.ai || { you: false, cpu: true }, half: 0, outs: 0, b: 0, s: 0, pOff: 0, bOff: { x: 0, y: 0 },
     score: { you: 0, cpu: 0 }, stats: { you: { h: 0, hr: 0, k: 0, bb: 0 }, cpu: { h: 0, hr: 0, k: 0, bb: 0 } },
     vis: g.vis || (opts.batFirst ? 'you' : 'cpu'), phase: 'ready', pt: 0, wt: 0, wlen: WINDUP_T, rt: 0, ball: null, bb: null, sw: null,
-    cpuP: null, cpuB: null, follow: 0, faces: null, faceT: 0, faceKind: null, fielded: null, over: false, after: null, F: homePos(), ctl: 'P', holder: null, thr: null, playT: 0,
+    cpuP: null, cpuB: null, follow: 0, faces: null, faceT: 0, faceKind: null, hr: null, yell: null, bob: null, fielded: null, over: false, after: null, F: homePos(), ctl: 'P', holder: null, thr: null, playT: 0,
     runners: [], live: null, lock: false, pick: false, playRuns: 0, playOuts: 0, batR: null, batterGone: false, abOver: false, stretch: false, cat: null
   };
   startHalf();
@@ -1212,18 +1240,32 @@ function cpuRunners() {
 var NO_IN = { dir: null, btn: false, vx: 0, vy: 0 };
 /* portrait reactions, by team: the happy team and the mad one. A run: the scoring team happy, about 5 s.
    An out (user, Oct 24, version 1.03): the batting team mad, the fielding team happy, about 5 s (user); a run's reaction is never cut short by an out. */
+/* home run celebration (user, Oct 24, version 1.04): the hitting team's portrait grows 50%, flashes normal and happy a few times, confetti falls;
+   while the call shows, that team's player can tap the button to yell (a random one each tap, at most one every half second). Part of S, so both phones see it. */
+var YELLS = ["Let's go!", 'Ha ha ha ha!', 'Woo hoo!'];
+function hrCelebrate(side) { S.hr = { side: side, t0: S.t, end: S.t + Math.max(300, S.rt) }; S.faceT = Math.max(S.faceT, S.hr.end - S.t); updatePortraits(); }
+/* bobble (user, Oct 24, version 1.04): a grounder still moving at over 80% of top speed when a fielder (any fielder) gets to it is bobbled 10% of the time:
+   it pops loose a few feet and he has to go get it again (he can't touch it for 0.3 s) */
+var BOBBLE_SP = 0.8 * BALLMAX, BOBBLE_P = 0.1;
+function bobble(id, bb) {
+  var a = (rnd() * 2 - 1) * PI * 0.6, c = dcos(a), sn = dsin(a), ux = bb.ux * c - bb.uy * sn, uy = bb.ux * sn + bb.uy * c;
+  bb.ux = ux; bb.uy = uy; bb.v = 0.18 + rnd() * 0.08; bb.touched = true; S.bob = { id: id, t: S.t + 18 };
+  sfx('glove'); toast('BOBBLE', null, 50);
+}
 function react(happy, kind, ticks) { S.faces = {}; S.faces[happy] = 'happy'; S.faces[other(happy)] = 'mad'; S.faceKind = kind; S.faceT = ticks; updatePortraits(); }
 function tick(IN) {
   if (!IN) { IN = {}; IN[ME] = readHuman(); }
   S.t++;
   var outs0 = S.outs, half0 = S.half;
   if (S.faceT > 0) { S.faceT--; if (S.faceT === 0) { S.faces = null; updatePortraits(); } }
+  if (S.hr && S.t >= S.hr.end) S.hr = null;
   if (S.follow > 0) S.follow--;
   var bat = batSide(), bH = !S.ai[bat], pH = !S.ai[other(bat)];
   var inB = bH ? (IN[bat] || NO_IN) : NO_IN, inP = pH ? (IN[other(bat)] || NO_IN) : NO_IN;
   var pIn = pH ? inP : cpuPitcher();
   var bIn = bH ? inB : cpuBatter();
   if (bH) humanRunning(inB);
+  if (S.hr && S.phase === 'result' && bH && inB.btn && bat === S.hr.side && (!S.yell || S.t - S.yell.t >= 30)) S.yell = { t: S.t, k: Math.floor(rnd() * YELLS.length) };
   if (S.sw && (S.phase === 'batted' || S.phase === 'result')) { S.sw.t++; if (S.sw.t > BUNT_LEN + 4) S.sw = null; }
   /* down + button in the bunt stance goes back to the hitting stance (user, Oct 24, version 92); the press is used up, so it doesn't square again */
   if (bH && bIn.btn && bIn.dir === 'd' && S.sw && S.sw.type === 'bunt' && !S.sw.hit && !S.sw.miss && (S.phase === 'ready' || S.phase === 'windup' || S.phase === 'pitch')) {
@@ -1874,6 +1916,7 @@ function endLive(why, how) {
   else if (S.playOuts > 0) title = L.kind === 'steal' ? 'CAUGHT STEALING' : L.kind === 'pick' ? 'PICKED OFF' : null;
   else if (L.kind === 'steal' && S.runners.some(function (r) { return alive(r) && !r.bat && r.at > r.snap; })) title = 'STOLEN BASE';
   result(title, sub, kind);
+  if (title === 'INSIDE-THE-PARK HR!') hrCelebrate(side);
 }
 /* fielders move and throw; also runs after the call (free = true) until the next batter */
 function playMotion(dIn, free) {
@@ -1915,11 +1958,13 @@ function playMotion(dIn, free) {
         var f = FIELDERS[i], fp = S.F[f.id];
         if (f.id === 'C' && bb.t < catcherWait()) continue;
         if (f.id === S.thrFrom && S.thrT > 0) continue;
+        if (S.bob && S.bob.id === f.id && S.t < S.bob.t) continue; /* just bobbled it */
         /* hard-hit balls need an infielder nearly in line with them to be stopped */
         var reach = f.inf ? Math.max(1.6, f.r - Math.max(0, bb.v - 1.2) * 2.2) : f.r;
         if (segDist(px, py, bb.x, bb.y, fp.x, fp.y) < reach) {
           /* touched before passing first or third: foul if it is off the line in foul territory (a ball on the line is fair) */
           if (!free && !bb.fairLocked && !bb.wall && !bb.touched && bb.y < Math.abs(bb.x) - 1.0) { bb.foul = true; bb.t = 0; bb.v = 0; foulReturn(); S.holder = null; sfx('glove'); callFoul(); return 'stop'; }
+          if (!free && bb.v > BOBBLE_SP && !(S.bob && S.bob.id === f.id) && rnd() < BOBBLE_P) { bobble(f.id, bb); break; }
           giveBall(f.id); break;
         }
       }
@@ -1960,7 +2005,7 @@ function wallHit(d) {
     result(n === 4 ? 'GRAND SLAM!' : 'HOME RUN!', (tag ? tag + ' · ' : '') + Math.round(ch) + '% chance: ' + Math.round(frac * 100) + '% speed + ' + HR_BONUS + (u >= 0.5 ? ' + 10 near the line' : ''), 'ab', true);
     S.rt = Math.max(S.rt, trotTicks()); if (S.wo) S.after = 'walkoff';
     sfx('fanfare'); crowd(batSide(), 0.3);
-    react(batSide(), 'run', 300); updateHUD();
+    react(batSide(), 'run', 300); hrCelebrate(side); updateHUD();
     return;
   }
   var nx = bb.x / d, ny = bb.y / d, vx = bb.ux * bb.v, vy = bb.uy * bb.v, dot = vx * nx + vy * ny;
@@ -2128,11 +2173,28 @@ function updateHUD() {
 }
 function updatePortraits() {
   if (QUIET) return;
+  HRV.mood = null; /* the celebration view redraws its flash over this */
   var bat = batSide(), pit = other(bat);
   var mb = S.faces && S.faces[bat] || 'neutral', mp = S.faces && S.faces[pit] || 'neutral';
   setFace($('fl'), faceFor(bat), teamColor(bat), mb); setFace($('fr'), faceFor(pit), teamColor(pit), mp);
   $('sml').hidden = mb !== 'mad'; $('smr').hidden = mp !== 'mad'; /* smoke off the head of any mad face (user, Oct 24, version 1.03) */
   $('wl').textContent = tag(bat); $('wr').textContent = tag(pit);
+}
+/* home run celebration on screen: grow, flash, confetti (CSS), and the yells, spoken with the phone's voice and shown in a bubble */
+var HRV = { mood: null, yellT: null, bub: 0 };
+function hrView() {
+  var on = S && S.hr && !S.over ? S.hr : null, left = on && on.side === batSide();
+  $('pl').classList.toggle('hrc', !!on && left); $('pr').classList.toggle('hrc', !!on && !left);
+  if (on) {
+    var e = S.t - on.t0, mood = e < 96 && Math.floor(e / 12) % 2 ? 'neutral' : 'happy';
+    if (mood !== HRV.mood) { HRV.mood = mood; setFace(left ? $('fl') : $('fr'), faceFor(on.side), teamColor(on.side), mood); }
+  }
+  if (S && S.yell && S.yell.t !== HRV.yellT && S.t - S.yell.t < 20) {
+    HRV.yellT = S.yell.t; var txt = YELLS[S.yell.k], b = on && !left ? $('ylr') : $('yll');
+    $('yll').hidden = $('ylr').hidden = true; b.textContent = txt.toUpperCase(); b.hidden = false; HRV.bub = performance.now() + 1200;
+    if (!muted && window.speechSynthesis && window.SpeechSynthesisUtterance) { try { speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(txt); u.rate = 1.15; u.pitch = 1.4; u.volume = Math.min(1, vol / 100); speechSynthesis.speak(u); } catch (er) { } }
+  }
+  if (HRV.bub && performance.now() > HRV.bub) { HRV.bub = 0; $('yll').hidden = $('ylr').hidden = true; }
 }
 function endGame() {
   S.over = true; S.phase = 'over'; if (QUIET) return; showFinal();
@@ -2182,7 +2244,7 @@ function stepOffPose(k) {
 }
 function ring(c, x, y, sc) { c.save(); c.strokeStyle = '#ffd23f'; c.lineWidth = 2; c.beginPath(); c.ellipse(x, y, 13 * sc, 4.4 * sc, 0, 0, 7); c.stroke(); c.restore(); }
 function render() {
-  swingStep(); pitchSound();
+  swingStep(); pitchSound(); hrView();
   if (!fieldCache) buildField();
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(fieldCache, 0, 0);
   ctx.setTransform(K * DPR, 0, 0, K * DPR, 0, 0);
@@ -2302,7 +2364,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.03'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.04'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,

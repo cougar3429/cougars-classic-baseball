@@ -9,6 +9,22 @@ import json, sys
 from common import page
 
 CHECKS = {
+'home run celebration (version 1.04): the hitting team portrait grows, flashes and has confetti; taps yell, at most one per half second': r"""() => {
+  T.start(true); const S = T.C.S, el = id => document.getElementById(id);
+  S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 200); S.bb.wall = false; S.bb.v = 4; T.I.batterToFirst(false); T.I.wallHit(200);
+  if (!S.hr || S.hr.side !== 'you') return { ok: false, why: 'no celebration', hr: S.hr };
+  T.run(2); T.press(null); const y1 = S.yell && S.yell.t; T.run(5); T.press(null); const y2 = S.yell && S.yell.t; T.run(35); T.press(null); const y3 = S.yell && S.yell.t;
+  return { ok: !!y1 && y2 === y1 && y3 > y1 && S.yell.k >= 0 && S.yell.k <= 2 && S.hr.end - S.hr.t0 >= 300, y1, y2, y3, k: S.yell.k, len: S.hr.end - S.hr.t0 }; }""",
+
+'bobble (version 1.04): about 10% of grounders still over 80% speed at the fielder pop loose; slower ones never': r"""() => {
+  let hard = 0, bob = 0, soft = 0, softBob = 0;
+  for (let i = 0; i < 400; i++) {
+    T.start(false); const S = T.C.S; S.seed = 1000 + i; const fast = i % 2 === 0; T.hit(0, fast ? 4 : 2.2);
+    for (let k = 0; k < 120 && !S.holder && !S.bob; k++) T.C.tick();
+    if (fast) { hard++; if (S.bob) bob++; } else { soft++; if (S.bob) softBob++; }
+  }
+  const rate = bob / hard; return { ok: rate > 0.05 && rate < 0.17 && softBob === 0, hard, bob, rate: rate.toFixed(3), soft, softBob }; }""",
+
 'portraits (version 1.03): an out makes the batting team mad with smoke and the fielders happy for 5 s; a run reaction is not cut short': r"""() => { T.start(true); const S = T.C.S, el = id => document.getElementById(id);
   T.until(() => S.phase === 'ready', 600); S.b = 0; S.s = 2; S.cpuP = null;
   T.until(() => S.outs > 0, 3000); if (!S.outs) return { ok: false, why: 'no out' };
