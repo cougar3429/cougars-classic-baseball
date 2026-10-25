@@ -167,7 +167,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 98</small>
+    <small id="ver">Version 99</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -208,7 +208,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 98</small>
+    <small class="lver" id="lver">Version 99</small>
   </section>
 
   <section class="screen" id="netmsg" hidden>
@@ -594,7 +594,9 @@ function cheerSnd(t, dur, peak) {
 var SFX = {
   /* a fielder's throw (user, Oct 24, version 96): the "Ffffeewww" sample as a quick burst at release, a breathy fff turning into a falling whistle */
   fweew: function (t) {
-    var dur = 0.35, n = noise(dur), hp = A.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2500; var g = gain(); env(g, t, 0.35, 0.03, 0.12, 0.1); n.connect(hp); hp.connect(g); n.start(t); n.stop(t + dur + 0.05);
+    /* softer fff (user, Oct 24, version 99): the hiss is band-limited to 600-3000 Hz (was everything above 2500 Hz), quieter, and fades in more gently */
+    var dur = 0.35, n = noise(dur), hp = A.createBiquadFilter(), lp = A.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 600; lp.type = 'lowpass'; lp.frequency.value = 3000;
+    var g = gain(); env(g, t, 0.2, 0.06, 0.1, 0.12); n.connect(hp); hp.connect(lp); lp.connect(g); n.start(t); n.stop(t + dur + 0.05);
     var g2 = gain(); env(g2, t + 0.08, 0.16, 0.04, 0.12, 0.11); var o = osc('sine', 850, t + 0.08, t + dur, g2); o.frequency.exponentialRampToValueAtTime(450, t + dur); /* starts much lower than version 96's 1600 Hz, so no high whistle up front (user, Oct 24, version 98) */
   },
   fanfare: function (t) { brass(587.33, t, 0.14); brass(369.99, t + 0.28, 0.11); brass(392.0, t + 0.405, 1.0); },
@@ -2169,7 +2171,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = 98; /* only games on the same build are listed */
+var PROTO = 99; /* only games on the same build are listed */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
