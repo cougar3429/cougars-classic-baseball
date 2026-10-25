@@ -143,6 +143,10 @@ body.day { background: #4f9e44; }
 .screen[hidden] { display: none; }
 .tip { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; cursor: pointer; }
 .tip input { width: 22px; height: 22px; accent-color: var(--gold); margin: 0; }
+/* lag readout (version 1.09): turned on by tapping the version number; a small panel at the right during games */
+#lagbox { position: absolute; right: 12px; bottom: 126px; padding: 5px 8px; border-radius: 8px; background: rgba(22,32,43,0.82); color: #e8f1ea; font: 600 10.5px/1.35 ui-monospace, Menlo, Consolas, monospace; white-space: pre; pointer-events: none; z-index: 4; }
+#lagbox[hidden] { display: none; }
+#ver, .lver { cursor: pointer; }
 #ver, .lver { position: absolute; right: 14px; bottom: 10px; font: 700 13px var(--font-body); letter-spacing: 0.08em; color: #cfdccf; }
 #setup { gap: 9px; }
 #netwait .big-btn { font-size: 16px; padding: 8px 16px; min-height: 44px; }
@@ -215,6 +219,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
   <div id="toast"><b id="tt">PLAY BALL</b><span id="ts" hidden></span></div>
   <div id="hint">Hold a direction, then tap the button to pitch</div>
   <div id="swl" hidden></div>
+  <div id="lagbox" hidden></div>
 
   <div id="dpad" aria-label="Direction pad">
     <div class="arm u" data-d="u"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 6l7 9H5z"/></svg></div>
@@ -237,7 +242,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.08</small>
+    <small id="ver">Version 1.09</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -278,7 +283,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.08</small>
+    <small class="lver" id="lver">Version 1.09</small>
   </section>
 
   <section class="screen" id="cam" hidden>
@@ -904,6 +909,7 @@ try { var mg = parseInt(localStorage.getItem('ccb-mercy'), 10); if (mg >= 1 && m
    S.ai says which teams the computer plays. ME is the team this phone's player controls (presentation and local input only). */
 var ME = 'you', QUIET = false;
 function newGame(g) {
+  LAG.reset(); /* the lag readout starts over with each game (presentation only) */
   g = g || {}; ME = g.me || 'you';
   S = {
     t: 0, seed: (g.seed != null ? g.seed : (Date.now() & 0x7fffffff)) | 0, ai: g.ai || { you: false, cpu: true }, half: 0, outs: 0, b: 0, s: 0, pOff: 0, bOff: { x: 0, y: 0 },
@@ -2152,7 +2158,7 @@ var RB = {
     var before = ballSpots();
     load(this.snaps[m]); QUIET = true;
     try { while (S.t < end) this.run1(); } finally { QUIET = false; }
-    this.rolls++; this.rolled += end - m + 1; syncView(); glideFrom(before);
+    this.rolls++; this.rolled += end - m + 1; LAG.fix(end - m + 1); syncView(); glideFrom(before);
   },
   trim: function () {
     var keep = Math.min(this.confirmed(), S.t) - 2;
@@ -2370,8 +2376,42 @@ function awake(on) {
     navigator.wakeLock.request('screen').then(function (l) { WAKE.asking = false; WAKE.lock = l; l.addEventListener('release', function () { if (WAKE.lock === l) WAKE.lock = null; }); }, function () { WAKE.asking = false; WAKE.lock = 'no'; setTimeout(function () { if (WAKE.lock === 'no') WAKE.lock = null; }, 5000); });
   } else if (!on && WAKE.lock && WAKE.lock !== 'no') { var l = WAKE.lock; WAKE.lock = null; l.release().catch(function () {}); }
 }
+/* lag readout (user, Oct 24, version 1.09): what this phone sees of the other one. DELAY = how many ticks of the other phone's moves
+   are still missing here (how late they arrive); PING = round trip of a small message; FIXES = re-runs per second and the longest one;
+   FRAME = the slowest frame; WAITS = times this phone stopped to wait for the other. Now / worst since the game began. */
+var LAG = {
+  on: false, fixes: [], frameMax: 0, frameWorst: 0, delayWorst: 0, fixWorst: 0, waits: 0, wasOk: true, rtt: null, rttWorst: 0, pingAt: 0, shownAt: 0,
+  fix: function (n) { var now = performance.now(); this.fixes.push([now, n]); if (n > this.fixWorst) this.fixWorst = n; },
+  reset: function () { this.fixes = []; this.frameMax = this.frameWorst = this.delayWorst = this.fixWorst = this.waits = this.rttWorst = 0; this.rtt = null; this.wasOk = true; },
+  frame: function (now, dt) {
+    if (!this.on) return;
+    if (dt > this.frameMax) this.frameMax = dt; if (dt > this.frameWorst && dt < 5000) this.frameWorst = dt;
+    if (NET.live) {
+      if (!NET.stepOk && this.wasOk) this.waits++; this.wasOk = NET.stepOk;
+      if (NET.ch && now - this.pingAt > 2000) { this.pingAt = now; try { NET.ch.send({ type: 'broadcast', event: 'pg', payload: { t: now } }); } catch (e) { } }
+    }
+    if (now - this.shownAt < 250) return;
+    var box = $('lagbox'); this.shownAt = now;
+    if (!S || S.over) { box.hidden = true; return; }
+    var ms = function (ticks) { return Math.round(ticks * TICK); }, lines = [];
+    if (NET.live) {
+      var behind = Math.max(0, S.t - RB.confirmed()); if (behind > this.delayWorst) this.delayWorst = behind;
+      this.fixes = this.fixes.filter(function (f) { return now - f[0] < 5000; });
+      var big = 0; this.fixes.forEach(function (f) { if (f[1] > big) big = f[1]; });
+      lines.push('DELAY ' + ms(behind) + ' ms  worst ' + ms(this.delayWorst));
+      lines.push('PING  ' + (this.rtt == null ? '-' : Math.round(this.rtt)) + ' ms  worst ' + Math.round(this.rttWorst));
+      lines.push('FIXES ' + (this.fixes.length / 5).toFixed(1) + '/s max ' + ms(big) + ' ms  worst ' + ms(this.fixWorst));
+    }
+    lines.push('FRAME ' + Math.round(this.frameMax) + ' ms  worst ' + Math.round(this.frameWorst));
+    if (NET.live) lines.push('WAITS ' + this.waits);
+    this.frameMax = 0; box.textContent = lines.join('\n'); box.hidden = false;
+  },
+  pong: function (t) { var r = performance.now() - t; if (r >= 0 && r < 60000) { this.rtt = r; if (r > this.rttWorst) this.rttWorst = r; } }
+};
+try { LAG.on = localStorage.getItem('ccb-lag') === 'on'; } catch (e) { }
+function lagLabels() { ['ver', 'lver'].forEach(function (id) { $(id).textContent = 'Version ' + PROTO + (LAG.on ? ' · LAG ON' : ''); }); if (!LAG.on) $('lagbox').hidden = true; }
 function frame(now) {
-  if (!last) last = now; acc += Math.min(250, now - last); last = now;
+  if (!last) last = now; var fdt = now - last; acc += Math.min(250, now - last); last = now; LAG.frame(now, fdt);
   if (NET.live && S && !S.over) {
     while (acc >= TICK) { var m = RB.step(readHuman()); NET.stepOk = !!m; if (!m) { acc = 0; break; } NET.out(m.t, m.i); acc -= TICK; } /* null: waiting on the opponent */
     NET.flush(now); NET.watch(now);
@@ -2387,7 +2427,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.08'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.09'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
@@ -2532,6 +2572,8 @@ function joinGame() {
     .on('broadcast', { event: 'hi' }, function () { NET.heard = true; })
     .on('broadcast', { event: 'face' }, function (m) { recvFace(m.payload); })
     .on('broadcast', { event: 'faceok' }, function () { NET.faceAcked = true; })
+    .on('broadcast', { event: 'pg' }, function (m) { if (NET.ch) NET.ch.send({ type: 'broadcast', event: 'po', payload: m.payload }); })
+    .on('broadcast', { event: 'po' }, function (m) { if (m.payload) LAG.pong(m.payload.t); })
     .on('broadcast', { event: 'bye' }, function () { if (S && S.over) rmGone(oppName + ' left.'); else if (NET.live) showWait('quit'); else oppGone(oppName + ' left the game.'); })
     .on('presence', { event: 'leave' }, function (m) { if (m.key !== NET.oppId) return; if (S && S.over) rmGone(oppName + ' lost the connection.'); else if (NET.live) showWait('lost'); else oppGone(oppName + ' lost the connection.'); })
     .on('broadcast', { event: 'rm' }, function () { rmAsk(); })
@@ -2806,6 +2848,8 @@ $('mute').addEventListener('click', function () { audio(); volPop($('volpop').hi
 });
 document.addEventListener('pointerdown', function (e) { if (!$('volpop').hidden && !$('volpop').contains(e.target) && !$('mute').contains(e.target)) volPop(false); }, true);
 
+['ver', 'lver'].forEach(function (id) { $(id).addEventListener('click', function () { LAG.on = !LAG.on; try { localStorage.setItem('ccb-lag', LAG.on ? 'on' : 'off'); } catch (e) { } lagLabels(); sfx('click'); }); });
+lagLabels();
 $('tips').checked = opts.tips;
 $('tips').addEventListener('change', function () { opts.tips = $('tips').checked; try { localStorage.setItem('ccb-tips', opts.tips ? 'on' : 'off'); } catch (e) { } sfx('click'); });
 layout(); setTheme('day'); pressGroup('mon', 'moff', opts.murmur); $('mv').textContent = opts.mercy;

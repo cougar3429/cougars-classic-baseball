@@ -53,6 +53,9 @@ def main():
         fa = [f for f in pg.frames if f.url.endswith('net.html')]
         ann, bob = fa[0], fa[1]
         for f in (ann, bob): f.evaluate('(l) => { window.__mockLag = l; }', LAG)
+        for loc in (A, B): loc.locator('#ver').click() # lag readout on (version 1.09)
+        lagver = [f.evaluate("() => document.getElementById('ver').textContent") for f in (ann, bob)]
+        if not all(v.endswith('LAG ON') for v in lagver): problems.append(f'lag readout label: {lagver}')
         for loc, name in ((A, 'Ann'), (B, 'Bob')):
             loc.locator('#p2').click(); loc.locator('#start').click(); loc.locator('#go').click()
             loc.locator('#pname').fill(name); loc.locator('#pname').dispatch_event('change')
@@ -80,6 +83,9 @@ def main():
         ann.evaluate(DRIVE, 11); bob.evaluate(DRIVE, 22)
         t0 = time.time()
         while time.time() - t0 < SECS: pg.wait_for_timeout(1000)
+        lag = ann.evaluate("() => { const b = document.getElementById('lagbox'); return b.hidden ? null : b.textContent; }")
+        import re as _re
+        if not lag or not _re.search(r'DELAY \d+ ms', lag) or not _re.search(r'PING  \d+ ms', lag) or 'FIXES' not in lag or 'FRAME' not in lag: problems.append(f'lag readout: {lag!r}')
         for f in (ann, bob): f.evaluate('() => clearInterval(window.__drive)')
         pg.wait_for_timeout(1500)
         info = [f.evaluate("() => { const C = window.__ccb, R = C.RB; return { me: C.ME, t: C.S.t, half: C.S.half, score: C.S.score, over: C.S.over, rolls: R.rolls, rolled: R.rolled, hashes: R.hashes }; }") for f in (ann, bob)]
@@ -170,10 +176,11 @@ def main():
     print(f'quit: Ann told {told!r}; after FINISH VS CPU: {cpu}')
     print(f'rematch: {rm}')
     print(f'selfies (Ann has one, Bob none): {faces}')
+    print('lag readout (Ann):', (lag or '').replace(chr(10), ' | '))
     print(f'host button right after opening the lobby: {early_host}')
     for x in problems + errs[:5]: print('   ', x)
     ok = not problems and not errs
-    print('PASS' if ok else 'FAIL', '- online 2-player: lobby, deny, accept, play, agree, selfies, rematch (accept, swap, agree, decline), dropout and reconnect, wait time limit, quit, finish vs CPU')
+    print('PASS' if ok else 'FAIL', '- online 2-player: lobby, deny, accept, play, agree, selfies, lag readout, rematch (accept, swap, agree, decline), dropout and reconnect, wait time limit, quit, finish vs CPU')
     sys.exit(0 if ok else 1)
 
 
