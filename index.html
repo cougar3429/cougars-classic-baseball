@@ -78,11 +78,12 @@ body.day { background: #4f9e44; }
 .smoke i:nth-child(4) { --x0: 8px; --dx: 24px; animation-delay: 0.75s; }
 @keyframes puff { 0% { transform: translate(var(--x0), 6px) scale(0.4); opacity: 0.95; } 100% { transform: translate(var(--dx), -4px) scale(1.5); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .smoke i { animation-duration: 2.2s; } }
-/* home run celebration (version 1.04): the hitting team's portrait grows 50%, confetti falls over it, and taps yell */
+/* home run celebration (version 1.04): the hitting team's portrait grows 100% (version 1.08), confetti falls over it, and taps yell */
 .por .fw { transition: transform 0.25s; }
-#pl .fw { transform-origin: 20px 20px; } #pr .fw { transform-origin: 36px 20px; }
-.por.hrc { z-index: 6; }
-.por.hrc .fw { transform: scale(1.5); }
+/* a happy or mad portrait (selfie or coach) doubles in size, and so does the home run celebration (user, Oct 24, version 1.08); it grows down and inward from its top corner */
+#pl .fw { transform-origin: 0 0; } #pr .fw { transform-origin: 56px 0; }
+.por.hrc, .por.big { z-index: 6; }
+.por.hrc .fw, .por.big .fw { transform: scale(2); }
 .confetti { position: absolute; left: -6px; right: -6px; top: -4px; height: 0; pointer-events: none; display: none; }
 .por.hrc .confetti { display: block; }
 .confetti i { position: absolute; top: 0; width: 5px; height: 8px; border-radius: 1px; opacity: 0; animation: conf 1.3s linear infinite; }
@@ -236,7 +237,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.07</small>
+    <small id="ver">Version 1.08</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -277,7 +278,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.07</small>
+    <small class="lver" id="lver">Version 1.08</small>
   </section>
 
   <section class="screen" id="cam" hidden>
@@ -1258,7 +1259,7 @@ function cpuRunners() {
 var NO_IN = { dir: null, btn: false, vx: 0, vy: 0 };
 /* portrait reactions, by team: the happy team and the mad one. A run: the scoring team happy, about 5 s.
    An out (user, Oct 24, version 1.03): the batting team mad, the fielding team happy, about 5 s (user); a run's reaction is never cut short by an out. */
-/* home run celebration (user, Oct 24, version 1.04): the hitting team's portrait grows 50%, flashes normal and happy a few times, confetti falls;
+/* home run celebration (user, Oct 24, version 1.04): the hitting team's portrait grows 100% (version 1.08), flashes normal and happy a few times, confetti falls;
    while the call shows, that team's player can tap the button to yell (a random recorded clip each tap, at most one every half second). Part of S, so both phones see it. */
 function hrCelebrate(side) { S.hr = { side: side, t0: S.t, end: S.t + Math.max(300, S.rt) }; S.faceT = Math.max(S.faceT, S.hr.end - S.t); updatePortraits(); }
 /* bobble (user, Oct 24, version 1.04): a grounder still moving at over 80% of top speed when a fielder (any fielder) gets to it is bobbled 10% of the time:
@@ -2194,7 +2195,8 @@ function updatePortraits() {
   var bat = batSide(), pit = other(bat);
   var mb = S.faces && S.faces[bat] || 'neutral', mp = S.faces && S.faces[pit] || 'neutral';
   setFace($('fl'), faceFor(bat), teamColor(bat), mb); setFace($('fr'), faceFor(pit), teamColor(pit), mp);
-  $('sml').hidden = mb !== 'mad'; $('smr').hidden = mp !== 'mad'; /* smoke off the head of any mad face (user, Oct 24, version 1.03) */
+  $('sml').hidden = mb !== 'mad'; $('smr').hidden = mp !== 'mad';
+  $('pl').classList.toggle('big', mb !== 'neutral'); $('pr').classList.toggle('big', mp !== 'neutral'); /* doubled while warped (version 1.08) */ /* smoke off the head of any mad face (user, Oct 24, version 1.03) */
   $('wl').textContent = tag(bat); $('wr').textContent = tag(pit);
 }
 /* after a swing, CONTACT or POWER shows for 1.5 s (bunts show nothing) */
@@ -2385,7 +2387,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.07'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.08'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
@@ -2599,7 +2601,8 @@ function oppGone(msg) {
   if (over) return;
   $('quit').hidden = true; $('netmsg').hidden = false; $('nmh').textContent = 'Opponent Left'; $('nmp').textContent = msg; $('nmok').textContent = 'BACK TO MENU';
 }
-function toMenu() { S = null; murmur(false); $('menu').hidden = true; $('hint').textContent = ''; $('toast').classList.remove('on'); $('sb').classList.remove('hide'); $('final').hidden = true; $('title').hidden = false; }
+function calmPortraits() { ['pl', 'pr'].forEach(function (id) { $(id).classList.remove('big', 'hrc'); }); $('sml').hidden = $('smr').hidden = true; }
+function toMenu() { calmPortraits(); S = null; murmur(false); $('menu').hidden = true; $('hint').textContent = ''; $('toast').classList.remove('on'); $('sb').classList.remove('hide'); $('final').hidden = true; $('title').hidden = false; }
 $('nmok').addEventListener('click', function () { sfx('click'); if (NET.ch || NET.live) NET.leave(true); $('netmsg').hidden = true; toMenu(); });
 $('host').addEventListener('click', function () {
   if (!NET.lobby || !NET.lobbyReady) return;
@@ -2782,7 +2785,7 @@ $('again').addEventListener('click', function () {
   if (NET.ch || NET.live) { NET.leave(true); toMenu(); return; } $('final').hidden = true; S = null; $('menu').hidden = true; $('setup').hidden = false; $('hint').textContent = ''; });
 $('menu').addEventListener('click', function () { if (!S || S.over) return; if (!NET.live) S.paused = true; $('quit').hidden = false; sfx('click'); });
 $('qno').addEventListener('click', function () { $('quit').hidden = true; if (S) S.paused = false; $('menu').blur(); sfx('click'); });
-$('qyes').addEventListener('click', function () { $('quit').hidden = true; if (NET.live) NET.leave(true); S = null; murmur(false); $('menu').hidden = true; $('hint').textContent = ''; $('toast').classList.remove('on'); $('sb').classList.remove('hide'); $('title').hidden = false; sfx('click'); });
+$('qyes').addEventListener('click', function () { $('quit').hidden = true; calmPortraits(); if (NET.live) NET.leave(true); S = null; murmur(false); $('menu').hidden = true; $('hint').textContent = ''; $('toast').classList.remove('on'); $('sb').classList.remove('hide'); $('title').hidden = false; sfx('click'); });
 /* volume (user, Oct 24, version 89): one level for all sound, set from the speaker button in a game or on the setup screen; saved on this device */
 var vol = 100;
 try { var sv = parseInt(localStorage.getItem('ccb-vol'), 10); if (sv >= 0 && sv <= 100) vol = sv; } catch (e) { }
