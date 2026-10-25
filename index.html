@@ -236,7 +236,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.05</small>
+    <small id="ver">Version 1.06</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -277,7 +277,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.05</small>
+    <small class="lver" id="lver">Version 1.06</small>
   </section>
 
   <section class="screen" id="cam" hidden>
@@ -2191,6 +2191,27 @@ function swingLabel() {
   if (sw && sw.type !== 'bunt') { var key = (S.t - sw.t) + sw.type; if (key !== SWL.key) { SWL.key = key; SWL.until = now + 1500; var el = $('swl'); el.textContent = sw.type === 'power' ? 'POWER' : 'CONTACT'; el.classList.toggle('pw', sw.type === 'power'); el.hidden = false; } }
   if (SWL.until && (now > SWL.until || !S)) { SWL.until = 0; $('swl').hidden = true; }
 }
+/* the most natural English voice this phone offers (user, Oct 24, version 1.06): voices marked natural, neural, premium or enhanced first,
+   then Google's, then any English one; US English breaks ties. Phones load their voice list late, so it is picked again when the list changes. */
+var VOICE = null;
+function pickVoice() {
+  if (!window.speechSynthesis) return null;
+  var best = null, bs = -1;
+  speechSynthesis.getVoices().forEach(function (v) {
+    if (!/^en/i.test(v.lang)) return;
+    var n = v.name, s = 0;
+    if (/natural|neural/i.test(n)) s += 6; if (/premium|enhanced/i.test(n)) s += 5; if (/google/i.test(n)) s += 4;
+    if (/samantha|ava|allison|zoe|evan|nathan|tom|alex|aaron/i.test(n)) s += 2; if (/en[-_]us/i.test(v.lang)) s += 1;
+    if (/compact|espeak|novelty|whisper|bad news|bells|boing|bubbles|cellos|jester|organ|trinoids|zarvox|albert|fred|junior|ralph|kathy|superstar|wobble/i.test(n)) s -= 10;
+    if (s > bs) { bs = s; best = v; }
+  });
+  VOICE = best; return best;
+}
+if (window.speechSynthesis) { pickVoice(); try { speechSynthesis.addEventListener('voiceschanged', pickVoice); } catch (e) { } }
+function sayYell(txt) {
+  if (muted || !window.speechSynthesis || !window.SpeechSynthesisUtterance) return;
+  try { speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(txt); if (VOICE || pickVoice()) u.voice = VOICE; u.rate = 1.1; u.pitch = 1.15; u.volume = Math.min(1, vol / 100); speechSynthesis.speak(u); } catch (e) { }
+}
 /* home run celebration on screen: grow, flash, confetti (CSS), and the yells, spoken with the phone's voice (sound only, user, Oct 24) */
 var HRV = { mood: null, yellT: null };
 function hrView() {
@@ -2202,7 +2223,7 @@ function hrView() {
   }
   if (S && S.yell && S.yell.t !== HRV.yellT && S.t - S.yell.t < 20) {
     HRV.yellT = S.yell.t; var txt = YELLS[S.yell.k];
-    if (!muted && window.speechSynthesis && window.SpeechSynthesisUtterance) { try { speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(txt); u.rate = 1.15; u.pitch = 1.4; u.volume = Math.min(1, vol / 100); speechSynthesis.speak(u); } catch (er) { } }
+    sayYell(txt);
   }
 }
 function endGame() {
@@ -2373,7 +2394,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.05'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.06'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
