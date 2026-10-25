@@ -53,9 +53,10 @@ def main():
         fa = [f for f in pg.frames if f.url.endswith('net.html')]
         ann, bob = fa[0], fa[1]
         for f in (ann, bob): f.evaluate('(l) => { window.__mockLag = l; }', LAG)
-        for loc in (A, B): loc.locator('#ver').click() # lag readout on (version 1.09)
-        lagver = [f.evaluate("() => document.getElementById('ver').textContent") for f in (ann, bob)]
-        if not all(v.endswith('LAG ON') for v in lagver): problems.append(f'lag readout label: {lagver}')
+        # lag readout: on by default; tapping the version number turns it off and on again (version 1.10)
+        lab = lambda f: f.evaluate("() => document.getElementById('ver').textContent")
+        lagver = [lab(ann)]; A.locator('#ver').click(); lagver.append(lab(ann)); A.locator('#ver').click(); lagver.append(lab(ann))
+        if not (lagver[0].endswith('LAG ON') and not lagver[1].endswith('LAG ON') and lagver[2].endswith('LAG ON')): problems.append(f'lag readout label: {lagver}')
         for loc, name in ((A, 'Ann'), (B, 'Bob')):
             loc.locator('#p2').click(); loc.locator('#start').click(); loc.locator('#go').click()
             loc.locator('#pname').fill(name); loc.locator('#pname').dispatch_event('change')
