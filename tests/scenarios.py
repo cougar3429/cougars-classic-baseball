@@ -204,7 +204,8 @@ CHECKS = {
   const back = !!document.getElementById('sback');
   return { ok: blockedInBox.length === 0 && steersInGame && back, blockedInBox, steersInGame, setupBack: back }; }""",
 'runners on 1st and 2nd: two runners are never sent to the same base (before, during and after the pitch)': r"""() => {
-  const run = (seq) => { T.start(true); const S = T.C.S; T.put([1, 2]); T.I.takeLeads(); T.run(40);
+  /* the computer pitcher sometimes calls a pickoff in the first 40 ticks (random), which sends the runners back; start over when he does */
+  const run = (seq) => { let S; for (let k = 0; k < 20; k++) { T.start(true); S = T.C.S; T.put([1, 2]); T.I.takeLeads(); T.run(40); if (!S.pick) break; }
     for (const step of seq) { if (step === 'windup') T.until(() => S.phase === 'windup', 400);
       else if (step === 'stealplay') { S.runners.forEach(r => { r.lead = false; r.go = false; }); const a = S.runners.find(r => r.at === 1), b = S.runners.find(r => r.at === 2); a.to = null; b.to = 3; b.p = 0.3; S.phase = 'batted'; S.live = { kind: 'steal', still: 0 }; S.bb = T.I.mkBall(0, -21); T.I.giveBall('C'); }
       else T.press(step); }

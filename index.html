@@ -167,7 +167,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 94</small>
+    <small id="ver">Version 95</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -208,7 +208,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 94</small>
+    <small class="lver" id="lver">Version 95</small>
   </section>
 
   <section class="screen" id="netmsg" hidden>
@@ -645,6 +645,23 @@ var SFX = {
     else { var bars = [[48, [64, 67, 72]], [53, [65, 69, 72]], [55, [65, 67, 71]], [48, [64, 67, 72]]], list = []; bars.forEach(function (bb, i) { var s = i * 3; list.push([[bb[0]], s, 0.9]); list.push([bb[1], s + 1, 0.6]); list.push([bb[1], s + 2, 0.6]); }); seq(list, 150, t, 0.06); seq([[[76], 0, 3], [[77], 3, 2], [[81], 5, 1], [[79], 6, 3], [[72], 9, 3]], 150, t, 0.1); }
   }
 };
+/* pitch sound (user, Oct 24, version 95): an 8-bit buzz while the pitch is in the air, the "arcade zip" sample an octave down.
+   Its pitch follows the ball's speed live, up to 7 semitones higher at the fastest and 7 lower at the slowest (medium speed = the base pitch).
+   Driven from the drawing loop, so it always matches what is on screen, re-runs included. */
+var ZIP = null, ZIP_SEMIS = 7;
+function zipMult(sp) { var mid = 1.25, f = sp >= mid ? (sp - mid) / (SP_MAX - mid) : -(mid - sp) / (mid - SP_MIN); return Math.pow(2, Math.max(-1, Math.min(1, f)) * ZIP_SEMIS / 12); }
+function pitchSound() {
+  var on = !!(S && !S.over && S.phase === 'pitch' && S.ball && !S.bb && !muted && A && !document.hidden);
+  if (!on) { if (ZIP) { var z = ZIP; ZIP = null; z.g.gain.setTargetAtTime(0.0001, A.currentTime, 0.015); setTimeout(function () { try { z.o.stop(); } catch (e) { } }, 200); } return; }
+  var t = A.currentTime, m = zipMult(S.ball.sp), near = Math.max(0, Math.min(1, 1 - S.ball.fy / RELEASE_FY));
+  if (!ZIP) {
+    var o = A.createOscillator(), lp = A.createBiquadFilter(), g = A.createGain(); o.type = 'square'; lp.type = 'lowpass';
+    o.frequency.setValueAtTime(165 * m, t); lp.frequency.setValueAtTime(900 * m, t); g.gain.setValueAtTime(0.0001, t);
+    o.connect(lp); lp.connect(g); g.connect(master); o.start(t); ZIP = { o: o, lp: lp, g: g };
+  }
+  ZIP.o.frequency.setTargetAtTime(165 * m, t, 0.02); ZIP.lp.frequency.setTargetAtTime(900 * m, t, 0.02);
+  ZIP.g.gain.setTargetAtTime(0.06 + 0.06 * near, t, 0.02);
+}
 function sfx(name, arg, delay) { if (QUIET || !audio() || muted) return; try { SFX[name](A.currentTime + 0.02 + (delay || 0), arg); } catch (e) { } }
 function murmur(on) {
   if (!audio()) return;
@@ -2026,7 +2043,7 @@ function stepOffPose(k) {
 }
 function ring(c, x, y, sc) { c.save(); c.strokeStyle = '#ffd23f'; c.lineWidth = 2; c.beginPath(); c.ellipse(x, y, 13 * sc, 4.4 * sc, 0, 0, 7); c.stroke(); c.restore(); }
 function render() {
-  swingStep();
+  swingStep(); pitchSound();
   if (!fieldCache) buildField();
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(fieldCache, 0, 0);
   ctx.setTransform(K * DPR, 0, 0, K * DPR, 0, 0);
@@ -2146,7 +2163,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = 94; /* only games on the same build are listed */
+var PROTO = 95; /* only games on the same build are listed */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
@@ -2451,6 +2468,6 @@ layout(); setTheme('day'); pressGroup('mon', 'moff', opts.murmur); $('mv').textC
 $('fl').innerHTML = coachSVG('red', 'neutral'); $('fr').innerHTML = coachSVG('blue', 'neutral');
 $('hint').textContent = '';
 requestAnimationFrame(frame);
-window.__ccb = { get S() { return S; }, get SWV() { return SWV; }, tick: function (IN) { tick(IN); }, newGame: function (o) { var g = {}; if (o) for (var k in o) { if (k === 'seed' || k === 'ai' || k === 'me' || k === 'vis') g[k] = o[k]; else opts[k] = o[k]; } newGame(g); }, save: save, load: load, syncView: syncView, RB: RB, packIn: packIn, NET: NET, quiet: function (q) { QUIET = !!q; }, get ME() { return ME; }, newRunner: function (a) { return newRunner(a, null); }, human: human };
+window.__ccb = { get S() { return S; }, get SWV() { return SWV; }, get ZIP() { return ZIP; }, tick: function (IN) { tick(IN); }, newGame: function (o) { var g = {}; if (o) for (var k in o) { if (k === 'seed' || k === 'ai' || k === 'me' || k === 'vis') g[k] = o[k]; else opts[k] = o[k]; } newGame(g); }, save: save, load: load, syncView: syncView, RB: RB, packIn: packIn, NET: NET, quiet: function (q) { QUIET = !!q; }, get ME() { return ME; }, newRunner: function (a) { return newRunner(a, null); }, human: human };
 })();
 </script>
