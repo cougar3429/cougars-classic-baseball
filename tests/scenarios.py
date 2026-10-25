@@ -9,6 +9,15 @@ import json, sys
 from common import page
 
 CHECKS = {
+'run scores sound (version 1.12): the ta-da plays when a runner crosses the plate, not on a home run trot': r"""() => {
+  T.start(true); let S = T.C.S, played = []; const C = T.C; window.__sfxLog = played;
+  T.put([3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); T.I.snapRunners(); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 160); T.I.batterToFirst(false);
+  const r3 = S.runners.find(r => r.at === 3); r3.to = 4; r3.p = 0.9; const before = (window.__ccb.sfxCount || {}).tada || 0;
+  T.run(120); const afterRun = (window.__ccb.sfxCount || {}).tada || 0;
+  T.start(true); S = T.C.S; T.put([1, 2, 3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 200); S.bb.wall = false; S.bb.v = 4; T.I.batterToFirst(false);
+  const b2 = (window.__ccb.sfxCount || {}).tada || 0; T.I.wallHit(200); T.run(400); const afterHr = (window.__ccb.sfxCount || {}).tada || 0;
+  return { ok: afterRun - before >= 1 && afterHr === b2, runTadas: afterRun - before, hrTadas: afterHr - b2, score: S.score }; }""",
+
 'recorded sounds (version 1.07): the crowd cheer (5 s) and the Yeah yell decode and play': r"""async () => {
   window.__ccb.clips(); let c = []; for (let i = 0; i < 60 && c.length < 2; i++) { await new Promise(r => setTimeout(r, 50)); c = window.__ccb.clips(); }
   const m = Object.fromEntries(c); return { ok: m.cheer > 4.9 && m.cheer < 5.2 && m.yeah > 0.3 && m.yeah < 0.8, clips: m }; }""",

@@ -242,7 +242,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.11</small>
+    <small id="ver">Version 1.12</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -283,7 +283,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.11</small>
+    <small class="lver" id="lver">Version 1.12</small>
   </section>
 
   <section class="screen" id="cam" hidden>
@@ -772,6 +772,8 @@ var SFX = {
     var g = gain(); env(g, t, 0.2, 0.06, 0.1, 0.12); n.connect(hp); hp.connect(lp); lp.connect(g); n.start(t); n.stop(t + dur + 0.05);
     var g2 = gain(); env(g2, t + 0.08, 0.16, 0.04, 0.12, 0.11); var o = osc('sine', 850, t + 0.08, t + dur, g2); o.frequency.exponentialRampToValueAtTime(450, t + dur); /* starts much lower than version 96's 1600 Hz, so no high whistle up front (user, Oct 24, version 98) */
   },
+  /* a run scores (user, Oct 25, version 1.12): option C "Ta-da" from the sound board, played 1.5x faster at the same pitch */
+  tada: function (t) { brass(392.0, t, 0.067, 0.26); brass(523.25, t + 0.107, 0.3, 0.3); },
   fanfare: function (t) { brass(587.33, t, 0.14); brass(369.99, t + 0.28, 0.11); brass(392.0, t + 0.405, 1.0); },
   safe: function (t) { /* option A, slowed a little (user, Oct 23): S, then AY, then F, in the OUT bark's voice */
     var hiss = function (t0, dur, freq, q, peak) { var n = noise(dur + 0.05), bp = A.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = q; var g = gain(); n.connect(bp); bp.connect(g); env(g, t0, peak, 0.015, dur * 0.55, dur * 0.4); n.start(t0); };
@@ -846,7 +848,8 @@ function pitchSound() {
   ZIP.o.frequency.setTargetAtTime(165 * m, t, 0.02); ZIP.lp.frequency.setTargetAtTime(900 * m, t, 0.02);
   ZIP.g.gain.setTargetAtTime(0.06 + 0.06 * near, t, 0.02);
 }
-function sfx(name, arg, delay) { if (QUIET || !audio() || muted) return; try { SFX[name](A.currentTime + 0.02 + (delay || 0), arg); } catch (e) { } }
+var SFX_COUNT = {}; /* sounds played, by name (for the tests) */
+function sfx(name, arg, delay) { if (QUIET) return; SFX_COUNT[name] = (SFX_COUNT[name] || 0) + 1; if (!audio() || muted) return; try { SFX[name](A.currentTime + 0.02 + (delay || 0), arg); } catch (e) { } }
 function murmur(on) {
   if (!audio()) return;
   if (!on) { if (murmurNode) { var m = murmurNode; m.g.gain.setTargetAtTime(0.0001, A.currentTime, 0.3); setTimeout(function () { try { m.n.stop(); m.l.stop(); } catch (e) { } }, 1500); murmurNode = null; } return; }
@@ -1076,7 +1079,7 @@ function arrive(r) {
   if (r.bat && r.at >= 1) r.reached = true;
   if (r.at === 4) {
     r.scored = true;
-    if (!r.trot) { S.playRuns++; if (homeWins(S.playRuns) || S.phase === 'result') commitRuns(); }
+    if (!r.trot) { S.playRuns++; sfx('tada'); if (homeWins(S.playRuns) || S.phase === 'result') commitRuns(); } /* the ta-da plays as he crosses (user chose this over waiting until the run is final; a later force out for the third out can still wipe it) */
     return;
   }
   if (r.trot) { r.to = r.at + 1; r.p = 0; return; }
@@ -1148,7 +1151,7 @@ function settleRunners() {
     if (dest <= 3 && standingOn(dest, r)) { var alt = dest === r.at ? r.to : r.at; dest = alt === 0 ? 1 : alt; }
     if (dest <= 3 && standingOn(dest, r)) { r.out = true; S.outs++; return; }
     r.at = dest; r.to = null; r.p = 0; r.wait = false; r.dest = null;
-    if (dest === 4) { r.scored = true; S.playRuns++; }
+    if (dest === 4) { r.scored = true; S.playRuns++; sfx('tada'); }
   });
 }
 function commitRuns() {
@@ -2431,7 +2434,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.11'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.12'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
@@ -2874,6 +2877,6 @@ layout(); setTheme('day'); pressGroup('mon', 'moff', opts.murmur); $('mv').textC
 $('fl').innerHTML = coachSVG('red', 'neutral'); $('fr').innerHTML = coachSVG('blue', 'neutral'); selfThumbs();
 $('hint').textContent = '';
 requestAnimationFrame(frame);
-window.__ccb = { get S() { return S; }, get SWV() { return SWV; }, get ZIP() { return ZIP; }, tick: function (IN) { tick(IN); }, newGame: function (o) { var g = {}; if (o) for (var k in o) { if (k === 'seed' || k === 'ai' || k === 'me' || k === 'vis') g[k] = o[k]; else opts[k] = o[k]; } newGame(g); }, save: save, load: load, syncView: syncView, RB: RB, packIn: packIn, view: function () { swingLabel(); hrView(); }, clips: function () { audio(); return Object.keys(CLIPBUF).map(function (k) { return [k, Math.round(CLIPBUF[k].duration * 100) / 100]; }); }, NET: NET, get selfie() { return mySelfie; }, setSelfie: function (o) { mySelfie = o && validSelfie(o) ? cleanSelfie(o) : null; selfThumbs(); }, checkFace: checkFace, quiet: function (q) { QUIET = !!q; }, get ME() { return ME; }, newRunner: function (a) { return newRunner(a, null); }, human: human };
+window.__ccb = { get S() { return S; }, get SWV() { return SWV; }, get ZIP() { return ZIP; }, tick: function (IN) { tick(IN); }, newGame: function (o) { var g = {}; if (o) for (var k in o) { if (k === 'seed' || k === 'ai' || k === 'me' || k === 'vis') g[k] = o[k]; else opts[k] = o[k]; } newGame(g); }, save: save, load: load, syncView: syncView, RB: RB, packIn: packIn, view: function () { swingLabel(); hrView(); }, get sfxCount() { return SFX_COUNT; }, clips: function () { audio(); return Object.keys(CLIPBUF).map(function (k) { return [k, Math.round(CLIPBUF[k].duration * 100) / 100]; }); }, NET: NET, get selfie() { return mySelfie; }, setSelfie: function (o) { mySelfie = o && validSelfie(o) ? cleanSelfie(o) : null; selfThumbs(); }, checkFace: checkFace, quiet: function (q) { QUIET = !!q; }, get ME() { return ME; }, newRunner: function (a) { return newRunner(a, null); }, human: human };
 })();
 </script>
