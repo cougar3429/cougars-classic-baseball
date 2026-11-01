@@ -9,6 +9,10 @@ import json, sys
 from common import page
 
 CHECKS = {
+'speed readout (version 1.31): right of home plate, background at least 50% see-through': r"""() => {
+  const e = document.getElementById('spd'), was = e.hidden; e.hidden = false; const r = e.getBoundingClientRect(), stage = document.getElementById('cv').getBoundingClientRect();
+  const k = stage.width / 844, left = (r.left - stage.left) / k, alpha = parseFloat((getComputedStyle(e).backgroundColor.match(/[\d.]+\)$/) || ['1'])[0]); e.hidden = was;
+  return { ok: left > 422 + 30 && alpha <= 0.5, left: Math.round(left), homePlateX: 422, alpha }; }""",
 'coin flip, 1-player (version 1.30): BAT FIRST by default; you call it; the winner picks; no pick in 5 s makes the winner home; the computer picks at random; no flip on a rematch': r"""async () => {
   const C = window.__ccb, $ = id => document.getElementById(id), wait = ms => new Promise(r => setTimeout(r, ms));
   const until = async (fn, ms) => { const t = performance.now(); while (performance.now() - t < ms) { if (fn()) return true; await wait(20); } return false; };

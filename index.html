@@ -130,12 +130,11 @@ body.day { background: #4f9e44; }
 #toast span { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 6px; background: rgba(22,32,43,0.8); font-size: 13px; font-weight: 600; }
 /* which swing the batter took (user, Oct 24, version 1.05): bottom left, between the d-pad and the batter */
 /* hit speed readout (back in version 1.21, user, Nov 1; as it was in version 68): bottom left, between the d-pad and the batter */
-#spd { position: absolute; left: 174px; bottom: 8px; width: 196px; padding: 5px 9px; box-sizing: border-box; border-radius: 10px; background: rgba(22,32,43,0.86); border: 2px solid var(--ink); color: var(--cream); text-align: right; font: 600 14px/1.2 var(--font-body); pointer-events: none; }
+#spd { position: absolute; left: 470px; bottom: 8px; /* right of home plate (user, Nov 1, version 1.31) */ width: 196px; padding: 5px 9px; box-sizing: border-box; border-radius: 10px; background: rgba(22,32,43,0.5); /* 50% see-through (version 1.31) */ border: 2px solid var(--ink); color: var(--cream); text-align: right; font: 600 14px/1.2 var(--font-body); pointer-events: none; }
 #spd b { display: block; font: 400 22px/1.1 var(--font-display); color: var(--gold); }
 #spd span { display: block; }
 #spd .hr { color: #5fd17a; } #spd .no { color: #ff8a80; }
 #spd[hidden] { display: none; }
-#swl.up { bottom: 104px; } /* stacked above the speed readout while it shows */
 #swl { position: absolute; left: 186px; bottom: 30px; padding: 3px 10px; border-radius: 8px; border: 2px solid var(--ink); background: var(--cream); color: var(--ink); font: 400 15px var(--font-display); letter-spacing: 0.04em; box-shadow: 0 3px 0 var(--ink); pointer-events: none; }
 #swl.pw { background: var(--gold); }
 #swl[hidden] { display: none; }
@@ -255,7 +254,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 
   <section class="screen" id="title">
     <h1>Cougar's Classic<br>Baseball</h1>
-    <p>Play the computer, or another player online. The coin flip comes in a later build.</p>
+    <p>Play the computer, or another player online.</p>
     <div class="trow">
       <div class="seg" role="group" aria-label="Players">
         <button type="button" id="p1" aria-pressed="true">1 PLAYER</button>
@@ -265,7 +264,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.30</small>
+    <small id="ver">Version 1.31</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -306,7 +305,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.30</small>
+    <small class="lver" id="lver">Version 1.31</small>
   </section>
 
   <section class="screen" id="flip" hidden>
@@ -2320,7 +2319,7 @@ function updateSpd() {
     t = '<b>OFF BAT ' + Math.round(sp.ev / BALLMAX * 100) + '%</b><span>Ball now ' + now + '</span>';
     if (sp.wall) t += '<span>At wall ' + Math.round(sp.wall.v) + '% · HR ' + Math.round(sp.wall.ch) + '%</span><span class="' + (sp.wall.hr ? 'hr' : 'no') + '">Rolled ' + Math.round(sp.wall.roll) + (sp.wall.hr ? ': home run' : ': stays in') + '</span>';
   }
-  if (t !== spdText) { spdText = t; var el = $('spd'); el.innerHTML = t; el.hidden = !t; $('swl').classList.toggle('up', !!t); }
+  if (t !== spdText) { spdText = t; var el = $('spd'); el.innerHTML = t; el.hidden = !t; }
 }
 /* after a swing, CONTACT or POWER shows for 1.5 s (bunts show nothing) */
 var SWL = { key: null, until: 0 };
@@ -2583,7 +2582,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.30'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.31'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
