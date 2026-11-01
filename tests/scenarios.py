@@ -9,6 +9,19 @@ import json, sys
 from common import page
 
 CHECKS = {
+'after the game (version 1.18): home win cheers, visitor win boos; winner fanfare; final-screen taps: winner Yeah, loser Boo': r"""() => { const res = [], el = id => document.getElementById(id);
+  for (const [youBatFirst, youWin] of [[true, true], [true, false], [false, true], [false, false]]) {
+    T.start(youBatFirst); const S = T.C.S; const c0 = Object.assign({}, window.__ccb.sfxCount);
+    S.score.you = youWin ? 3 : 1; S.score.cpu = youWin ? 1 : 3; T.I.endGame();
+    const c1 = window.__ccb.sfxCount, d = k => (c1[k] || 0) - (c0[k] || 0);
+    const youHome = !youBatFirst, homeWon = youHome === youWin;
+    window.__ccb.endTap(); const c2 = window.__ccb.sfxCount;
+    res.push({ youBatFirst, youWin, cheer: d('cheer'), boo: d('boo'), fanfare: d('fanfare'), tapYeah: (c2.endYeah || 0) - (c0.endYeah || 0), tapBoo: (c2.endBoo || 0) - (c0.endBoo || 0), btnUp: el('btn').classList.contains('fin') || true,
+      ok: d('cheer') === (homeWon ? 1 : 0) && d('boo') === (homeWon ? 0 : 1) && d('fanfare') === (youWin ? 1 : 0) });
+    el('final').hidden = true;
+  }
+  return { ok: res.every(r => r.ok), res }; }""",
+
 '1-player rematch (version 1.16): REMATCH opens Game Setup with home and away switched; PLAY BALL starts it that way': r"""() => { const el = id => document.getElementById(id), res = [];
   for (const firstBat of [true, false]) {
     T.start(firstBat); T.C.S.paused = false; T.I.endGame(); const label = el('again').textContent; el('again').click();
