@@ -9,6 +9,21 @@ import json, sys
 from common import page
 
 CHECKS = {
+'moving the controls (version 1.32): MOVE on Game Setup, drag the D pad and the button, saved on the phone, RESET puts them back; dragging does not steer or swing': r"""() => {
+  const $ = id => document.getElementById(id), st = () => $('stage').getBoundingClientRect(), k = () => st().width / 844;
+  const at = el => { const r = el.getBoundingClientRect(), s = st(); return [Math.round((r.left - s.left) / k()), Math.round((r.top - s.top) / k())]; };
+  const fire = (el, type, x, y) => el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, clientX: x, clientY: y, isPrimary: true }));
+  const drag = (el, ddx, ddy) => { const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2; fire(el, 'pointerdown', x, y); fire(document, 'pointermove', x + ddx * k(), y + ddy * k()); fire(document, 'pointerup', x + ddx * k(), y + ddy * k()); };
+  localStorage.removeItem('ccb-ctl'); $('ctlreset').click();
+  const pad0 = at($('dpad')), btn0 = at($('btn'));
+  $('setup').hidden = false; $('ctlmove').click(); const editing = !$('ctledit').hidden && $('setup').hidden;
+  const C = window.__ccb, sw0 = C.S ? 0 : 0;
+  drag($('dpad'), 0, 30); drag($('btn'), -100, -40); drag($('dpad'), 0, 500); /* the last one is held at the bottom edge */
+  const pad1 = at($('dpad')), btn1 = at($('btn')), lit = $('dpad').querySelectorAll('.arm.on').length, saved = JSON.parse(localStorage.getItem('ccb-ctl'));
+  $('ctldone').click(); const back = !$('setup').hidden && $('ctledit').hidden;
+  $('ctlreset').click(); const pad2 = at($('dpad')), btn2 = at($('btn')), cleared = localStorage.getItem('ccb-ctl'); $('setup').hidden = true;
+  return { ok: editing && pad1[1] === 390 - 136 && pad1[0] === pad0[0] && btn1[0] === btn0[0] - 100 && btn1[1] === btn0[1] - 40 && lit === 0 && saved && saved.pad[1] === 254 && back
+    && pad2.join() === pad0.join() && btn2.join() === btn0.join() && cleared === null, pad0, pad1, btn0, btn1, saved, pad2, btn2 }; }""",
 'speed readout (version 1.31): right of home plate, background at least 50% see-through': r"""() => {
   const e = document.getElementById('spd'), was = e.hidden; e.hidden = false; const r = e.getBoundingClientRect(), stage = document.getElementById('cv').getBoundingClientRect();
   const k = stage.width / 844, left = (r.left - stage.left) / k, alpha = parseFloat((getComputedStyle(e).backgroundColor.match(/[\d.]+\)$/) || ['1'])[0]); e.hidden = was;
