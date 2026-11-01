@@ -270,7 +270,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.35</small>
+    <small id="ver">Version 1.36</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -313,7 +313,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.35</small>
+    <small class="lver" id="lver">Version 1.36</small>
   </section>
 
   <section class="screen" id="flip" hidden>
@@ -1881,7 +1881,7 @@ function cpuHolder() {
     }
     var m = tRun - (Math.min(tSelf, tThr) + (force ? 0 : steal ? -4 : 10)); /* a steal throw only has to beat him to the tag */
     var cand = { k: k, m: m, self: !isOF(hid) && (tSelf <= tThr + 10 || dSelf < 12) };
-    if (k === 4 && !force && !fAway && r.to > r.at) home = { k: 4, m: tRun - Math.min(tSelf, tThr), self: cand.self }; /* the play at the plate, with no margin */
+    if (k === 4 && !force && !fAway && r.to > r.at) home = { k: 4, m: tRun - Math.min(tSelf, tThr), at: Math.min(tSelf, tThr), self: cand.self, r: r }; /* the play at the plate, with no margin */
     if (!lead || k > lead.k) lead = cand;
     if (r.bat && force && k === 1) dp = cand;
     if (m > bm) { bm = m; best = cand; }
@@ -1896,7 +1896,16 @@ function cpuHolder() {
   }
   /* stopping a run comes first (user, Nov 1, version 1.35): a runner heading home, not forced, gets a try at the plate (tag it himself or throw
      to the man covering) whenever the ball can get there no later than the runner; only when there's no play at home does it go elsewhere */
-  if (home && home.m >= 0) { best = home; bm = 1e9; }
+  /* version 1.36 (user, Nov 1): he can also tag the runner on his way home; whichever gets the out sooner, the tag on the line or the play at the plate */
+  if (home) {
+    var hr = home.r, ha = basePos(hr.at), hb = basePos(4), hL = legLen(hr), hRem = (1 - hr.p) * hL / RSPD, hs0 = fspd(hid), hbusy = S.gatherT + (S.windT || 0), tag = null;
+    if (!isOF(hid)) for (var tt = 0; tt <= hRem; tt += 2) {
+      var hq = Math.min(1, hr.p + RSPD * tt / hL), hx = ha[0] + (hb[0] - ha[0]) * hq, hy = ha[1] + (hb[1] - ha[1]) * hq;
+      if (dist2(hp.x, hp.y, hx, hy) - TAG_R <= hs0 * Math.max(0, tt - hbusy)) { tag = { t: tt, x: hx, y: hy }; break; }
+    }
+    if (tag && (home.m < 0 || tag.t < home.at)) { moveToward(hid, tag.x, tag.y, FSPD); return; }
+    if (home.m >= 0) { best = home; bm = 1e9; }
+  }
   /* double play: once this play has an out, throw on for the batter-runner at first whenever it could be close (within about 0.5 s) */
   if (S.playOuts > 0 && dp && dp.m > -30 && !(best && bm > need)) { best = dp; bm = dp.m; need = -30; }
   /* running at a runner: the earliest point on his path this fielder can reach before he gets to a base */
@@ -2618,7 +2627,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.35'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.36'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
