@@ -9,6 +9,14 @@ import json, sys
 from common import page
 
 CHECKS = {
+'home run chance (version 1.25): no +25 bonus under 55% speed at the fence; +10 near the lines still applies': r"""() => { const res = {};
+  for (const [name, frac, x] of [['50% center', 0.50, 0], ['54% center', 0.54, 0], ['55% center', 0.55, 0], ['70% center', 0.70, 0], ['50% near line', 0.50, 150]]) {
+    T.start(true); const S = T.C.S; S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; const y = x ? 115 : 200, d = Math.hypot(x, y);
+    S.bb = T.I.mkBall(x, y); S.bb.wall = false; S.bb.v = frac * 4; S.spd = { ev: 3, wall: null }; T.I.batterToFirst(false); T.I.wallHit(d);
+    res[name] = Math.round(S.spd.wall.ch);
+  }
+  return { ok: res['50% center'] === 50 && res['54% center'] === 54 && res['55% center'] === 80 && res['70% center'] === 95 && res['50% near line'] === 60, res }; }""",
+
 'throw speeds (version 1.24): center fielder to second 15% slower; his other throws and other outfielders to second unchanged': r"""() => {
   const time = (id, base) => { T.start(true); const S = T.C.S; T.hit(0, 1); const p = S.F[id]; S.bb.x = p.x; S.bb.y = p.y; T.I.giveBall(id); S.gatherT = 0;
     S.thr = null; const tx = base === 2 ? 0 : 60.2, ty = base === 2 ? 127.3 : 63.6; ['1B', '2B'].forEach(f => { S.F[f].x = 200; S.F[f].y = 200; });
