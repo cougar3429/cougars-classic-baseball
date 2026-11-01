@@ -9,10 +9,25 @@ import json, sys
 from common import page
 
 CHECKS = {
+'uncaught third strike (version 1.23): swing-and-miss strike three past the catcher, the batter may run if first is empty or there are two outs': r"""() => { const res = {};
+  for (const [name, bases, outs, want] of [['bases empty, 0 outs', [], 0, 'runs'], ['runner on first, 1 out', [1], 1, 'out'], ['runner on first, 2 outs', [1], 2, 'runs'], ['runner on second, 0 outs', [2], 0, 'runs']]) {
+    T.start(false); const S = T.C.S; T.until(() => S.phase === 'ready', 600); if (bases.length) { T.put(bases); S.runners.forEach(r => { r.lead = false; r.to = null; }); }
+    S.outs = outs; S.s = 2; const k0 = S.stats[S.vis].k; T.I.snapRunners();
+    S.phase = 'pitch'; S.ball = { fx: 12, fy: -18, sp: 1.2, lv: 0.6, crossed: true, crossFx: 9 }; S.sw = { t: 20, type: 'normal', hit: false, miss: true, ct: 6, len: 16 }; S.cat = { up: false, upT: 0 };
+    T.I.wildPitch();
+    const runs = !!(S.batR && S.batR.to === 1 && S.live && S.live.kind === 'wild');
+    res[name] = { got: runs ? 'runs' : 'out', want, outs: S.outs, k: S.stats[S.vis].k - k0, forcedAhead: S.runners.filter(r => !r.bat && r.forced).map(r => r.fb) };
+  }
+  /* a full play: bases empty, the batter runs, nobody touches the ball; he is safe at first */
+  T.start(false); let S = T.C.S; T.until(() => S.phase === 'ready', 600); S.s = 2; S.phase = 'pitch'; S.ball = { fx: 12, fy: -18, sp: 1.2, lv: 0.6, crossed: true, crossFx: 9 }; S.sw = { t: 20, type: 'normal', hit: false, miss: true, ct: 6, len: 16 }; S.cat = { up: false, upT: 0 };
+  T.I.wildPitch(); T.until(() => S.phase !== 'batted', 1500); res.play = { call: T.toast(), onFirst: S.runners.some(r => !r.out && r.at === 1 && r.to == null) || T.toast().startsWith('SAFE') };
+  const ok = Object.keys(res).filter(k => k !== 'play').every(k => res[k].got === res[k].want && res[k].k === 1 && res[k].outs === (res[k].want === 'out' ? (k.includes('1 out') ? 2 : 1) : (k.includes('2 outs') ? 2 : 0)));
+  return { ok: ok && res.play.call.startsWith('SAFE AT FIRST'), res }; }""",
+
 'wild pitch with the bases empty (version 1.22): no chase; the call shows and the next pitch comes by itself; with a runner on it stays live': r"""() => { const res = {};
   for (const [name, bases, s0, b0] of [['empty, ball', [], 0, 0], ['empty, two strikes', [], 2, 0], ['runner on first', [1], 0, 0], ['empty, ball four', [], 0, 3]]) {
     T.start(false); const S = T.C.S; T.until(() => S.phase === 'ready', 600); if (bases.length) { T.put(bases); T.I.takeLeads(); } S.s = s0; S.b = b0;
-    T.hold('r'); T.press('r'); T.until(() => S.phase === 'pitch', 200); /* you pitch a curve, then curve it hard toward the first base side */
+    T.hold('r'); T.press('r'); T.until(() => S.phase === 'pitch', 200); S.cpuB = { decided: true }; /* you pitch a curve and curve it hard toward first; the batter takes it */
     T.until(() => { T.C.human.dir = 'r'; T.C.human.vx = 1; return S.phase !== 'pitch'; }, 600); T.release();
     const kind = S.live && S.live.kind, phase = S.phase, toast = T.toast(); let back = T.until(() => S.phase === 'ready', 600);
     res[name] = { phase, live: kind || null, toast, readyAfterTicks: back };
@@ -185,7 +200,7 @@ CHECKS = {
   S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(-100, 150); T.I.giveBall('LF'); S.F.LF.x = -100; S.F.LF.y = 150; S.gatherT = 9999;
   T.press('r'); return { ok: T.rs() === '2', runnersAfterSendingToFirst: T.rs() }; }""",
 
-'pickoff: a runner who broke and went back to his base is no stolen base; the toast shows no old second line': r'''() => { T.start(true); const S = T.C.S; T.put([2]); T.run(80);
+'pickoff: a runner who broke and went back to his base is no stolen base; the toast shows no old second line': r'''() => { T.start(true); const S = T.C.S; S.cpuP = { slide: 0, delay: 99999, type: 'fast', sign: 1, target: 0, pick: 0 }; /* the computer pitcher waits (he could start his delivery before the test is set) */ T.put([2]); T.run(80);
   const r = S.runners[0]; T.press('l'); T.I.callPick(); const broke = r.to === 3; T.run(3); T.press('u'); const back = r.to === 2;
   S.lastToast = { text: 'STRIKE 1', sub: 'Out of reach', end: S.t + 1, big: false }; document.getElementById('ts').textContent = 'Out of reach'; document.getElementById('ts').hidden = false;
   let stole = false; for (let i = 0; i < 300 && S.pick; i++) { T.C.tick(); if (S.pick) T.I.pickSettled(); if (S.lastToast && S.lastToast.text === 'STOLEN BASE') stole = true; }

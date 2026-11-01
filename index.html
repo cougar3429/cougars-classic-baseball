@@ -251,7 +251,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.22</small>
+    <small id="ver">Version 1.23</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -292,7 +292,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.22</small>
+    <small class="lver" id="lver">Version 1.23</small>
   </section>
 
   <section class="screen" id="cam" hidden>
@@ -1621,15 +1621,18 @@ function wildPitch() {
   var b = S.ball, c = callPitch(b), vx = b.lv, vy = -b.sp, v = Math.sqrt(vx * vx + vy * vy) || 1, cx = S.F.C.x;
   /* nobody on and not ball four (user, Nov 1, version 1.22): nothing can happen, so nobody chases it; the call shows, the ball rolls on to
      the backstop by itself, the catcher tosses a ball back and the next pitch comes */
-  if (!runnersOn() && c.k !== 'BB') {
+  /* uncaught third strike (user, Nov 1, version 1.23; real baseball): strike three gets past the catcher and first base is empty or there are
+     two outs: the batter may run to first and the play is live; the strikeout still counts for the pitcher (K) */
+  var k3 = c.k === 'K' && (!standingOn(1) || S.outs === 2);
+  if (!runnersOn() && (c.k === 'B' || c.k === 'S')) {
     S.ball = null; S.bb = mkBall(b.fx, b.fy); S.bb.ux = vx / v; S.bb.uy = vy / v; S.bb.v = Math.min(2.2, v * 0.8); S.bb.loose = true;
-    if (c.k === 'K') { S.abOver = true; S.batterGone = true; S.outs++; result('STRIKEOUT', 'Wild pitch', 'out'); sfx('bark', null, 0.15); sfx(batSide() === homeSide() ? 'boo' : 'cheer', null, 0.6); }
-    else { result(c.text, 'Wild pitch', 'pitch'); sfx(c.k === 'S' ? 'strike' : 'ball', null, 0.12); }
+    result(c.text, 'Wild pitch', 'pitch'); sfx(c.k === 'S' ? 'strike' : 'ball', null, 0.12);
     throwBack(cx); return;
   }
   S.ball = null; resetPlay(true); S.F.C.mv = 0; S.F.C.x = cx; returnLeads();
   S.bb = mkBall(b.fx, b.fy); S.bb.ux = vx / v; S.bb.uy = vy / v; S.bb.v = Math.min(2.2, v * 0.8);
-  S.phase = 'batted'; S.live = { kind: 'wild', still: 0 }; S.wildWait = true; S.ctl = 'P'; setLive(true); hint();
+  S.phase = 'batted'; S.live = { kind: 'wild', still: 0, k3: k3 }; S.wildWait = true; S.ctl = 'P'; setLive(true); hint();
+  if (k3) { S.abOver = true; S.batterGone = true; batterToFirst(false); toast('STRIKE THREE', 'Wild pitch · he can run to first', 90); sfx('strike', null, 0.12); return; }
   applyCallLive(c, 'WILD PITCH');
 }
 function resetPlay(keepF) {
@@ -1999,6 +2002,7 @@ function endLive(why, how) {
   }
   else if (n) { title = n > 1 ? n + ' RUNS SCORE' : 'RUN SCORES'; sub = null; }
   else if (S.playOuts > 0) title = L.kind === 'steal' ? 'CAUGHT STEALING' : L.kind === 'pick' ? 'PICKED OFF' : null;
+  else if (L.kind === 'wild' && L.k3 && S.batR && !S.batR.out && S.batR.at >= 1) title = 'SAFE AT FIRST', sub = 'Uncaught third strike';
   else if (L.kind === 'steal' && S.runners.some(function (r) { return alive(r) && !r.bat && r.at > r.snap; })) title = 'STOLEN BASE';
   result(title, sub, kind);
   if (title === 'INSIDE-THE-PARK HR!') hrCelebrate(side);
@@ -2537,7 +2541,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.22'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.23'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
