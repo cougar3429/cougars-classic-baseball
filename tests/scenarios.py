@@ -28,13 +28,13 @@ CHECKS = {
   }
   return { ok: res['50% center'] === 50 && res['54% center'] === 54 && res['55% center'] === 80 && res['70% center'] === 95 && res['50% near line'] === 60, res }; }""",
 
-'throw speeds (version 1.24): center fielder to second 15% slower; his other throws and other outfielders to second unchanged': r"""() => {
+'throw speeds (versions 1.24, 1.28): center fielder to second 15% slower; outfield throws home 12% faster; others unchanged': r"""() => {
   const time = (id, base) => { T.start(true); const S = T.C.S; T.hit(0, 1); const p = S.F[id]; S.bb.x = p.x; S.bb.y = p.y; T.I.giveBall(id); S.gatherT = 0;
-    S.thr = null; const tx = base === 2 ? 0 : 60.2, ty = base === 2 ? 127.3 : 63.6; ['1B', '2B'].forEach(f => { S.F[f].x = 200; S.F[f].y = 200; });
+    S.thr = null; const tx = base === 2 ? 0 : base === 4 ? 0 : 60.2, ty = base === 2 ? 127.3 : base === 4 ? -1 : 63.6; ['1B', '2B'].forEach(f => { S.F[f].x = 200; S.F[f].y = 200; });
     S.queued = null; S.animStart = null; S.quick = true; T.I.giveBall(id); S.gatherT = 0; S.windT = 1; S.queued = base; let n = 0;
     for (; n < 400; n++) { T.C.tick(); if (S.thr && S.thr.sp) return +(S.thr.sp).toFixed(3); } return null; };
-  const cf2 = time('CF', 2), cf1 = time('CF', 1), lf2 = time('LF', 2);
-  return { ok: Math.abs(cf2 - 1.02) < 0.01 && Math.abs(cf1 - 0.96) < 0.01 && Math.abs(lf2 - 1.2) < 0.01, cf2, cf1, lf2 }; }""",
+  const cf2 = time('CF', 2), cf1 = time('CF', 1), lf2 = time('LF', 2), lf4 = time('LF', 4), rf4 = time('RF', 4), cf4 = time('CF', 4);
+  return { ok: Math.abs(cf2 - 1.02) < 0.01 && Math.abs(cf1 - 0.96) < 0.01 && Math.abs(lf2 - 1.2) < 0.01 && Math.abs(lf4 - 1.344) < 0.01 && Math.abs(cf4 - 1.344) < 0.01 && Math.abs(rf4 - 1.21) < 0.01, cf2, cf1, lf2, lf4, cf4, rf4 }; }""",
 
 'uncaught third strike (version 1.23): swing-and-miss strike three past the catcher, the batter may run if first is empty or there are two outs': r"""() => { const res = {};
   for (const [name, bases, outs, want] of [['bases empty, 0 outs', [], 0, 'runs'], ['runner on first, 1 out', [1], 1, 'out'], ['runner on first, 2 outs', [1], 2, 'runs'], ['runner on second, 0 outs', [2], 0, 'runs']]) {
@@ -52,15 +52,15 @@ CHECKS = {
   return { ok: ok && res.play.call.startsWith('SAFE AT FIRST'), res }; }""",
 
 'wild pitch with the bases empty (version 1.22): no chase; the call shows and the next pitch comes by itself; with a runner on it stays live': r"""() => { const res = {};
-  for (const [name, bases, s0, b0] of [['empty, ball', [], 0, 0], ['empty, two strikes', [], 2, 0], ['runner on first', [1], 0, 0], ['empty, ball four', [], 0, 3]]) {
-    T.start(false); const S = T.C.S; T.until(() => S.phase === 'ready', 600); if (bases.length) { T.put(bases); T.I.takeLeads(); } S.s = s0; S.b = b0;
+  for (const [name, bases, s0, b0] of [['empty, ball', [], 0, 0], ['empty, two strikes', [], 2, 0], ['runner on first', [1], 0, 0], ['runner on first stealing', [1], 0, 0], ['empty, ball four', [], 0, 3]]) {
+    T.start(false); const S = T.C.S; T.until(() => S.phase === 'ready', 600); if (bases.length) { T.put(bases); T.I.takeLeads(); S.runners.forEach(r => { r.go = name.includes('stealing'); }); } S.s = s0; S.b = b0;
     T.hold('r'); T.press('r'); T.until(() => S.phase === 'pitch', 200); S.cpuB = { decided: true }; /* you pitch a curve and curve it hard toward first; the batter takes it */
     T.until(() => { T.C.human.dir = 'r'; T.C.human.vx = 1; return S.phase !== 'pitch'; }, 600); T.release();
     const kind = S.live && S.live.kind, phase = S.phase, toast = T.toast(); let back = T.until(() => S.phase === 'ready', 600);
     res[name] = { phase, live: kind || null, toast, readyAfterTicks: back };
   }
   const e = ['empty, ball', 'empty, two strikes'].every(k => res[k].phase === 'result' && res[k].readyAfterTicks >= 0 && /Wild pitch/.test(res[k].toast));
-  return { ok: e && res['runner on first'].live === 'wild' && res['empty, ball four'].live === 'wild', res }; }""",
+  return { ok: e && res['runner on first'].live === 'wild' && res['runner on first stealing'].live === 'wild' && res['empty, ball four'].live === 'wild', res }; }""",
 
 'lead runner priority (version 1.19): runner going 2nd to 3rd, batter going to 1st; up + button sends only the lead runner back to 2nd': r"""() => { T.start(true); const S = T.C.S; T.put([2]); const a = S.runners[0]; a.lead = false; a.to = 3; a.p = 0.3; T.I.snapRunners();
   S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(-40, 120); S.bb.v = 0.5; T.I.batterToFirst(false); const b = S.batR; b.p = 0.3; b.forced = false; a.forced = false;
