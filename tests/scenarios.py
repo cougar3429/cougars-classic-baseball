@@ -9,6 +9,17 @@ import json, sys
 from common import page
 
 CHECKS = {
+'two outs (version 1.27): every runner runs on contact; with fewer outs an unforced runner goes back': r"""() => { const res = {};
+  for (const [name, bases, outs] of [['2 outs, runner on 2nd', [2], 2], ['2 outs, runners on 2nd and 3rd', [2, 3], 2], ['2 outs, runners on 1st and 3rd', [1, 3], 2], ['1 out, runner on 2nd', [2], 1]]) {
+    T.start(true); const S = T.C.S; S.cpuP = { slide: 0, delay: 99999, type: 'fast', sign: 1, target: 0, pick: 0 }; T.until(() => S.phase === 'ready', 600);
+    T.put(bases); S.outs = outs; T.I.takeLeads(); T.run(30); S.cpuP = null; /* runners take their leads; now the computer pitches */
+    T.until(() => S.phase === 'pitch' && S.ball.fy <= 6, 900); T.press(null); T.until(() => (S.sw && S.sw.hit) || S.phase !== 'pitch', 40);
+    if (!S.sw || !S.sw.hit || (S.bb && S.bb.foul)) { res[name] = 'no fair contact'; continue; }
+    res[name] = S.runners.filter(r => !r.bat && !r.out).map(r => (r.to > r.at ? 'runs ' : r.to == null ? 'stays ' : 'back ') + r.at + '>' + r.to).join(', ');
+  }
+  const runs = k => res[k] && !/back|stays/.test(res[k]) && res[k] !== 'no fair contact';
+  return { ok: runs('2 outs, runner on 2nd') && runs('2 outs, runners on 2nd and 3rd') && runs('2 outs, runners on 1st and 3rd') && /back|^stays/.test(res['1 out, runner on 2nd'] || ''), res }; }""",
+
 'home run chance (version 1.25): no +25 bonus under 55% speed at the fence; +10 near the lines still applies': r"""() => { const res = {};
   for (const [name, frac, x] of [['50% center', 0.50, 0], ['54% center', 0.54, 0], ['55% center', 0.55, 0], ['70% center', 0.70, 0], ['50% near line', 0.50, 150]]) {
     T.start(true); const S = T.C.S; S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; const y = x ? 115 : 200, d = Math.hypot(x, y);
