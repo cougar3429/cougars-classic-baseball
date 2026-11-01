@@ -9,6 +9,67 @@ import json, sys
 from common import page
 
 CHECKS = {
+'coin flip, 1-player (version 1.30): BAT FIRST by default; you call it; the winner picks; no pick in 5 s makes the winner home; the computer picks at random; no flip on a rematch': r"""async () => {
+  const C = window.__ccb, $ = id => document.getElementById(id), wait = ms => new Promise(r => setTimeout(r, ms));
+  const until = async (fn, ms) => { const t = performance.now(); while (performance.now() - t < ms) { if (fn()) return true; await wait(20); } return false; };
+  const keep = Object.assign({}, C.FLIPT); Object.assign(C.FLIPT, { wait: 600, spin: 200, show: 100, go: 100, cpu: 100 });
+  const rand = Math.random, res = {};
+  $('start').click(); res.newGame = { bat: $('bf').getAttribute('aria-pressed'), flipOffered: !$('cf').hidden };
+  const coin0 = C.sfxCount.coin || 0;
+  const run = async (r, call, pick) => {
+    $('start').click(); $('cf').click(); Math.random = () => r; const S0 = C.S; $('go').click();
+    const o = { callShown: !$('flip').hidden && !$('flcall').hidden };
+    $(call === 'H' ? 'fheads' : 'ftails').click();
+    await until(() => !$('flpick').hidden || C.FLIP.F && C.FLIP.F.step === 'go', 3000);
+    o.pickShown = !$('flpick').hidden;
+    if (pick) $(pick === 'bat' ? 'fbat' : 'fpitch').click();
+    await until(() => C.FLIP.F && C.FLIP.F.step === 'go', 3000); o.said = $('flp').textContent;
+    await until(() => C.S !== S0 && $('flip').hidden, 3000); Math.random = rand;
+    o.vis = C.S && C.S !== S0 ? C.S.vis : 'no game'; return o; };
+  res.youWinBat = await run(0.2, 'H', 'bat');       /* coin heads, you called heads: you win and bat first */
+  res.youWinPitch = await run(0.2, 'H', 'pitch');   /* you pitch first */
+  res.youWinNoPick = await run(0.2, 'H', null);     /* no pick: you are home */
+  res.cpuWinsA = await run(0.2, 'T', null);         /* coin heads, you called tails: the computer wins and picks (random 0.2 = bat first) */
+  res.cpuWinsB = await run(0.7, 'H', null);         /* coin tails: the computer wins and picks (random 0.7 = pitch first) */
+  res.coinSounds = (C.sfxCount.coin || 0) - coin0;
+  /* 1-player rematch: switched, no coin flip offered */
+  const lastVis = C.S.vis; C.S.over = true; $('final').hidden = false; $('again').click();
+  res.rematch = { lastVis, bat: $('bf').getAttribute('aria-pressed'), pitch: $('pf').getAttribute('aria-pressed'), flipOffered: !$('cf').hidden, setup: !$('setup').hidden };
+  $('setup').hidden = true; Object.assign(C.FLIPT, keep);
+  const ok = res.newGame.bat === 'true' && res.newGame.flipOffered
+    && res.youWinBat.callShown && res.youWinBat.pickShown && res.youWinBat.vis === 'you'
+    && res.youWinPitch.vis === 'cpu' && res.youWinNoPick.vis === 'cpu' && /Time's up/.test(res.youWinNoPick.said)
+    && !res.cpuWinsA.pickShown && res.cpuWinsA.vis === 'cpu' && /computer wins the toss and chooses to BAT FIRST/.test(res.cpuWinsA.said)
+    && res.cpuWinsB.vis === 'you' && /PITCH FIRST/.test(res.cpuWinsB.said) && res.coinSounds === 5
+    && res.rematch.flipOffered === false && res.rematch.setup && res.rematch.bat === String(lastVis === 'cpu');
+  return { ok, res }; }""",
+
+'coin flip, 2-player host (version 1.30): waits for a selfie; a random caller; no call in 5 s is called for him; no pick in 5 s makes the winner home; the other phone can call and pick': r"""async () => {
+  const C = window.__ccb, I = window.__ccbi, N = C.NET, $ = id => document.getElementById(id), wait = ms => new Promise(r => setTimeout(r, ms));
+  const until = async (fn, ms) => { const t = performance.now(); while (performance.now() - t < ms) { if (fn()) return true; await wait(20); } return false; };
+  const keep = Object.assign({}, C.FLIPT); Object.assign(C.FLIPT, { wait: 600, spin: 200, show: 100, go: 99999 });
+  const rand = Math.random, sent = [], res = {}; N.role = 'host'; N.oppName = 'Bob'; N.ch = { send: m => sent.push(m) };
+  /* run 1: Bob (random 0.7 makes him the caller; the coin lands tails) doesn't call or pick */
+  Math.random = () => 0.7; I.flipStart(true); await wait(200);
+  res.before = [C.FLIP.F.step, $('flp').textContent];
+  I.flipOpp({ cam: true }); await wait(200); res.selfie = [C.FLIP.F.step, $('flp').textContent];
+  I.flipOpp({ cam: false }); await wait(200); const F = C.FLIP.F; res.call = [F.step, F.caller, $('flp').textContent, $('flcall').hidden];
+  await until(() => F.step === 'spin', 2000); res.auto = [F.call, F.auto, $('flp').textContent];
+  await until(() => F.step === 'pick', 2000); res.pick = [F.winner, $('flp').textContent, $('flpick').hidden];
+  await until(() => F.step === 'go', 2000); res.noPick = [F.pick, F.auto2, $('flp').textContent];
+  res.sent = sent.filter(m => m.event === 'fl').length; I.flipStop();
+  /* run 2: random 0.2 makes Ann (the host) the caller; Ann doesn't call; then the coin (heads) */
+  Math.random = () => 0.2; I.flipStart(true); I.flipOpp({ cam: false }); await wait(200); const G = C.FLIP.F;
+  res.hostCalls = [G.caller, $('flcall').hidden]; $('ftails').click(); await until(() => G.step === 'pick', 2000);
+  res.bobWins = [G.call, G.coin, G.winner, $('flp').textContent];
+  I.flipOpp({ cam: false, pick: { n: G.n, v: 'bat' } }); await wait(200); res.bobPicks = [G.step, G.pick, $('flp').textContent];
+  I.flipStop(); Math.random = rand; N.ch = null; N.role = null; Object.assign(C.FLIPT, keep);
+  const ok = res.before[0] === 'wait' && res.selfie[0] === 'wait' && /Bob to finish a selfie/.test(res.selfie[1]) && res.call[0] === 'call' && res.call[1] === 'cpu' && /Bob is calling/.test(res.call[2]) && res.call[3]
+    && res.auto[0] === 'T' && res.auto[1] && /TAILS was called for Bob/.test(res.auto[2]) && res.pick[0] === 'cpu' && res.pick[2]
+    && res.noPick[0] === 'pitch' && res.noPick[1] && /Bob is the home team. You bat first/.test(res.noPick[2]) && res.sent >= 4
+    && res.hostCalls[0] === 'you' && !res.hostCalls[1] && res.bobWins[2] === 'cpu' && res.bobPicks[0] === 'go' && res.bobPicks[1] === 'bat' && /You pitch first/.test(res.bobPicks[2]);
+  return { ok, res }; }""",
+
 'run on contact (version 1.29): every runner runs on contact at any number of outs': r"""() => { const res = {};
   for (const [name, bases, outs] of [['2 outs, runner on 2nd', [2], 2], ['2 outs, runners on 2nd and 3rd', [2, 3], 2], ['2 outs, runners on 1st and 3rd', [1, 3], 2], ['1 out, runner on 2nd', [2], 1], ['0 outs, runners on 2nd and 3rd', [2, 3], 0]]) {
     let S = null, got = false;

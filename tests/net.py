@@ -71,8 +71,26 @@ def main():
         A.locator('#reqs button', has_text='DENY').click(timeout=5000)
         B.locator('#hstat', has_text='said no').wait_for(timeout=5000)
         B.locator('#games button', has_text='ASK TO JOIN').click(timeout=5000)
+        # coin flip (version 1.30): Bob opens the selfie camera after asking; Ann accepts and her phone waits for him to finish.
+        # Ann's dice are fixed at 0.7: Bob is the caller and the coin lands tails. Bob calls TAILS, wins, and picks BAT FIRST.
+        B.locator('#self2').click()
+        ann.evaluate('() => { window.__rand = Math.random; Math.random = () => 0.7; }')
         A.locator('#reqs button', has_text='ACCEPT').click(timeout=5000)
+        flip = {}
+        try: A.locator('#flp', has_text='finish a selfie').wait_for(timeout=8000); flip['ann_waits'] = A.locator('#flp').inner_text()
+        except Exception: problems.append('coin flip: Ann did not wait for Bob\'s selfie')
+        pg.wait_for_timeout(1000); flip['step_while_selfie'] = ann.evaluate('() => window.__ccb.FLIP.F.step')
+        B.locator('#camback').click()
+        try:
+            A.locator('#flp', has_text='calling it').wait_for(timeout=5000); flip['ann_sees'] = A.locator('#flp').inner_text()
+            B.locator('#ftails').click(timeout=5000)
+            B.locator('#fbat').click(timeout=8000); flip['ann_told'] = A.locator('#flp', has_text='chose').inner_text(timeout=5000)
+        except Exception as e: problems.append(f'coin flip: {str(e)[:200]}')
+        ann.evaluate('() => { Math.random = window.__rand; }')
         for f in (ann, bob): f.wait_for_function('() => window.__ccb.NET.live', timeout=8000)
+        flip['vis'] = [f.evaluate('() => window.__ccb.S.vis') for f in (ann, bob)]
+        flip['coin_sound'] = [f.evaluate('() => window.__ccb.sfxCount.coin || 0') for f in (ann, bob)]
+        if flip.get('step_while_selfie') != 'wait' or flip['vis'] != ['cpu', 'cpu'] or flip['coin_sound'] != [1, 1]: problems.append(f'coin flip: {flip}')
         faces = None
         try:
             bob.wait_for_function('() => !!window.__ccb.NET.oppFace', timeout=6000); ann.wait_for_function('() => window.__ccb.NET.faceAcked', timeout=6000)
@@ -134,9 +152,14 @@ def main():
         B.locator('#again').click(); A.locator('#rdec').click(timeout=5000)
         try: B.locator('#frm', has_text='said no').wait_for(timeout=5000); rm['declined'] = B.locator('#frm').inner_text()
         except Exception: problems.append('Bob was not told Ann said no')
-        # Ann changes her mind: she can still ask, and Bob accepts (a third game, so the rest of the test has a live game)
-        A.locator('#again').click(); B.locator('#racc').click(timeout=5000)
+        # Ann changes her mind: she can still ask, and Bob accepts (a third game, so the rest of the test has a live game).
+        # The asker picks (version 1.30): Ann changes it from switched to the same sides as the last game, and that is what they play.
+        v2 = ann.evaluate('() => window.__ccb.S.vis'); rm['default_switched'] = A.locator('#rbf').get_attribute('aria-pressed') == ('true' if v2 == 'cpu' else 'false')
+        A.locator('#rbf' if v2 == 'you' else '#rpf').click()
+        A.locator('#again').click(); B.locator('#racc').click(timeout=5000); rm['bob_told'] = B.locator('#frm').inner_text()
         for f in (ann, bob): f.wait_for_function('() => window.__ccb.S && !window.__ccb.S.over && window.__ccb.NET.gn === 2', timeout=5000)
+        rm['asker_kept'] = [v2] + [f.evaluate('() => window.__ccb.S.vis') for f in (ann, bob)]
+        if not rm['default_switched'] or rm['asker_kept'][1:] != [v2, v2]: problems.append(f"rematch asker's choice: {rm}")
         # Bob's connection drops for 6 s (everything he sends or receives is lost): Ann gets the choices and waits; when Bob is back, lost moves are resent and play picks up
         bob.evaluate('() => { window.__mockDrop = true; }')
         try: A.locator('#netwait').wait_for(state='visible', timeout=8000); shown = A.locator('#nwh').inner_text()
@@ -187,13 +210,14 @@ def main():
     print(f'time limit: {gone!r}; picked up when Bob came back: {back_after}')
     print(f'quit: Ann told {told!r}; after FINISH VS CPU: {cpu}')
     print(f'rematch: {rm}')
+    print(f'coin flip: {flip}')
     print(f'selfies (Ann has one, Bob none): {faces}')
     print(f'clock sync (ticks Ann ahead of Bob): {sync}; game over first on Ann: {over}')
     print('lag readout (Ann):', (lag or '').replace(chr(10), ' | '))
     print(f'host button right after opening the lobby: {early_host}')
     for x in problems + errs[:5]: print('   ', x)
     ok = not problems and not errs
-    print('PASS' if ok else 'FAIL', '- online 2-player: lobby, deny, accept, play, agree, selfies, lag readout, clock sync, game over first on one phone, rematch (accept, swap, agree, decline), dropout and reconnect, wait time limit, quit, finish vs CPU')
+    print('PASS' if ok else 'FAIL', '- online 2-player: lobby, deny, accept, coin flip (waits for a selfie, the guest calls and picks), play, agree, selfies, lag readout, clock sync, game over first on one phone, rematch (accept, swap, agree, decline, the asker picks), dropout and reconnect, wait time limit, quit, finish vs CPU')
     sys.exit(0 if ok else 1)
 
 

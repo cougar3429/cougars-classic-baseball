@@ -48,6 +48,18 @@ body.day { background: #4f9e44; }
 .trow { display: flex; gap: 14px; align-items: center; }
 .nrow { display: flex; gap: 8px; align-items: stretch; }
 .nrow #pname { flex: 1; min-width: 0; }
+/* coin flip (user, Nov 1, version 1.30) */
+#flip h1 { font-size: 30px; }
+#flip p { margin: 0; min-height: 22px; font-size: 16px; }
+.coinbox { width: 96px; height: 96px; perspective: 400px; }
+.coin { position: relative; width: 96px; height: 96px; transform-style: preserve-3d; }
+.coin .cf { position: absolute; inset: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  background: radial-gradient(circle at 35% 30%, #fff3b0, #f2c230 45%, #b8860b); border: 4px solid #8a6408; box-shadow: inset 0 0 0 4px rgba(255,255,255,0.35); color: #5a3f00; font: 400 17px var(--font-display); }
+.coin .ct { transform: rotateX(180deg); }
+.coin .cf b { display: block; font-size: 28px; line-height: 1; }
+#flcd { font: 700 14px var(--font-body); color: var(--gold); min-height: 18px; }
+#flip .frow[hidden], #rmside[hidden] { display: none; }
+#cam { z-index: 3; } /* above the coin flip and the Starting screen while a selfie is being taken (version 1.30) */
 #cam { flex-direction: row; gap: 24px; background: #0b1a12; } /* opaque: the screen it opened from stays underneath */
 .camview { position: relative; width: 300px; height: 300px; border-radius: 16px; overflow: hidden; border: 3px solid var(--ink); background: #0b1510; flex: none; box-shadow: 0 4px 0 var(--ink); }
 .camview video, .camview canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -253,7 +265,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.29</small>
+    <small id="ver">Version 1.30</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -268,13 +280,13 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       <div class="seg" role="group" aria-label="Day or night"><button type="button" id="gday" aria-pressed="true">DAY</button><button type="button" id="gnight" aria-pressed="false">NIGHT</button></div>
     </div>
     <div class="row" id="bfrow"><label>You</label>
-      <div class="seg" role="group" aria-label="Bat or pitch first"><button type="button" id="bf" aria-pressed="true">BAT FIRST</button><button type="button" id="pf" aria-pressed="false">PITCH FIRST</button></div>
+      <div class="seg" role="group" aria-label="Bat or pitch first"><button type="button" id="bf" aria-pressed="true">BAT FIRST</button><button type="button" id="pf" aria-pressed="false">PITCH FIRST</button><button type="button" id="cf" aria-pressed="false">COIN FLIP</button></div>
     </div>
     <div class="row"><label>Murmur</label>
       <div class="seg" role="group" aria-label="Crowd murmur"><button type="button" id="mon" aria-pressed="true">ON</button><button type="button" id="moff" aria-pressed="false">OFF</button></div>
     </div>
     <div class="row"><label for="svol">Volume</label><input type="range" id="svol" min="0" max="100" step="5"><span class="volv" id="svolv">100%</span></div>
-    <p id="setnote">Mercy: the game ends when a team leads by this many runs. The coin flip comes later.</p>
+    <p id="setnote">Mercy: the game ends when a team leads by this many runs.</p>
     <button class="big-btn" id="go" type="button">PLAY BALL</button>
   </section>
 
@@ -294,7 +306,17 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.29</small>
+    <small class="lver" id="lver">Version 1.30</small>
+  </section>
+
+  <section class="screen" id="flip" hidden>
+    <button class="lback" id="flback" type="button">CANCEL</button>
+    <h1 id="flh">Coin Flip</h1>
+    <div class="coinbox"><div class="coin" id="coin"><div class="cf ch"><span><b>H</b>HEADS</span></div><div class="cf ct"><span><b>T</b>TAILS</span></div></div></div>
+    <p id="flp"></p>
+    <div class="frow" id="flcall" hidden><button class="big-btn" id="fheads" type="button">HEADS</button><button class="big-btn" id="ftails" type="button">TAILS</button></div>
+    <div class="frow" id="flpick" hidden><button class="big-btn" id="fbat" type="button">BAT FIRST</button><button class="big-btn" id="fpitch" type="button">PITCH FIRST</button></div>
+    <div id="flcd"></div>
   </section>
 
   <section class="screen" id="cam" hidden>
@@ -334,6 +356,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     <h1 id="fh">Final</h1>
     <p id="fsub" hidden></p>
     <table><thead><tr><th></th><th>R</th><th>H</th><th>HR</th><th>K</th><th>BB</th></tr></thead><tbody id="fb"></tbody></table>
+    <div class="seg" id="rmside" role="group" aria-label="Rematch: bat or pitch first" hidden><button type="button" id="rbf" aria-pressed="false">BAT FIRST</button><button type="button" id="rpf" aria-pressed="true">PITCH FIRST</button></div>
     <p id="frm" class="lstat" hidden></p>
     <div class="frow"><button class="big-btn" id="again" type="button">PLAY AGAIN</button><button class="big-btn" id="racc" type="button" hidden>ACCEPT</button><button class="big-btn alt" id="rdec" type="button" hidden>DECLINE</button><button class="big-btn alt" id="fmenu" type="button">MAIN MENU</button></div>
   </section>
@@ -794,6 +817,13 @@ var SFX = {
     var g2 = gain(); env(g2, t + 0.08, 0.16, 0.04, 0.12, 0.11); var o = osc('sine', 850, t + 0.08, t + dur, g2); o.frequency.exponentialRampToValueAtTime(450, t + dur); /* starts much lower than version 96's 1600 Hz, so no high whistle up front (user, Oct 24, version 98) */
   },
   /* a run scores (user, Oct 25, version 1.12): option C "Ta-da" from the sound board, played 1.5x faster at the same pitch */
+  /* the coin flip (user, Nov 1, version 1.30): a thumb flick's ting, a shimmer while it spins, a clink when it lands (1.6 s) */
+  coin: function (t) {
+    var ting = function (t0, peak, len) { [2093, 3136, 4699, 6272].forEach(function (f, i) { var g = gain(); env(g, t0, peak / (i + 1), 0.002, 0.01, len / (1 + i * 0.4)); osc('sine', f * (1 + (Math.random() - 0.5) * 0.004), t0, t0 + len + 0.05, g); }); };
+    crack(t, 3000, 0.02, 0.25); ting(t, 0.16, 0.7);
+    for (var k = 1; k <= 9; k++) ting(t + k * 0.13, 0.035 * (1 - k / 12), 0.12);
+    crack(t + 1.6, 1800, 0.03, 0.35); ting(t + 1.6, 0.09, 0.35); ting(t + 1.72, 0.04, 0.2);
+  },
   tada: function (t) { brass(392.0, t, 0.067, 0.26); brass(523.25, t + 0.107, 0.3, 0.3); },
   fanfare: function (t) { brass(587.33, t, 0.14); brass(369.99, t + 0.28, 0.11); brass(392.0, t + 0.405, 1.0); },
   safe: function (t) { /* option A, slowed a little (user, Oct 23): S, then AY, then F, in the OUT bark's voice */
@@ -2352,6 +2382,8 @@ function showFinal() {
   var rows = [[tag(ME), ME], [tag(op), op]].map(function (r) { var st = S.stats[r[1]]; return '<tr><th>' + r[0] + '</th><td>' + S.score[r[1]] + '</td><td>' + st.h + '</td><td>' + st.hr + '</td><td>' + st.k + '</td><td>' + st.bb + '</td></tr>'; });
   $('fb').innerHTML = rows.join('');
   var online = !!(NET.ch && NET.live); NET.rmAsked = false; NET.rmFrom = false;
+  /* 2-player rematch (user, Nov 1, version 1.30): switched by default; whoever asks can change it, and his choice goes with the request */
+  NET.rmBat = online && other(S.vis) === ME; $('rmside').hidden = !online; $('rbf').disabled = $('rpf').disabled = false; rmSide(NET.rmBat, true);
   $('again').textContent = 'REMATCH'; /* 1-player too (user, Nov 1, version 1.16) */ $('again').hidden = false; $('again').disabled = false; $('racc').hidden = true; $('rdec').hidden = true; rmSay('');
   $('final').hidden = false;
   /* end of game (user, Nov 1, version 1.18): the home crowd cheers a home win and boos a visitor win, on both phones; the winner's phone keeps the fanfare */
@@ -2551,7 +2583,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.29'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.30'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
@@ -2691,7 +2723,7 @@ function startOnline(role, g, oppName, oppId) {
   lobbyClose(true); /* stay in the lobby channel a moment so the answer gets through before this listing disappears */
   NET.role = role; NET.oppName = oppName; NET.oppId = oppId; NET.g = g; NET.heard = false; NET.started = false;
   $('netmsg').hidden = false; $('nmh').textContent = 'Starting'; $('nmp').textContent = 'Connecting to ' + oppName + '…'; $('nmok').textContent = 'CANCEL';
-  NET.early = []; NET.rejoins = 0; NET.gn = 0; NET.oppFace = null; NET.faceAcked = false; NET.faceTries = 0; clearTimeout(NET.faceT);
+  NET.early = []; NET.rejoins = 0; NET.gn = 0; flipStop(); NET.oppFace = null; NET.faceAcked = false; NET.faceTries = 0; clearTimeout(NET.faceT);
   joinGame();
 }
 /* the game's own channel; if Supabase cuts it (an error, a timeout, too many messages), it is joined again after a short pause (version 86) */
@@ -2715,9 +2747,11 @@ function joinGame() {
     .on('broadcast', { event: 'fend' }, function (m) { if (m.payload && (m.payload.k === 'yeah' || m.payload.k === 'boo')) endYell(m.payload.k, 'opp'); })
     .on('broadcast', { event: 'bye' }, function () { if (S && S.over) rmGone(oppName + ' left.'); else if (NET.live) showWait('quit'); else oppGone(oppName + ' left the game.'); })
     .on('presence', { event: 'leave' }, function (m) { if (m.key !== NET.oppId) return; if (S && S.over) rmGone(oppName + ' lost the connection.'); else if (NET.live) showWait('lost'); else oppGone(oppName + ' lost the connection.'); })
-    .on('broadcast', { event: 'rm' }, function () { rmAsk(); })
+    .on('broadcast', { event: 'fl' }, function (m) { flipRecv(m.payload); })
+    .on('broadcast', { event: 'fs' }, function (m) { flipOpp(m.payload); })
+    .on('broadcast', { event: 'rm' }, function (m) { rmAsk(m.payload); })
     .on('broadcast', { event: 'rmok' }, function (m) { rmStart(m.payload); })
-    .on('broadcast', { event: 'rmno' }, function () { rmSay(oppName + ' said no to a rematch.'); NET.rmAsked = false; $('again').hidden = true; })
+    .on('broadcast', { event: 'rmno' }, function () { rmSay(oppName + ' said no to a rematch.'); NET.rmAsked = false; $('again').hidden = true; $('rmside').hidden = true; })
     .on('system', {}, function (m) { if (m && m.status === 'error') lost(); })
     .subscribe(function (status) {
       if (status === 'SUBSCRIBED') { ch.track({ name: NET.name }); if (!NET.started) greet(); else NET.rejoins = 0; }
@@ -2728,7 +2762,7 @@ function joinGame() {
 function greet() {
   if (!NET.ch || NET.started) return;
   NET.ch.send({ type: 'broadcast', event: 'hi', payload: {} });
-  if (NET.heard) { NET.started = true; setTimeout(beginOnline, 120); NET.ch.send({ type: 'broadcast', event: 'hi', payload: {} }); return; }
+  if (NET.heard) { NET.started = true; NET.ch.send({ type: 'broadcast', event: 'hi', payload: {} }); flipStart(true); return; }
   setTimeout(greet, 250);
 }
 function beginOnline() {
@@ -2778,12 +2812,12 @@ $('ncpu').addEventListener('click', function () {
 $('nquit').addEventListener('click', function () { sfx('click'); NET.leave(true); toMenu(); });
 function oppGone(msg) {
   if (!NET.ch && !NET.live) return;
-  var over = S && S.over; NET.leave(false);
+  var over = S && S.over; NET.leave(false); flipStop();
   if (over) return;
   $('quit').hidden = true; $('netmsg').hidden = false; $('nmh').textContent = 'Opponent Left'; $('nmp').textContent = msg; $('nmok').textContent = 'BACK TO MENU';
 }
 function calmPortraits() { ['pl', 'pr'].forEach(function (id) { $(id).classList.remove('big', 'hrc'); }); $('sml').hidden = $('smr').hidden = true; }
-function toMenu() { calmPortraits(); S = null; murmur(false); $('menu').hidden = true; $('hint').textContent = ''; $('toast').classList.remove('on'); $('sb').classList.remove('hide'); $('final').hidden = true; $('title').hidden = false; }
+function toMenu() { flipStop(); calmPortraits(); S = null; murmur(false); $('menu').hidden = true; $('hint').textContent = ''; $('toast').classList.remove('on'); $('sb').classList.remove('hide'); $('final').hidden = true; $('title').hidden = false; }
 $('nmok').addEventListener('click', function () { sfx('click'); if (NET.ch || NET.live) NET.leave(true); $('netmsg').hidden = true; toMenu(); });
 $('host').addEventListener('click', function () {
   if (!NET.lobby || !NET.lobbyReady) return;
@@ -2915,7 +2949,7 @@ $('self1').addEventListener('click', function () { audio(); sfx('click'); goFull
 $('self2').addEventListener('click', function () { sfx('click'); camOpen('lobby'); });
 $('start').addEventListener('click', function () {
   audio(); sfx('click'); var two = $('p2').getAttribute('aria-pressed') === 'true';
-  $('bfrow').hidden = two; $('go').textContent = two ? 'LOBBY' : 'PLAY BALL'; $('setnote').textContent = two ? 'Mercy: the game ends when a team leads by this many runs. When you host, your innings and mercy rule are used.' : 'Mercy: the game ends when a team leads by this many runs. The coin flip comes later.';
+  $('bfrow').hidden = two; $('cf').hidden = false; setSide(true, false); $('go').textContent = two ? 'LOBBY' : 'PLAY BALL'; $('setnote').textContent = two ? 'Mercy: the game ends when a team leads by this many runs. When you host, your innings and mercy rule are used.' : 'Mercy: the game ends when a team leads by this many runs.';
   goFull(); wantFull = true;
   $('title').hidden = true; $('setup').hidden = false;
 });
@@ -2935,22 +2969,156 @@ $('gnight').addEventListener('click', function () { opts.night = true; pressGrou
 function setMurmur(on) { opts.murmur = on; pressGroup('mon', 'moff', on); try { localStorage.setItem('ccb-murmur', on ? 'on' : 'off'); } catch (e) { } sfx('click'); }
 $('mon').addEventListener('click', function () { setMurmur(true); });
 $('moff').addEventListener('click', function () { setMurmur(false); });
-$('bf').addEventListener('click', function () { opts.batFirst = true; pressGroup('bf', 'pf', true); sfx('click'); });
-$('pf').addEventListener('click', function () { opts.batFirst = false; pressGroup('bf', 'pf', false); sfx('click'); });
+/* BAT FIRST, PITCH FIRST or COIN FLIP (user, Nov 1, version 1.30) */
+function setSide(bat, flip) { opts.batFirst = bat; opts.flip = !!flip; $('bf').setAttribute('aria-pressed', String(!flip && bat)); $('pf').setAttribute('aria-pressed', String(!flip && !bat)); $('cf').setAttribute('aria-pressed', String(!!flip)); }
+$('bf').addEventListener('click', function () { setSide(true, false); sfx('click'); });
+$('pf').addEventListener('click', function () { setSide(false, false); sfx('click'); });
+$('cf').addEventListener('click', function () { setSide(opts.batFirst, true); sfx('click'); });
 $('go').addEventListener('click', function () { $('go').blur(); $('setup').hidden = true;
   if ($('p2').getAttribute('aria-pressed') === 'true') { lobbyOpen(); return; }
-  NET.g = null; NET.oppFace = null; audio(); if (opts.murmur) murmur(true); $('menu').hidden = false; newGame(); hint(); });
+  NET.g = null; NET.oppFace = null; audio();
+  if (opts.flip && !$('cf').hidden) { flipStart(false); return; }
+  play1(); });
+function play1(vis) { if (opts.murmur) murmur(true); $('menu').hidden = false; newGame(vis ? { vis: vis } : undefined); hint(); }
+
+/* ============ coin flip (user, Nov 1, version 1.30) ============
+   1-player: chosen on Game Setup (BAT FIRST is the default; no coin flip on a rematch). You call it; the coin spins; the winner picks.
+   If the computer wins it picks at random. 2-player: before every first game. The host runs it and sends each step to the other phone;
+   a random player calls it, and if he doesn't call within 5 s it is called at random for him. The host waits while either
+   player is still taking a selfie. In both: if the winner doesn't pick within 5 s, he is the home team (PITCH FIRST).
+   Coin results use Math.random, not the game's dice: the game hasn't started. Teams: 'you' is the host (or the 1-player player), 'cpu' the other. */
+var FLIPT = { wait: 5000, spin: 1600, show: 1200, go: 1800, cpu: 1300 };
+var FLIP = { on: false, net: false, F: null, t0: 0, iv: null, seen: 0, oppCam: null, myCall: null, myPick: null, goT: null, sendUntil: 0 };
+function flipMe() { return FLIP.net && NET.role !== 'host' ? 'cpu' : 'you'; }
+function flipName(team) { return team === flipMe() ? 'You' : FLIP.net ? (NET.oppName || 'Your opponent') : 'The computer'; }
+function flipStop() { FLIP.on = false; clearInterval(FLIP.iv); FLIP.iv = null; clearTimeout(FLIP.goT); FLIP.F = null; $('flip').hidden = true; }
+function flipStart(net) {
+  flipStop(); FLIP.on = true; FLIP.net = net; FLIP.oppCam = net ? null : false; FLIP.myCall = FLIP.myPick = null; FLIP.sendUntil = 0; FLIP.seen = -1;
+  $('netmsg').hidden = true; $('flip').hidden = false; $('flback').hidden = false; $('coin').style.transform = '';
+  if (!net || NET.role === 'host') { FLIP.F = { n: 0, step: 'wait' }; FLIP.t0 = performance.now(); flipRun(); }
+  else { FLIP.F = null; flipShow(); }
+  FLIP.iv = setInterval(flipRun, 100);
+}
+function flipSet(k) { var F = FLIP.F; for (var x in k) F[x] = k[x]; F.n++; FLIP.t0 = performance.now(); flipSend(); flipShow(); }
+function flipSend() { if (FLIP.net && NET.role === 'host' && NET.ch && FLIP.F) NET.ch.send({ type: 'broadcast', event: 'fl', payload: FLIP.F }); }
+/* the host (or the 1-player game) moves the flip along; the other phone only reports its camera, call and pick */
+function flipRun() {
+  if (!FLIP.on) return;
+  var now = performance.now(), el = now - FLIP.t0, F = FLIP.F, me = flipMe();
+  if (FLIP.net && NET.role !== 'host') { if (NET.ch && now - (FLIP.lastFs || 0) >= 300) { FLIP.lastFs = now; NET.ch.send({ type: 'broadcast', event: 'fs', payload: { cam: !$('cam').hidden, call: FLIP.myCall, pick: FLIP.myPick } }); } flipCount(); return; }
+  if (FLIP.net && (now < FLIP.sendUntil || F.step !== 'started') && Math.floor(now / 300) !== Math.floor((now - 100) / 300)) flipSend(); /* sent again every 300 ms in case one is lost */
+  if (F.step === 'wait') {
+    if ($('cam').hidden && FLIP.oppCam === false) flipSet({ step: 'call', caller: FLIP.net ? (Math.random() < 0.5 ? 'you' : 'cpu') : 'you' });
+    else flipShow();
+  } else if (F.step === 'call') {
+    if (F.call) flipSet({ step: 'spin', coin: Math.random() < 0.5 ? 'H' : 'T' });
+    else if (FLIP.net && el > FLIPT.wait) flipSet({ step: 'spin', call: Math.random() < 0.5 ? 'H' : 'T', auto: true, coin: Math.random() < 0.5 ? 'H' : 'T' });
+  } else if (F.step === 'spin') {
+    if (el > FLIPT.spin + FLIPT.show) {
+      var win = F.call === F.coin ? F.caller : other(F.caller);
+      if (!FLIP.net && win === 'cpu') flipSet({ step: 'go', winner: win, pick: Math.random() < 0.5 ? 'bat' : 'pitch' });
+      else flipSet({ step: 'pick', winner: win });
+    }
+  } else if (F.step === 'pick') {
+    if (F.pick) flipSet({ step: 'go' });
+    else if (el > FLIPT.wait) flipSet({ step: 'go', pick: 'pitch', auto2: true }); /* no pick in 5 s: the winner is the home team (user, Nov 1) */
+  } else if (F.step === 'go') {
+    if (el > FLIPT.go + (F.winner !== me && !FLIP.net ? FLIPT.cpu : 0)) flipBegin();
+  }
+  flipCount();
+}
+function flipCount() {
+  var F = FLIP.F, el = performance.now() - FLIP.t0, t = '';
+  if (F && ((FLIP.net && F.step === 'call' && !F.call) || (F.step === 'pick' && !F.pick))) t = Math.max(0, Math.ceil((FLIPT.wait - el) / 1000)) + '';
+  if ($('flcd').textContent !== t) $('flcd').textContent = t;
+}
+function flipVis(F) { return F.pick === 'bat' ? F.winner : other(F.winner); }
+function flipBegin() {
+  var F = FLIP.F, vis = flipVis(F); clearInterval(FLIP.iv); FLIP.iv = null;
+  if (!FLIP.net) { flipStop(); play1(vis); return; }
+  NET.g.vis = vis; FLIP.on = NET.role === 'host'; $('flip').hidden = true;
+  if (NET.role === 'host') { F.step = 'started'; F.vis = vis; F.n++; FLIP.sendUntil = performance.now() + 3000; FLIP.iv = setInterval(function () { if (performance.now() > FLIP.sendUntil || !NET.ch) { flipStop(); return; } flipSend(); }, 300); }
+  else FLIP.F = null;
+  beginOnline();
+}
+/* the other phone: the host's latest step */
+function flipRecv(F) {
+  if (!FLIP.on || !FLIP.net || NET.role === 'host' || !F || typeof F.n !== 'number') return;
+  if (FLIP.F && F.n <= FLIP.F.n) return;
+  var prev = FLIP.F; FLIP.F = F; FLIP.t0 = performance.now();
+  if (F.step === 'started') { if (!NET.live) { FLIP.F = { n: F.n, step: 'go', winner: F.winner, pick: F.pick }; flipBegin(); } return; }
+  if (F.step === 'go') { clearTimeout(FLIP.goT); FLIP.goT = setTimeout(function () { if (FLIP.on && FLIP.F && FLIP.F.step === 'go') flipBegin(); }, FLIPT.go); }
+  if (!prev || prev.step !== F.step) flipShow(); else flipCount();
+}
+/* the host: what the other phone reports */
+function flipOpp(p) {
+  if (!FLIP.on || !FLIP.net || NET.role !== 'host' || !p) return;
+  FLIP.oppCam = !!p.cam; var F = FLIP.F;
+  if (F.step === 'call' && F.caller === 'cpu' && !F.call && p.call && p.call.n === F.n && (p.call.v === 'H' || p.call.v === 'T')) { F.call = p.call.v; }
+  if (F.step === 'pick' && F.winner === 'cpu' && !F.pick && p.pick && p.pick.n === F.n && (p.pick.v === 'bat' || p.pick.v === 'pitch')) { F.pick = p.pick.v; }
+}
+function flipCall(v) {
+  var F = FLIP.F; if (!FLIP.on || !F || F.step !== 'call' || F.caller !== flipMe() || F.call) return;
+  sfx('click'); $('flcall').hidden = true;
+  if (FLIP.net && NET.role !== 'host') { FLIP.myCall = { n: F.n, v: v }; $('flp').textContent = 'You called ' + (v === 'H' ? 'HEADS' : 'TAILS') + '.'; flipRun(); return; }
+  F.call = v; flipRun();
+}
+function flipPick(v) {
+  var F = FLIP.F; if (!FLIP.on || !F || F.step !== 'pick' || F.winner !== flipMe() || F.pick) return;
+  sfx('click'); $('flpick').hidden = true;
+  if (FLIP.net && NET.role !== 'host') { FLIP.myPick = { n: F.n, v: v }; $('flp').textContent = 'You chose to ' + (v === 'bat' ? 'BAT FIRST' : 'PITCH FIRST') + '.'; flipRun(); return; }
+  F.pick = v; flipRun();
+}
+function coinSpin(face) {
+  var c = $('coin'), end = 'rotateX(' + (1800 + (face === 'T' ? 180 : 0)) + 'deg)'; sfx('coin');
+  if (c.animate) c.animate([{ transform: 'translateY(0) rotateX(0deg)' }, { transform: 'translateY(-70px) rotateX(900deg)', offset: 0.45 }, { transform: 'translateY(0) ' + end }], { duration: FLIPT.spin, easing: 'cubic-bezier(.3,.6,.4,1)' });
+  c.style.transform = end;
+}
+function flipShow() {
+  var F = FLIP.F, me = flipMe(), p = '', h = 'Coin Flip', call = false, pick = false;
+  if (!F) p = 'Getting ready…';
+  else if (F.step === 'wait') p = !$('cam').hidden ? 'Finish your selfie…' : FLIP.oppCam ? 'Waiting for ' + flipName(other(me)) + ' to finish a selfie…' : 'Getting ready…';
+  else if (F.step === 'call') {
+    $('coin').style.transform = '';
+    if (F.caller === me) { if (!(FLIP.myCall && FLIP.myCall.n === F.n)) { p = 'Call it!'; call = true; } }
+    else p = flipName(F.caller) + ' is calling it…';
+  } else if (F.step === 'spin') {
+    var who = flipName(F.caller), cw = F.call === 'H' ? 'HEADS' : 'TAILS';
+    p = (F.auto ? 'Time\'s up. ' + cw + ' was called for ' + (F.caller === me ? 'you' : who) : (F.caller === me ? 'You called ' : who + ' called ') + cw) + '…';
+    coinSpin(F.coin);
+    clearTimeout(FLIP.goT); FLIP.goT = setTimeout(function () { if (FLIP.on && FLIP.F === F && F.step === 'spin') { var w = F.call === F.coin ? F.caller : other(F.caller); $('flh').textContent = F.coin === 'H' ? 'Heads!' : 'Tails!'; $('flp').textContent = (w === me ? 'You win' : flipName(w) + ' wins') + ' the toss!'; } }, FLIPT.spin + 80);
+  } else if (F.step === 'pick') {
+    h = F.coin === 'H' ? 'Heads!' : 'Tails!'; $('coin').style.transform = 'rotateX(' + (F.coin === 'T' ? 180 : 0) + 'deg)';
+    if (F.winner === me) { if (!(FLIP.myPick && FLIP.myPick.n === F.n)) { p = 'You win the toss! Bat first or pitch first?'; pick = true; } }
+    else p = flipName(F.winner) + ' won the toss and is choosing…';
+  } else if (F.step === 'go') {
+    h = F.coin === 'H' ? 'Heads!' : 'Tails!'; $('coin').style.transform = 'rotateX(' + (F.coin === 'T' ? 180 : 0) + 'deg)';
+    var vis = flipVis(F), wn = flipName(F.winner);
+    p = (F.auto2 ? 'Time\'s up. ' + (F.winner === me ? 'You are' : wn + ' is') + ' the home team. ' : F.winner === me ? '' : (F.winner === 'cpu' && !FLIP.net ? 'The computer wins the toss and chooses to ' : wn + ' chose to ') + (F.pick === 'bat' ? 'BAT FIRST. ' : 'PITCH FIRST. ')) + (vis === me ? 'You bat first.' : 'You pitch first.');
+  }
+  $('flh').textContent = h; $('flp').textContent = p; $('flcall').hidden = !call; $('flpick').hidden = !pick; flipCount();
+}
+$('fheads').addEventListener('click', function () { flipCall('H'); });
+$('ftails').addEventListener('click', function () { flipCall('T'); });
+$('fbat').addEventListener('click', function () { flipPick('bat'); });
+$('fpitch').addEventListener('click', function () { flipPick('pitch'); });
+$('flback').addEventListener('click', function () { sfx('click'); var net = FLIP.net; flipStop(); if (net) { NET.leave(true); toMenu(); } else $('setup').hidden = false; });
 /* rematch (user, Oct 24, version 91): either player asks, the other must accept; home and away swap; same innings and mercy */
 function rmSay(t) { $('frm').textContent = t; $('frm').hidden = !t; }
-function rmGone(t) { if (!$('final').hidden) { rmSay(t); $('again').hidden = true; $('racc').hidden = true; $('rdec').hidden = true; } NET.leave(false); }
-function rmAsk() {
+function rmGone(t) { if (!$('final').hidden) { rmSay(t); $('again').hidden = true; $('rmside').hidden = true; $('racc').hidden = true; $('rdec').hidden = true; } NET.leave(false); }
+function rmSide(bat, quiet) { NET.rmBat = bat; pressGroup('rbf', 'rpf', bat); if (!quiet) sfx('click'); }
+$('rbf').addEventListener('click', function () { rmSide(true); });
+$('rpf').addEventListener('click', function () { rmSide(false); });
+function rmAsk(q) {
   if (!S || !S.over || !NET.ch) return;
-  if (NET.rmAsked) { if (NET.role === 'host') rmAccept(); return; } /* both asked at once: the host starts it */
-  NET.rmFrom = true; rmSay((NET.oppName || 'Your opponent') + ' wants a rematch.'); $('again').hidden = true; $('racc').hidden = false; $('rdec').hidden = false; sfx('click');
+  if (NET.rmAsked) { if (NET.role === 'host') rmAccept(); return; } /* both asked at once: the host starts it, with his own choice */
+  NET.rmFrom = true; NET.rmOppBat = !!(q && q.bat); $('rmside').hidden = true;
+  rmSay((NET.oppName || 'Your opponent') + ' wants a rematch. ' + (NET.rmOppBat ? 'You pitch first.' : 'You bat first.')); $('again').hidden = true; $('racc').hidden = false; $('rdec').hidden = false; sfx('click');
 }
 function rmAccept() {
   if (!NET.ch) return;
-  var p = { seed: (Math.random() * 2147483647) | 0, vis: other(NET.g.vis), gn: NET.gn + 1 };
+  var meT = NET.role === 'host' ? 'you' : 'cpu', vis = NET.rmFrom ? (NET.rmOppBat ? other(meT) : meT) : (NET.rmBat ? meT : other(meT));
+  var p = { seed: (Math.random() * 2147483647) | 0, vis: vis, gn: NET.gn + 1 };
   NET.ch.send({ type: 'broadcast', event: 'rmok', payload: p }); rmStart(p);
 }
 function rmStart(p) {
@@ -2959,13 +3127,13 @@ function rmStart(p) {
   $('final').hidden = true; $('toast').classList.remove('on'); $('sb').classList.remove('hide'); beginOnline();
 }
 $('racc').addEventListener('click', function () { sfx('click'); rmAccept(); });
-$('rdec').addEventListener('click', function () { sfx('click'); if (NET.ch) NET.ch.send({ type: 'broadcast', event: 'rmno', payload: {} }); NET.rmFrom = false; $('racc').hidden = true; $('rdec').hidden = true; rmSay(''); $('again').hidden = false; $('again').disabled = false; }); /* he can still ask for one himself */
+$('rdec').addEventListener('click', function () { sfx('click'); if (NET.ch) NET.ch.send({ type: 'broadcast', event: 'rmno', payload: {} }); NET.rmFrom = false; $('rmside').hidden = false; $('racc').hidden = true; $('rdec').hidden = true; rmSay(''); $('again').hidden = false; $('again').disabled = false; }); /* he can still ask for one himself */
 $('fmenu').addEventListener('click', function () { sfx('click'); if (NET.ch || NET.live) NET.leave(true); toMenu(); });
 $('again').addEventListener('click', function () {
-  if (NET.ch && NET.live) { if (NET.rmAsked) return; NET.rmAsked = true; $('again').disabled = true; rmSay('Asked ' + (NET.oppName || 'your opponent') + ' for a rematch…'); NET.ch.send({ type: 'broadcast', event: 'rm', payload: {} }); sfx('click'); return; }
+  if (NET.ch && NET.live) { if (NET.rmAsked) return; NET.rmAsked = true; $('again').disabled = true; $('rbf').disabled = $('rpf').disabled = true; rmSay('Asked ' + (NET.oppName || 'your opponent') + ' for a rematch. You ' + (NET.rmBat ? 'bat' : 'pitch') + ' first.'); NET.ch.send({ type: 'broadcast', event: 'rm', payload: { bat: NET.rmBat } }); sfx('click'); return; }
   if (NET.ch || NET.live) { NET.leave(true); toMenu(); return; }
   /* 1-player rematch (user, Nov 1, version 1.16): back to Game Setup with home and away switched from the last game; the player can change it there */
-  if (S) { opts.batFirst = S.vis !== 'you'; pressGroup('bf', 'pf', opts.batFirst); }
+  if (S) setSide(S.vis !== 'you', false); $('cf').hidden = true; /* no coin flip on a rematch (user, Nov 1, version 1.30) */
   calmPortraits(); $('final').hidden = true; S = null; $('menu').hidden = true; $('setup').hidden = false; $('hint').textContent = ''; });
 $('menu').addEventListener('click', function () { if (!S || S.over) return; if (!NET.live) S.paused = true; $('quit').hidden = false; sfx('click'); });
 $('qno').addEventListener('click', function () { $('quit').hidden = true; if (S) S.paused = false; $('menu').blur(); sfx('click'); });
@@ -2998,6 +3166,6 @@ layout(); setTheme('day'); pressGroup('mon', 'moff', opts.murmur); $('mv').textC
 $('fl').innerHTML = coachSVG('red', 'neutral'); $('fr').innerHTML = coachSVG('blue', 'neutral'); selfThumbs();
 $('hint').textContent = '';
 requestAnimationFrame(frame);
-window.__ccb = { get S() { return S; }, get SWV() { return SWV; }, get ZIP() { return ZIP; }, tick: function (IN) { tick(IN); }, newGame: function (o) { var g = {}; if (o) for (var k in o) { if (k === 'seed' || k === 'ai' || k === 'me' || k === 'vis') g[k] = o[k]; else opts[k] = o[k]; } newGame(g); }, save: save, load: load, syncView: syncView, RB: RB, packIn: packIn, view: function () { swingLabel(); hrView(); }, endTap: endTap, get sfxCount() { return SFX_COUNT; }, clips: function () { audio(); return Object.keys(CLIPBUF).map(function (k) { return [k, Math.round(CLIPBUF[k].duration * 100) / 100]; }); }, NET: NET, get selfie() { return mySelfie; }, setSelfie: function (o) { mySelfie = o && validSelfie(o) ? cleanSelfie(o) : null; selfThumbs(); }, checkFace: checkFace, quiet: function (q) { QUIET = !!q; }, get ME() { return ME; }, newRunner: function (a) { return newRunner(a, null); }, human: human };
+window.__ccb = { get S() { return S; }, FLIPT: FLIPT, get FLIP() { return FLIP; }, get SWV() { return SWV; }, get ZIP() { return ZIP; }, tick: function (IN) { tick(IN); }, newGame: function (o) { var g = {}; if (o) for (var k in o) { if (k === 'seed' || k === 'ai' || k === 'me' || k === 'vis') g[k] = o[k]; else opts[k] = o[k]; } newGame(g); }, save: save, load: load, syncView: syncView, RB: RB, packIn: packIn, view: function () { swingLabel(); hrView(); }, endTap: endTap, get sfxCount() { return SFX_COUNT; }, clips: function () { audio(); return Object.keys(CLIPBUF).map(function (k) { return [k, Math.round(CLIPBUF[k].duration * 100) / 100]; }); }, NET: NET, get selfie() { return mySelfie; }, setSelfie: function (o) { mySelfie = o && validSelfie(o) ? cleanSelfie(o) : null; selfThumbs(); }, checkFace: checkFace, quiet: function (q) { QUIET = !!q; }, get ME() { return ME; }, newRunner: function (a) { return newRunner(a, null); }, human: human };
 })();
 </script>
