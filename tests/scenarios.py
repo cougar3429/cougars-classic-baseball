@@ -9,6 +9,11 @@ import json, sys
 from common import page
 
 CHECKS = {
+'lead runner priority (version 1.19): runner going 2nd to 3rd, batter going to 1st; up + button sends only the lead runner back to 2nd': r"""() => { T.start(true); const S = T.C.S; T.put([2]); const a = S.runners[0]; a.lead = false; a.to = 3; a.p = 0.3; T.I.snapRunners();
+  S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(-40, 120); S.bb.v = 0.5; T.I.batterToFirst(false); const b = S.batR; b.p = 0.3; b.forced = false; a.forced = false;
+  T.press('u'); const res = { lead: [a.at, a.to], batter: [b.at, b.to, b.next] };
+  return { ok: a.to === 2 && b.to === 1 && !b.next, res }; }""",
+
 'after the game (version 1.18): home win cheers, visitor win boos; winner fanfare; final-screen taps: winner Yeah, loser Boo': r"""() => { const res = [], el = id => document.getElementById(id);
   for (const [youBatFirst, youWin] of [[true, true], [true, false], [false, true], [false, false]]) {
     T.start(youBatFirst); const S = T.C.S; const c0 = Object.assign({}, window.__ccb.sfxCount);
