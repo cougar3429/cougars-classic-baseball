@@ -11,10 +11,14 @@ from common import page
 CHECKS = {
 'two outs (version 1.27): every runner runs on contact; with fewer outs an unforced runner goes back': r"""() => { const res = {};
   for (const [name, bases, outs] of [['2 outs, runner on 2nd', [2], 2], ['2 outs, runners on 2nd and 3rd', [2, 3], 2], ['2 outs, runners on 1st and 3rd', [1, 3], 2], ['1 out, runner on 2nd', [2], 1]]) {
-    T.start(true); const S = T.C.S; S.cpuP = { slide: 0, delay: 99999, type: 'fast', sign: 1, target: 0, pick: 0 }; T.until(() => S.phase === 'ready', 600);
-    T.put(bases); S.outs = outs; T.I.takeLeads(); T.run(30); S.cpuP = null; /* runners take their leads; now the computer pitches */
-    T.until(() => S.phase === 'pitch' && S.ball.fy <= 6, 900); T.press(null); T.until(() => (S.sw && S.sw.hit) || S.phase !== 'pitch', 40);
-    if (!S.sw || !S.sw.hit || (S.bb && S.bb.foul)) { res[name] = 'no fair contact'; continue; }
+    let S = null, got = false;
+    for (let tries = 0; tries < 30 && !got; tries++) { /* retry until a pitch is put in play (some swings miss or go foul) */
+      T.start(true); S = T.C.S; S.seed = 4000 + tries * 13; S.cpuP = { slide: 0, delay: 99999, type: 'fast', sign: 1, target: 0, pick: 0 }; T.until(() => S.phase === 'ready', 600);
+      T.put(bases); S.outs = outs; T.I.takeLeads(); T.run(30); S.cpuP = null; /* runners take their leads; now the computer pitches */
+      T.until(() => S.phase === 'pitch' && S.ball.fy <= 6, 900); T.press(null); T.until(() => (S.sw && S.sw.hit) || S.phase !== 'pitch', 40);
+      got = !!(S.sw && S.sw.hit && S.bb && !S.bb.foul);
+    }
+    if (!got) { res[name] = 'no fair contact'; continue; }
     res[name] = S.runners.filter(r => !r.bat && !r.out).map(r => (r.to > r.at ? 'runs ' : r.to == null ? 'stays ' : 'back ') + r.at + '>' + r.to).join(', ');
   }
   const runs = k => res[k] && !/back|stays/.test(res[k]) && res[k] !== 'no fair contact';
