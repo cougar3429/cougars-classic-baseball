@@ -9,6 +9,14 @@ import json, sys
 from common import page
 
 CHECKS = {
+'throw speeds (version 1.24): center fielder to second 15% slower; his other throws and other outfielders to second unchanged': r"""() => {
+  const time = (id, base) => { T.start(true); const S = T.C.S; T.hit(0, 1); const p = S.F[id]; S.bb.x = p.x; S.bb.y = p.y; T.I.giveBall(id); S.gatherT = 0;
+    S.thr = null; const tx = base === 2 ? 0 : 60.2, ty = base === 2 ? 127.3 : 63.6; ['1B', '2B'].forEach(f => { S.F[f].x = 200; S.F[f].y = 200; });
+    S.queued = null; S.animStart = null; S.quick = true; T.I.giveBall(id); S.gatherT = 0; S.windT = 1; S.queued = base; let n = 0;
+    for (; n < 400; n++) { T.C.tick(); if (S.thr && S.thr.sp) return +(S.thr.sp).toFixed(3); } return null; };
+  const cf2 = time('CF', 2), cf1 = time('CF', 1), lf2 = time('LF', 2);
+  return { ok: Math.abs(cf2 - 1.02) < 0.01 && Math.abs(cf1 - 0.96) < 0.01 && Math.abs(lf2 - 1.2) < 0.01, cf2, cf1, lf2 }; }""",
+
 'uncaught third strike (version 1.23): swing-and-miss strike three past the catcher, the batter may run if first is empty or there are two outs': r"""() => { const res = {};
   for (const [name, bases, outs, want] of [['bases empty, 0 outs', [], 0, 'runs'], ['runner on first, 1 out', [1], 1, 'out'], ['runner on first, 2 outs', [1], 2, 'runs'], ['runner on second, 0 outs', [2], 0, 'runs']]) {
     T.start(false); const S = T.C.S; T.until(() => S.phase === 'ready', 600); if (bases.length) { T.put(bases); S.runners.forEach(r => { r.lead = false; r.to = null; }); }
