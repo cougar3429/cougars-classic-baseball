@@ -155,7 +155,8 @@ body.day { background: #4f9e44; }
 #lagbox { position: absolute; right: 12px; top: 202px; padding: 4px 8px; /* below the menu, above the button (version 1.15) */ border-radius: 8px; background: rgba(22,32,43,0.82); color: #e8f1ea; font: 600 10px/1.3 ui-monospace, Menlo, Consolas, monospace; white-space: pre; pointer-events: none; z-index: 4; }
 #lagbox[hidden] { display: none; }
 #ver, .lver { cursor: pointer; }
-#ver, .lver { position: absolute; right: 14px; bottom: 10px; font: 700 13px var(--font-body); letter-spacing: 0.08em; color: #cfdccf; }
+#gver { pointer-events: none; } #gver[hidden] { display: none; } /* the version during play, same place and look as the title screen (user, Nov 1, version 1.26); display only */
+#ver, .lver, #gver { position: absolute; right: 14px; bottom: 10px; font: 700 13px var(--font-body); letter-spacing: 0.08em; color: #cfdccf; }
 #setup { gap: 9px; }
 #netwait .big-btn { font-size: 16px; padding: 8px 16px; min-height: 44px; }
 #netwait .big-btn:disabled { opacity: 0.55; cursor: default; }
@@ -228,6 +229,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
   <div id="hint">Hold a direction, then tap the button to pitch</div>
   <div id="swl" hidden></div>
   <div id="spd" hidden></div>
+  <small id="gver" hidden></small>
   <div id="lagbox" hidden></div>
 
   <div id="dpad" aria-label="Direction pad">
@@ -251,7 +253,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.25</small>
+    <small id="ver">Version 1.26</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -292,7 +294,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.25</small>
+    <small class="lver" id="lver">Version 1.26</small>
   </section>
 
   <section class="screen" id="cam" hidden>
@@ -2517,7 +2519,7 @@ var LAG = {
   pong: function (t) { var r = performance.now() - t; if (r >= 0 && r < 60000) { this.rtt = r; if (r > this.rttWorst) this.rttWorst = r; } }
 };
 LAG.on = true; try { LAG.on = localStorage.getItem('ccb-lag') !== 'off'; } catch (e) { } /* on by default; tapping the version number turns it off and on (user, Oct 25, version 1.10) */
-function lagLabels() { ['ver', 'lver'].forEach(function (id) { $(id).textContent = 'Version ' + PROTO + (LAG.on ? ' · LAG ON' : ''); }); if (!LAG.on) $('lagbox').hidden = true; }
+function lagLabels() { ['ver', 'lver', 'gver'].forEach(function (id) { $(id).textContent = 'Version ' + PROTO + (LAG.on ? ' · LAG ON' : ''); }); if (!LAG.on) $('lagbox').hidden = true; }
 function frame(now) {
   if (!last) last = now; var fdt = now - last; acc += Math.min(250, now - last); last = now; LAG.frame(now, fdt);
   if (NET.live && S && !S.over) {
@@ -2529,7 +2531,7 @@ function frame(now) {
     acc = 0; RB.fix(); if (!S.over) { $('final').hidden = true; $('menu').hidden = false; if (opts.murmur) murmur(true); }
     NET.flush(now);
   } else if (S && !S.over && !S.paused) { while (acc >= TICK) { tick(); acc -= TICK; } } else acc = 0;
-  var fin = !$('final').hidden; btnEl.classList.toggle('fin', fin);
+  var fin = !$('final').hidden; btnEl.classList.toggle('fin', fin); $('gver').hidden = !S || S.over;
   if (fin && S && S.over && human.btn) { human.btn = false; endTap(); } /* a tap on the final screen */
   awake(!!S && !S.over);
   render();
@@ -2542,7 +2544,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.25'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.26'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
