@@ -9,6 +9,32 @@ import json, sys
 from common import page
 
 CHECKS = {
+'foul line (version 1.14): a grounder rolling along the line past first or third is fair; one clearly off it is foul': r"""() => { const res = [];
+  for (const side of [1, -1]) for (const [d, want] of [[0, 'fair'], [2.5, 'fair'], [4.5, 'fair'], [7, 'foul']]) {
+    T.start(false); const S = T.C.S; S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.sw = null;
+    S.bb = { bunt: false, x: side * (20 + d), y: 20, ux: side * 0.70711, uy: 0.70711, v: 1.4, ev: 1.4, dist: 0, h: 0, hPeak: 0, foul: false, wall: false, t: 40, gone: false, touched: false };
+    T.I.batterToFirst(false); ['1B', '3B', 'P', 'C', 'RF', 'LF', '2B', 'CF'].forEach(id => { S.F[id].x = 0; S.F[id].y = 200; });
+    let got = 'fair'; for (let k = 0; k < 120; k++) { T.C.tick(); if (S.bb && S.bb.foul) { got = 'foul'; break; } if (S.bb && S.bb.fairLocked) break; }
+    res.push([side > 0 ? 'first' : 'third', d, want, got]);
+  } return { ok: res.every(x => x[2] === x[3]), res }; }""",
+
+'bases loaded bunt (version 1.14): the catcher covers home and never chases; the computer gets the force at home': r"""() => { const bad = []; let cpuHomeOuts = 0, n = 0;
+  for (const youBat of [true, false]) for (const ang of [-30, 0, 30]) for (const ev of [0.4, 0.7]) {
+    T.start(youBat); const S = T.C.S; T.until(() => S.phase === 'ready', 600); T.put([1, 2, 3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); T.I.snapRunners();
+    T.hit(ang, ev); S.bb.bunt = true; n++; let homeOut = false;
+    for (let k = 0; k < 400 && S.phase === 'batted'; k++) { if (S.cpuChase === 'C' && S.runners.some(r => !r.out && !r.scored && r.forced && r.fb === 4)) { bad.push([youBat, ang, ev, 'catcher chased']); break; }
+      const r3 = S.runners.find(r => r.fb === 4); if (r3 && r3.out) homeOut = true; T.C.tick(); }
+    if (youBat && homeOut) cpuHomeOuts++;
+  }
+  return { ok: !bad.length && cpuHomeOuts === 6, cases: n, cpuHomeOuts, bad }; }""",
+
+'contact swing speed (version 1.14): 1.80 to 2.81 off the bat; power unchanged': r"""() => { let cmin = 9, cmax = 0, pmin = 9, pmax = 0, n = 0;
+  for (let i = 0; i < 160; i++) { T.start(true); const S = T.C.S; S.seed = 7000 + i; S.cpuP = null; const power = i % 2 === 1;
+    T.until(() => S.phase === 'pitch' && S.ball.fy <= 20 - (i % 20), 900); if (S.phase !== 'pitch') continue; T.press(power ? 'u' : null);
+    for (let k = 0; k < 40 && !S.bb; k++) T.C.tick(); if (!S.bb || S.bb.foul) continue; n++; const e = S.bb.ev;
+    if (power) { pmin = Math.min(pmin, e); pmax = Math.max(pmax, e); } else { cmin = Math.min(cmin, e); cmax = Math.max(cmax, e); } }
+  return { ok: cmin >= 1.8 && cmax <= 2.81 && pmin < 1.4 && pmax > 3, n, contact: [cmin.toFixed(2), cmax.toFixed(2)], power: [pmin.toFixed(2), pmax.toFixed(2)] }; }""",
+
 'pickoff cover (version 1.13): the quickest pickoff to any base is caught on the bag, runner on that base or not, from anywhere on the rubber': r"""() => {
   const BAG = { 1: [60.2, 63.6], 2: [0, 127.3], 3: [-60.2, 63.6] }, ID = { 1: '1B', 2: '2B', 3: '3B' }, DIR = { 1: 'r', 2: 'u', 3: 'l' }, bad = []; let n = 0;
   for (const base of [1, 2, 3]) for (const bases of [[], [1], [2], [3], [1, 2, 3]]) for (const off of [-6, 0, 6]) {
@@ -128,7 +154,7 @@ CHECKS = {
   T.press(null); T.press('u'); T.press('l'); T.press('r'); const stillBunt = !!(S.sw && S.sw.type === 'bunt');
   T.press('d'); T.run(3); const out = !S.sw; T.press('d'); const back = !!(S.sw && S.sw.type === 'bunt');
   return { ok: inBunt && movedUp && aimL && xSame && stillBunt && out && back, inBunt, movedUp, aimLeft: aimL, sidewaysDidNotMove: xSame, otherPressesIgnored: stillBunt, downButtonLeft: out, downButtonSquaresAgain: back }; }''',
-'bunt fielded fully in foul ground is foul': r"""() => { T.start(true); const S = T.C.S; S.runners = []; const a = 50 * Math.PI / 180;
+'bunt fielded fully in foul ground is foul (65 degrees; version 1.14 calls a ball still on the line fair)': r"""() => { T.start(true); const S = T.C.S; S.runners = []; const a = 65 * Math.PI / 180;
   S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.abOver = true; S.batterGone = true; S.playT = 0;
   S.bb = { bunt: true, x: 0, y: 1, ux: -Math.sin(a), uy: Math.cos(a), v: 0.45, ev: 0.45, dist: 0, h: 0, hPeak: 0, foul: false, wall: false, t: 0, gone: false };
   T.I.batterToFirst(false); for (let i = 0; i < 400 && S.phase === 'batted'; i++) T.C.tick(); return { ok: T.toast().startsWith('FOUL'), call: T.toast() }; }""",
