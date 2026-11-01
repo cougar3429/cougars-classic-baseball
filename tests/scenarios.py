@@ -172,9 +172,9 @@ CHECKS = {
   }
   return { ok: res.every(r => r.label === 'REMATCH' && r.picked === (r.firstBat ? 'pitch first' : 'bat first') && r.nowVis === (r.firstBat ? 'cpu' : 'you')), res }; }""",
 
-'cheer and boo taps (version 1.17): after a run or an out, while the call shows; good for home: cheer; good for visitors: home boos, visitor "Yeah!"; the last thing decides': r"""() => { const res = {};
+'cheer and boo taps (versions 1.17, 1.33): after a run or an out, while the call shows; good for home: home cheers, visitor a single "Boo!" (never the crowd); good for visitors: home boos, visitor "Yeah!"; the last thing decides': r"""() => { const res = {};
   /* the table: you are the visitor (bat first) or home (pitch first); the last thing was good for one team */
-  for (const [youBatFirst, good, want] of [[true, 'cpu', 'cheer'], [true, 'you', 'yeah'], [false, 'you', 'cheer'], [false, 'cpu', 'boo']]) {
+  for (const [youBatFirst, good, want] of [[true, 'cpu', 'boo1'], [true, 'you', 'yeah'], [false, 'you', 'cheer'], [false, 'cpu', 'boo']]) {
     T.start(youBatFirst); const S = T.C.S; S.phase = 'result'; S.rt = 100; S.goodSide = good; S.hr = null; S.fan = {}; T.press(null);
     res[(youBatFirst ? 'visitor' : 'home') + ', good for ' + (good === S.vis ? 'visitors' : 'home')] = [want, S.fan.you && S.fan.you.k];
   }
@@ -189,7 +189,7 @@ CHECKS = {
   T.start(true); S = T.C.S; S.seed = 11; T.until(() => S.phase === 'ready', 600); S.s = 2; S.cpuP = null; T.until(() => S.outs > 0, 3000); T.until(() => S.phase === 'result', 300);
   T.run(2); T.press(null); const t1 = S.fan.you && S.fan.you.t; T.run(5); T.press(null); const t2 = S.fan.you.t; T.run(35); T.press(null); res.limit = [t1 != null && t2 === t1, S.fan.you.t > t1, S.fan.you.k];
   const table = Object.keys(res).filter(k => k.includes('good for')).every(k => res[k][0] === res[k][1]);
-  return { ok: table && res.lastThing[0] === 'you' && res.lastThing[1] === 'cpu' && res.live === 'none' && res.limit[0] && res.limit[1] && res.limit[2] === 'cheer', res }; }""",
+  return { ok: table && res.lastThing[0] === 'you' && res.lastThing[1] === 'cpu' && res.live === 'none' && res.limit[0] && res.limit[1] && res.limit[2] === 'boo1', res }; }""",
 
 'menu and volume (version 1.15): a tap on either button reaches it, even while both portraits are doubled': r"""() => { T.start(true); const S = T.C.S; document.getElementById('menu').hidden = false; const ttl = document.getElementById('title'), was = ttl.hidden; ttl.hidden = true;
   S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 200); S.bb.wall = false; S.bb.v = 4; T.I.batterToFirst(false); T.I.wallHit(200); T.C.view();
