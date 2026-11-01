@@ -9,6 +9,17 @@ import json, sys
 from common import page
 
 CHECKS = {
+'wild pitch with the bases empty (version 1.22): no chase; the call shows and the next pitch comes by itself; with a runner on it stays live': r"""() => { const res = {};
+  for (const [name, bases, s0, b0] of [['empty, ball', [], 0, 0], ['empty, two strikes', [], 2, 0], ['runner on first', [1], 0, 0], ['empty, ball four', [], 0, 3]]) {
+    T.start(false); const S = T.C.S; T.until(() => S.phase === 'ready', 600); if (bases.length) { T.put(bases); T.I.takeLeads(); } S.s = s0; S.b = b0;
+    T.hold('r'); T.press('r'); T.until(() => S.phase === 'pitch', 200); /* you pitch a curve, then curve it hard toward the first base side */
+    T.until(() => { T.C.human.dir = 'r'; T.C.human.vx = 1; return S.phase !== 'pitch'; }, 600); T.release();
+    const kind = S.live && S.live.kind, phase = S.phase, toast = T.toast(); let back = T.until(() => S.phase === 'ready', 600);
+    res[name] = { phase, live: kind || null, toast, readyAfterTicks: back };
+  }
+  const e = ['empty, ball', 'empty, two strikes'].every(k => res[k].phase === 'result' && res[k].readyAfterTicks >= 0 && /Wild pitch/.test(res[k].toast));
+  return { ok: e && res['runner on first'].live === 'wild' && res['empty, ball four'].live === 'wild', res }; }""",
+
 'lead runner priority (version 1.19): runner going 2nd to 3rd, batter going to 1st; up + button sends only the lead runner back to 2nd': r"""() => { T.start(true); const S = T.C.S; T.put([2]); const a = S.runners[0]; a.lead = false; a.to = 3; a.p = 0.3; T.I.snapRunners();
   S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(-40, 120); S.bb.v = 0.5; T.I.batterToFirst(false); const b = S.batR; b.p = 0.3; b.forced = false; a.forced = false;
   T.press('u'); const res = { lead: [a.at, a.to], batter: [b.at, b.to, b.next] };
