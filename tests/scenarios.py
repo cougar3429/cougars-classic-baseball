@@ -9,6 +9,22 @@ import json, sys
 from common import page
 
 CHECKS = {
+'steal order click (version 1.35): only the batting player\'s phone hears it, never the defense\'s': r"""() => { const C = window.__ccb, res = {};
+  for (const me of ['you', 'cpu']) {
+    C.newGame({ seed: 5, ai: { you: false, cpu: false }, me, vis: 'you' }); const S = C.S; S.paused = true; T.until(() => S.phase === 'ready', 400); T.put([1]); T.I.takeLeads();
+    const n0 = C.sfxCount.click || 0, NOI = { dir: null, btn: false, vx: 0, vy: 0 };
+    C.tick({ you: { dir: 'u', btn: true, vx: 0, vy: 1 }, cpu: NOI }); const r = S.runners.find(x => !x.bat);
+    res[me === 'you' ? 'battingPhone' : 'fieldingPhone'] = { clicks: (C.sfxCount.click || 0) - n0, ordered: r.go };
+  }
+  C.newGame({ seed: 5 }); return { ok: res.battingPhone.clicks === 1 && res.fieldingPhone.clicks === 0 && res.battingPhone.ordered && res.fieldingPhone.ordered, res }; }""",
+'play at the plate first (version 1.35): on a bunt, a runner coming home (not forced) gets a try at the plate whenever there is a play; with none, the throw goes to first': r"""() => { const res = {};
+  const play = (ang, ev, p0) => { T.start(true); const S = T.C.S; S.seed = 9; T.put([3]); T.hit(ang, ev); S.bb.bunt = true; const r = S.runners.find(x => x.at === 3); r.to = 4; r.p = p0;
+    let who = null, first = null; for (let i = 0; i < 400; i++) { T.C.tick(); if (S.holder && !who) who = S.holder; if (who && first == null && (S.thr || S.cpuRunTo === 4 || r.out)) first = S.thr ? 'throw ' + S.thr.base : S.cpuRunTo === 4 ? 'runs to the plate' : 'tag'; if (S.phase === 'result') break; }
+    return { who, first, runner: r.out ? 'out' : r.scored ? 'scored' : 'r' + r.at }; };
+  res.closeCatcher = play(-30, 0.4, 0.25);   /* before version 1.35 he threw to first and the run scored */
+  res.closeCatcher2 = play(-40, 0.35, 0.35);
+  res.noPlay = play(0, 0.5, 0.6);            /* the runner is nearly home: no play there, so first */
+  return { ok: res.closeCatcher.who === 'C' && res.closeCatcher.first !== 'throw 1' && res.closeCatcher2.first !== 'throw 1' && res.noPlay.first === 'throw 1' && res.noPlay.runner === 'scored', res }; }""",
 'bobble chances (version 1.34): over 80% speed 20%; 75-80% 10%; over 50% to 75% 5%; 50% or less never': r"""() => {
   const I = window.__ccbi; let lo = 0, hi = 50; for (let i = 0; i < 80; i++) { const m = (lo + hi) / 2; if (I.bobbleP(m) === 0.2) hi = m; else lo = m; } const max = hi / 0.8; /* the fastest hit, from the 80% line */
   const at = {}; for (const pc of [30, 49.99, 51, 60, 74, 74.9, 75, 78, 79.99, 81, 100]) at[pc] = I.bobbleP(max * pc / 100);
