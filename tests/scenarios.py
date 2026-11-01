@@ -9,6 +9,27 @@ import json, sys
 from common import page
 
 CHECKS = {
+'1-player rematch (version 1.16): REMATCH opens Game Setup with home and away switched; PLAY BALL starts it that way': r"""() => { const el = id => document.getElementById(id), res = [];
+  for (const firstBat of [true, false]) {
+    T.start(firstBat); T.C.S.paused = false; T.I.endGame(); const label = el('again').textContent; el('again').click();
+    const picked = el('pf').getAttribute('aria-pressed') === 'true' ? 'pitch first' : 'bat first'; el('go').click(); const S = T.C.S;
+    res.push({ firstBat, label, picked, nowVis: S.vis }); el('menu').click(); el('qyes').click();
+  }
+  return { ok: res.every(r => r.label === 'REMATCH' && r.picked === (r.firstBat ? 'pitch first' : 'bat first') && r.nowVis === (r.firstBat ? 'cpu' : 'you')), res }; }""",
+
+'cheer and boo taps (version 1.16): after an out, while the call shows, the batter taps to boo and the fielder to cheer, at most every half second; never during live play': r"""() => { const res = {};
+  for (const [youBat, seed] of [[true, 11], [false, 12], [false, 77], [false, 101]]) {
+    T.start(youBat); const S = T.C.S; S.seed = seed; T.until(() => S.phase === 'ready', 600); S.s = 2; S.cpuP = null;
+    T.until(() => { if (!youBat && S.phase === 'ready' && S.pt > 5 && S.outs === 0) { T.hold('d'); T.press('d'); T.release(); } return S.outs > 0; }, 8000); /* you pitch fastballs until an out */
+    const key = (youBat ? 'batting' : 'fielding') + seed; if (!S.outs) { res[key] = { k: 'no out' }; continue; }
+    T.until(() => S.phase === 'result', 300); const how = T.toast(), free = !!S.freePlay; T.run(2); T.press(null); const t1 = S.fan.you && S.fan.you.t, k = S.fan.you && S.fan.you.k;
+    T.run(5); T.press(null); const t2 = S.fan.you && S.fan.you.t; T.run(35); T.press(null); const t3 = S.fan.you && S.fan.you.t;
+    res[key] = { how, free, k, limitHeld: t1 != null && t2 === t1, nextTap: t3 > t1 };
+  }
+  T.start(true); const S = T.C.S; S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 60); S.outSide = 'cpu'; T.press(null); res.live = S.fan.you ? 'tapped' : 'none';
+  const rows = Object.keys(res).filter(x => x !== 'live').map(x => [x, res[x]]);
+  return { ok: rows.every(([x, r]) => r.k === (x.startsWith('batting') ? 'boo' : 'cheer') && r.limitHeld && r.nextTap) && res.live === 'none', res }; }""",
+
 'menu and volume (version 1.15): a tap on either button reaches it, even while both portraits are doubled': r"""() => { T.start(true); const S = T.C.S; document.getElementById('menu').hidden = false; const ttl = document.getElementById('title'), was = ttl.hidden; ttl.hidden = true;
   S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 200); S.bb.wall = false; S.bb.v = 4; T.I.batterToFirst(false); T.I.wallHit(200); T.C.view();
   const hit = (id) => { const b = document.getElementById(id).getBoundingClientRect(), e = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return !!e && document.getElementById(id).contains(e); };
