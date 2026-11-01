@@ -9,6 +9,12 @@ import json, sys
 from common import page
 
 CHECKS = {
+'menu and volume (version 1.15): a tap on either button reaches it, even while both portraits are doubled': r"""() => { T.start(true); const S = T.C.S; document.getElementById('menu').hidden = false; const ttl = document.getElementById('title'), was = ttl.hidden; ttl.hidden = true;
+  S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 200); S.bb.wall = false; S.bb.v = 4; T.I.batterToFirst(false); T.I.wallHit(200); T.C.view();
+  const hit = (id) => { const b = document.getElementById(id).getBoundingClientRect(), e = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return !!e && document.getElementById(id).contains(e); };
+  const big = ['pl', 'pr'].every(id => document.getElementById(id).classList.contains('big'));
+  const res = { ok: big && hit('menu') && hit('mute'), big, menu: hit('menu'), mute: hit('mute') }; ttl.hidden = was; return res; }""",
+
 'foul line (version 1.14): a grounder rolling along the line past first or third is fair; one clearly off it is foul': r"""() => { const res = [];
   for (const side of [1, -1]) for (const [d, want] of [[0, 'fair'], [2.5, 'fair'], [4.5, 'fair'], [7, 'foul']]) {
     T.start(false); const S = T.C.S; S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.sw = null;
