@@ -17,18 +17,24 @@ CHECKS = {
   }
   return { ok: res.every(r => r.label === 'REMATCH' && r.picked === (r.firstBat ? 'pitch first' : 'bat first') && r.nowVis === (r.firstBat ? 'cpu' : 'you')), res }; }""",
 
-'cheer and boo taps (version 1.16): after an out, while the call shows, the batter taps to boo and the fielder to cheer, at most every half second; never during live play': r"""() => { const res = {};
-  for (const [youBat, seed] of [[true, 11], [false, 12], [false, 77], [false, 101]]) {
-    T.start(youBat); const S = T.C.S; S.seed = seed; T.until(() => S.phase === 'ready', 600); S.s = 2; S.cpuP = null;
-    T.until(() => { if (!youBat && S.phase === 'ready' && S.pt > 5 && S.outs === 0) { T.hold('d'); T.press('d'); T.release(); } return S.outs > 0; }, 8000); /* you pitch fastballs until an out */
-    const key = (youBat ? 'batting' : 'fielding') + seed; if (!S.outs) { res[key] = { k: 'no out' }; continue; }
-    T.until(() => S.phase === 'result', 300); const how = T.toast(), free = !!S.freePlay; T.run(2); T.press(null); const t1 = S.fan.you && S.fan.you.t, k = S.fan.you && S.fan.you.k;
-    T.run(5); T.press(null); const t2 = S.fan.you && S.fan.you.t; T.run(35); T.press(null); const t3 = S.fan.you && S.fan.you.t;
-    res[key] = { how, free, k, limitHeld: t1 != null && t2 === t1, nextTap: t3 > t1 };
+'cheer and boo taps (version 1.17): after a run or an out, while the call shows; good for home: cheer; good for visitors: home boos, visitor "Yeah!"; the last thing decides': r"""() => { const res = {};
+  /* the table: you are the visitor (bat first) or home (pitch first); the last thing was good for one team */
+  for (const [youBatFirst, good, want] of [[true, 'cpu', 'cheer'], [true, 'you', 'yeah'], [false, 'you', 'cheer'], [false, 'cpu', 'boo']]) {
+    T.start(youBatFirst); const S = T.C.S; S.phase = 'result'; S.rt = 100; S.goodSide = good; S.hr = null; S.fan = {}; T.press(null);
+    res[(youBatFirst ? 'visitor' : 'home') + ', good for ' + (good === S.vis ? 'visitors' : 'home')] = [want, S.fan.you && S.fan.you.k];
   }
-  T.start(true); const S = T.C.S; S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 60); S.outSide = 'cpu'; T.press(null); res.live = S.fan.you ? 'tapped' : 'none';
-  const rows = Object.keys(res).filter(x => x !== 'live').map(x => [x, res[x]]);
-  return { ok: rows.every(([x, r]) => r.k === (x.startsWith('batting') ? 'boo' : 'cheer') && r.limitHeld && r.nextTap) && res.live === 'none', res }; }""",
+  /* a run crossing makes it good for the batting team; an out after it on the same play flips it (the last thing decides) */
+  T.start(true); let S = T.C.S; T.put([3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); T.I.snapRunners(); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 160); T.I.batterToFirst(false);
+  const r3 = S.runners.find(r => r.at === 3); r3.to = 4; r3.p = 0.95; T.until(() => r3.scored, 60); const afterRun = S.goodSide;
+  T.I.giveBall('1B'); S.F['1B'].x = 60.2; S.F['1B'].y = 63.6; S.ctl = '1B'; T.until(() => S.outs > 0, 30); const afterOut = S.goodSide; /* the first baseman with the ball on the bag forces the batter out */
+  res.lastThing = [afterRun, afterOut];
+  /* never during live play */
+  T.start(true); S = T.C.S; S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 60); S.goodSide = 'cpu'; S.fan = {}; T.press(null); res.live = S.fan.you ? 'tapped' : 'none';
+  /* the half-second limit, after a real strikeout */
+  T.start(true); S = T.C.S; S.seed = 11; T.until(() => S.phase === 'ready', 600); S.s = 2; S.cpuP = null; T.until(() => S.outs > 0, 3000); T.until(() => S.phase === 'result', 300);
+  T.run(2); T.press(null); const t1 = S.fan.you && S.fan.you.t; T.run(5); T.press(null); const t2 = S.fan.you.t; T.run(35); T.press(null); res.limit = [t1 != null && t2 === t1, S.fan.you.t > t1, S.fan.you.k];
+  const table = Object.keys(res).filter(k => k.includes('good for')).every(k => res[k][0] === res[k][1]);
+  return { ok: table && res.lastThing[0] === 'you' && res.lastThing[1] === 'cpu' && res.live === 'none' && res.limit[0] && res.limit[1] && res.limit[2] === 'cheer', res }; }""",
 
 'menu and volume (version 1.15): a tap on either button reaches it, even while both portraits are doubled': r"""() => { T.start(true); const S = T.C.S; document.getElementById('menu').hidden = false; const ttl = document.getElementById('title'), was = ttl.hidden; ttl.hidden = true;
   S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 200); S.bb.wall = false; S.bb.v = 4; T.I.batterToFirst(false); T.I.wallHit(200); T.C.view();
