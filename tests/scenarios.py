@@ -9,8 +9,8 @@ import json, sys
 from common import page
 
 CHECKS = {
-'two outs (version 1.27): every runner runs on contact; with fewer outs an unforced runner goes back': r"""() => { const res = {};
-  for (const [name, bases, outs] of [['2 outs, runner on 2nd', [2], 2], ['2 outs, runners on 2nd and 3rd', [2, 3], 2], ['2 outs, runners on 1st and 3rd', [1, 3], 2], ['1 out, runner on 2nd', [2], 1]]) {
+'run on contact (version 1.29): every runner runs on contact at any number of outs': r"""() => { const res = {};
+  for (const [name, bases, outs] of [['2 outs, runner on 2nd', [2], 2], ['2 outs, runners on 2nd and 3rd', [2, 3], 2], ['2 outs, runners on 1st and 3rd', [1, 3], 2], ['1 out, runner on 2nd', [2], 1], ['0 outs, runners on 2nd and 3rd', [2, 3], 0]]) {
     let S = null, got = false;
     for (let tries = 0; tries < 30 && !got; tries++) { /* retry until a pitch is put in play (some swings miss or go foul) */
       T.start(true); S = T.C.S; S.seed = 4000 + tries * 13; S.cpuP = { slide: 0, delay: 99999, type: 'fast', sign: 1, target: 0, pick: 0 }; T.until(() => S.phase === 'ready', 600);
@@ -22,7 +22,7 @@ CHECKS = {
     res[name] = S.runners.filter(r => !r.bat && !r.out).map(r => (r.to > r.at ? 'runs ' : r.to == null ? 'stays ' : 'back ') + r.at + '>' + r.to).join(', ');
   }
   const runs = k => res[k] && !/back|stays/.test(res[k]) && res[k] !== 'no fair contact';
-  return { ok: runs('2 outs, runner on 2nd') && runs('2 outs, runners on 2nd and 3rd') && runs('2 outs, runners on 1st and 3rd') && /back|^stays/.test(res['1 out, runner on 2nd'] || ''), res }; }""",
+  return { ok: Object.keys(res).every(runs), res }; }""",
 
 'home run chance (version 1.25): no +25 bonus under 55% speed at the fence; +10 near the lines still applies': r"""() => { const res = {};
   for (const [name, frac, x] of [['50% center', 0.50, 0], ['54% center', 0.54, 0], ['55% center', 0.55, 0], ['70% center', 0.70, 0], ['50% near line', 0.50, 150]]) {
