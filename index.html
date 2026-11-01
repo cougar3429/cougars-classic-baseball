@@ -270,7 +270,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.33</small>
+    <small id="ver">Version 1.34</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -313,7 +313,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.33</small>
+    <small class="lver" id="lver">Version 1.34</small>
   </section>
 
   <section class="screen" id="flip" hidden>
@@ -1358,7 +1358,9 @@ var NO_IN = { dir: null, btn: false, vx: 0, vy: 0 };
 function hrCelebrate(side) { S.hr = { side: side, t0: S.t, end: S.t + Math.max(300, S.rt) }; S.faceT = Math.max(S.faceT, S.hr.end - S.t); updatePortraits(); }
 /* bobble (user, Oct 24, version 1.04): a grounder still moving at over 80% of top speed when a fielder (any fielder) gets to it is bobbled 10% of the time:
    it pops loose about 2 feet (version 1.05) and he has to go get it again (he can't touch it for 0.3 s) */
-var BOBBLE_SP = 0.8 * BALLMAX, BOBBLE_P = 0.2; /* 20% (user, Oct 24, version 1.05) */
+/* bobble chance by the ball's speed when the fielder touches it, as a share of the fastest hit: over 80% 20% (user, Oct 24, version 1.05);
+   75-80% 10%, over 50% up to 75% 5% (user, Nov 1, version 1.34); 50% or less never */
+function bobbleP(v) { var f = v / BALLMAX; return f > 0.8 ? 0.2 : f >= 0.75 ? 0.1 : f > 0.5 ? 0.05 : 0; }
 function bobble(id, bb) {
   var a = (rnd() * 2 - 1) * PI * 0.6, c = dcos(a), sn = dsin(a), ux = bb.ux * c - bb.uy * sn, uy = bb.ux * sn + bb.uy * c;
   bb.ux = ux; bb.uy = uy; bb.v = 0.12 + rnd() * 0.03; /* rolls about 2 feet (version 1.05) */ bb.touched = true; S.bob = { id: id, t: S.t + 18 };
@@ -2122,7 +2124,7 @@ function playMotion(dIn, free) {
         if (segDist(px, py, bb.x, bb.y, fp.x, fp.y) < reach) {
           /* touched before passing first or third: foul if it is off the line in foul territory (a ball on the line is fair) */
           if (!free && !bb.fairLocked && !bb.wall && !bb.touched && bb.y < Math.abs(bb.x) - FOUL_D) { bb.foul = true; bb.t = 0; bb.v = 0; foulReturn(); S.holder = null; sfx('glove'); callFoul(); return 'stop'; }
-          if (!free && bb.v > BOBBLE_SP && !(S.bob && S.bob.id === f.id) && rnd() < BOBBLE_P) { bobble(f.id, bb); break; }
+          var bp = bobbleP(bb.v); if (!free && bp && !(S.bob && S.bob.id === f.id) && rnd() < bp) { bobble(f.id, bb); break; }
           giveBall(f.id); break;
         }
       }
@@ -2612,7 +2614,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.33'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.34'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,

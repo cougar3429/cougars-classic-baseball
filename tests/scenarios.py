@@ -9,6 +9,10 @@ import json, sys
 from common import page
 
 CHECKS = {
+'bobble chances (version 1.34): over 80% speed 20%; 75-80% 10%; over 50% to 75% 5%; 50% or less never': r"""() => {
+  const I = window.__ccbi; let lo = 0, hi = 50; for (let i = 0; i < 80; i++) { const m = (lo + hi) / 2; if (I.bobbleP(m) === 0.2) hi = m; else lo = m; } const max = hi / 0.8; /* the fastest hit, from the 80% line */
+  const at = {}; for (const pc of [30, 49.99, 51, 60, 74, 74.9, 75, 78, 79.99, 81, 100]) at[pc] = I.bobbleP(max * pc / 100);
+  return { ok: at[30] === 0 && at[49.99] === 0 && at[51] === 0.05 && at[60] === 0.05 && at[74] === 0.05 && at[74.9] === 0.05 && at[75] === 0.1 && at[78] === 0.1 && at[79.99] === 0.1 && at[81] === 0.2 && at[100] === 0.2, at }; }""",
 'moving the controls (version 1.32): MOVE on Game Setup, drag the D pad and the button, saved on the phone, RESET puts them back; dragging does not steer or swing': r"""() => {
   const $ = id => document.getElementById(id), st = () => $('stage').getBoundingClientRect(), k = () => st().width / 844;
   const at = el => { const r = el.getBoundingClientRect(), s = st(); return [Math.round((r.left - s.left) / k()), Math.round((r.top - s.top) / k())]; };
@@ -264,7 +268,7 @@ CHECKS = {
   T.run(2); T.press(null); const y1 = S.yell && S.yell.t; T.run(5); T.press(null); const y2 = S.yell && S.yell.t; T.run(35); T.press(null); const y3 = S.yell && S.yell.t;
   return { ok: !!y1 && y2 === y1 && y3 > y1 && S.yell.k >= 0 && S.yell.k <= 2 && S.hr.end - S.hr.t0 >= 300, y1, y2, y3, k: S.yell.k, len: S.hr.end - S.hr.t0 }; }""",
 
-'bobble (version 1.05): about 20% of grounders still over 80% speed at the fielder pop loose about 2 feet, with no call; slower ones never': r"""() => {
+'bobble (versions 1.05, 1.34): about 20% of grounders still over 80% speed at the fielder pop loose about 2 feet, with no call; slower ones 10% or less': r"""() => {
   let hard = 0, bob = 0, soft = 0, softBob = 0, minRoll = 99, maxRoll = 0, called = false;
   for (let i = 0; i < 400; i++) {
     T.start(false); const S = T.C.S; S.seed = 1000 + i; const fast = i % 2 === 0; T.hit(0, fast ? 4 : 2.2);
@@ -273,7 +277,7 @@ CHECKS = {
       const d = Math.hypot(S.bb.x - x0, S.bb.y - y0); minRoll = Math.min(minRoll, d); maxRoll = Math.max(maxRoll, d); }
     if (fast) { hard++; if (S.bob) bob++; } else { soft++; if (S.bob) softBob++; }
   }
-  const rate = bob / hard; return { ok: rate > 0.13 && rate < 0.28 && softBob === 0 && maxRoll < 3.2 && minRoll > 1.2 && !called, hard, bob, rate: rate.toFixed(3), soft, softBob, roll: [minRoll.toFixed(2), maxRoll.toFixed(2)], called }; }""",
+  const rate = bob / hard; return { ok: rate > 0.13 && rate < 0.28 && softBob / soft <= 0.1 && maxRoll < 3.2 && minRoll > 1.2 && !called, hard, bob, rate: rate.toFixed(3), soft, softBob, roll: [minRoll.toFixed(2), maxRoll.toFixed(2)], called }; }""",
 
 'portraits (version 1.03): an out makes the batting team mad with smoke and the fielders happy for 5 s; a run reaction is not cut short': r"""() => { T.start(true); const S = T.C.S, el = id => document.getElementById(id);
   T.until(() => S.phase === 'ready', 600); S.b = 0; S.s = 2; S.cpuP = null;
