@@ -9,6 +9,16 @@ import json, sys
 from common import page
 
 CHECKS = {
+'move controls from the in-game menu (version 1.38): MOVE CONTROLS on the Quit screen, drag, DONE goes back to it; the game stays paused (1-player)': r"""() => {
+  const $ = id => document.getElementById(id), k = () => $('stage').getBoundingClientRect().width / 844;
+  const fire = (el, type, x, y) => el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 9, clientX: x, clientY: y, isPrimary: true }));
+  localStorage.removeItem('ccb-ctl'); $('ctlreset').click(); T.start(true); const S = T.C.S; S.paused = false;
+  $('menu').hidden = false; $('menu').click(); const paused = S.paused, quitShown = !$('quit').hidden;
+  $('qmove').click(); const editing = !$('ctledit').hidden && $('quit').hidden;
+  const b = $('btn').getBoundingClientRect(), x = b.left + b.width / 2, y = b.top + b.height / 2; fire($('btn'), 'pointerdown', x, y); fire(document, 'pointermove', x - 50 * k(), y); fire(document, 'pointerup', x - 50 * k(), y);
+  const moved = JSON.parse(localStorage.getItem('ccb-ctl') || '{}'); $('ctldone').click(); const back = !$('quit').hidden && $('ctledit').hidden && $('setup').hidden;
+  const stillPaused = S.paused; $('qno').click(); $('ctlreset').click(); $('menu').hidden = true;
+  return { ok: paused && quitShown && editing && moved.btn && moved.btn[0] === 680 && back && stillPaused, paused, quitShown, editing, moved, back, stillPaused }; }""",
 'computer pickoff timing (version 1.37): he steps off at his pitch moment, not right away, so a steal can be called first; the runner then goes': r"""() => {
   T.start(true); const S = T.C.S; T.until(() => S.phase === 'ready', 600); T.put([1]); S.runners.forEach(r => { r.lead = false; r.to = null; }); T.I.takeLeads();
   S.cpuP = { slide: 0, delay: 60, type: 'fast', sign: 1, target: 0, pick: 1 }; S.pt = 0;

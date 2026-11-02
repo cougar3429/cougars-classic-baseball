@@ -270,7 +270,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.37</small>
+    <small id="ver">Version 1.38</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -313,7 +313,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.37</small>
+    <small class="lver" id="lver">Version 1.38</small>
   </section>
 
   <section class="screen" id="flip" hidden>
@@ -357,6 +357,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     <h1>Quit This Game?</h1>
     <p>The score will be lost. The game is paused while you decide.</p>
     <div class="row"><button class="big-btn" id="qyes" type="button">QUIT TO MENU</button><button class="big-btn" id="qno" type="button" style="background:#2f6fe0">KEEP PLAYING</button></div>
+    <button class="big-btn alt" id="qmove" type="button">MOVE CONTROLS</button>
   </section>
 
   <section class="screen" id="final" hidden>
@@ -963,12 +964,14 @@ window.addEventListener('keyup', function (e) {
 });
 /* moving the controls (user, Nov 1, version 1.32): MOVE on Game Setup lets you drag the D pad and the button anywhere on the game area;
    saved on this phone (top-left corner in game-area pixels); RESET puts them back */
-var CTL = { edit: false, drag: null };
+var CTL = { edit: false, drag: null, from: 'setup' }; /* from: the screen MOVE was opened from (Game Setup, or the in-game menu's Quit screen, version 1.38) */
 function ctlPlace(el, p) { if (p) { el.style.left = p[0] + 'px'; el.style.top = p[1] + 'px'; el.style.right = el.style.bottom = 'auto'; } else el.style.left = el.style.top = el.style.right = el.style.bottom = ''; }
 function ctlLoad() { var c = null; try { c = JSON.parse(localStorage.getItem('ccb-ctl') || 'null'); } catch (e) { } c = c || {}; var ok = function (p) { return Array.isArray(p) && p.length === 2 && isFinite(p[0]) && isFinite(p[1]) ? p : null; }; ctlPlace(dpad, ok(c.pad)); ctlPlace(btnEl, ok(c.btn)); }
+/* something else took over the screen while moving the controls (2-player: the game ended or the other player left): keep the spots and stop */
+function ctlEnd() { if (!CTL.edit) return; ctlSave(); CTL.edit = false; CTL.drag = null; $('ctledit').hidden = true; dpad.classList.remove('ctlmv'); btnEl.classList.remove('ctlmv'); }
 function ctlSave() { var pos = function (el) { return el.style.left ? [parseFloat(el.style.left), parseFloat(el.style.top)] : null; }; try { localStorage.setItem('ccb-ctl', JSON.stringify({ pad: pos(dpad), btn: pos(btnEl) })); } catch (e) { } }
 function ctlReset() { try { localStorage.removeItem('ccb-ctl'); } catch (e) { } ctlPlace(dpad, null); ctlPlace(btnEl, null); }
-function ctlEdit(on) { CTL.edit = on; CTL.drag = null; $('ctledit').hidden = !on; $('setup').hidden = on; dpad.classList.toggle('ctlmv', on); btnEl.classList.toggle('ctlmv', on); human.padDir = null; padPointer = null; showPad(); btnEl.classList.remove('on'); }
+function ctlEdit(on, from) { if (on) CTL.from = from || 'setup'; CTL.edit = on; CTL.drag = null; $('ctledit').hidden = !on; $(CTL.from).hidden = on; dpad.classList.toggle('ctlmv', on); btnEl.classList.toggle('ctlmv', on); human.padDir = null; padPointer = null; showPad(); btnEl.classList.remove('on'); }
 document.addEventListener('pointerdown', function (e) {
   if (!CTL.edit) return; var el = e.target.closest && e.target.closest('#dpad, #btn'); if (!el) return;
   e.stopPropagation(); e.preventDefault();
@@ -2419,7 +2422,7 @@ function endGame() {
   S.over = true; S.phase = 'over'; if (QUIET) return; showFinal();
 }
 function showFinal() {
-  murmur(false); hint(); $('menu').hidden = true;
+  ctlEnd(); murmur(false); hint(); $('menu').hidden = true;
   var op = other(ME), mine = S.score[ME], theirs = S.score[op];
   $('fh').textContent = mine > theirs ? 'You Win!' : S.ai[op] ? 'CPU Wins' : 'You Lose';
   $('fsub').textContent = S.mercyEnd ? 'Ended by the mercy rule (' + opts.mercy + '-run lead)' : ''; $('fsub').hidden = !S.mercyEnd;
@@ -2627,7 +2630,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.37'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.38'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
@@ -2837,7 +2840,7 @@ function recvFace(p) {
 function showWait(why) {
   if (!NET.live || (S && S.over)) return;
   if (NET.wait === 'quit') return;
-  NET.wait = why; NET.waitUntil = 0; var n = NET.oppName || 'Your opponent', end = why === 'quit' || why === 'gone';
+  ctlEnd(); NET.wait = why; NET.waitUntil = 0; var n = NET.oppName || 'Your opponent', end = why === 'quit' || why === 'gone';
   $('quit').hidden = true; $('netwait').hidden = false;
   $('nwh').textContent = why === 'quit' ? 'Opponent Quit' : why === 'gone' ? 'Disconnected' : 'Connection Lost';
   $('nwp').textContent = why === 'quit' ? n + ' quit the game. Finish it against the computer, or quit.' : why === 'gone' ? n + " didn't come back. Finish the game against the computer, or quit." : why === 'lost' ? n + ' lost the connection. Wait for them to come back, finish against the computer, or quit.' : 'Waiting for ' + n + '. Their phone may be locked or in another app. Wait for them, finish against the computer, or quit.';
@@ -2858,10 +2861,10 @@ function oppGone(msg) {
   if (!NET.ch && !NET.live) return;
   var over = S && S.over; NET.leave(false); flipStop();
   if (over) return;
-  $('quit').hidden = true; $('netmsg').hidden = false; $('nmh').textContent = 'Opponent Left'; $('nmp').textContent = msg; $('nmok').textContent = 'BACK TO MENU';
+  ctlEnd(); $('quit').hidden = true; $('netmsg').hidden = false; $('nmh').textContent = 'Opponent Left'; $('nmp').textContent = msg; $('nmok').textContent = 'BACK TO MENU';
 }
 function calmPortraits() { ['pl', 'pr'].forEach(function (id) { $(id).classList.remove('big', 'hrc'); }); $('sml').hidden = $('smr').hidden = true; }
-function toMenu() { flipStop(); calmPortraits(); S = null; murmur(false); $('menu').hidden = true; $('hint').textContent = ''; $('toast').classList.remove('on'); $('sb').classList.remove('hide'); $('final').hidden = true; $('title').hidden = false; }
+function toMenu() { ctlEnd(); flipStop(); calmPortraits(); S = null; murmur(false); $('menu').hidden = true; $('hint').textContent = ''; $('toast').classList.remove('on'); $('sb').classList.remove('hide'); $('final').hidden = true; $('title').hidden = false; }
 $('nmok').addEventListener('click', function () { sfx('click'); if (NET.ch || NET.live) NET.leave(true); $('netmsg').hidden = true; toMenu(); });
 $('host').addEventListener('click', function () {
   if (!NET.lobby || !NET.lobbyReady) return;
@@ -3016,7 +3019,8 @@ $('moff').addEventListener('click', function () { setMurmur(false); });
 /* BAT FIRST, PITCH FIRST or COIN FLIP (user, Nov 1, version 1.30) */
 function setSide(bat, flip) { opts.batFirst = bat; opts.flip = !!flip; $('bf').setAttribute('aria-pressed', String(!flip && bat)); $('pf').setAttribute('aria-pressed', String(!flip && !bat)); $('cf').setAttribute('aria-pressed', String(!!flip)); }
 $('bf').addEventListener('click', function () { setSide(true, false); sfx('click'); });
-$('ctlmove').addEventListener('click', function () { sfx('click'); ctlEdit(true); });
+$('ctlmove').addEventListener('click', function () { sfx('click'); ctlEdit(true, 'setup'); });
+$('qmove').addEventListener('click', function () { sfx('click'); ctlEdit(true, 'quit'); }); /* from the in-game menu (user, Nov 2, version 1.38); DONE goes back to it */
 $('ctlreset').addEventListener('click', function () { sfx('click'); ctlReset(); });
 $('ctldone').addEventListener('click', function () { sfx('click'); ctlSave(); ctlEdit(false); });
 $('ctlres2').addEventListener('click', function () { sfx('click'); ctlReset(); });
