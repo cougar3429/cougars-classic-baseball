@@ -270,7 +270,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.43</small>
+    <small id="ver">Version 1.44</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -313,7 +313,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.43</small>
+    <small class="lver" id="lver">Version 1.44</small>
   </section>
 
   <section class="screen" id="flip" hidden>
@@ -584,9 +584,10 @@ function drawFielder(c, x, y, s, col, o) {
   circ(c, hand[0], hand[1], 1.6); F(c, T.skin);
   if (o.ball) { circ(c, hand[0], hand[1] - 1, 1.5); F(c, '#ffffff'); }
   if (o.side) c.restore();
-  circ(c, 0, -32, 4.9); F(c, T.skin);
-  c.beginPath(); c.arc(0, -32.8, 5.1, PI, 0); c.closePath(); F(c, col);
-  c.beginPath(); c.ellipse(0, -32.6, 5.9, 1.3, 0, 0, 7); F(c, col);
+  var hx = o.headX || 0; /* the pitcher shaking off a sign (version 1.44): the head turns side to side, the cap brim a little more */
+  circ(c, hx, -32, 4.9); F(c, T.skin);
+  c.beginPath(); c.arc(hx, -32.8, 5.1, PI, 0); c.closePath(); F(c, col);
+  c.beginPath(); c.ellipse(hx * 1.5, -32.6, 5.9, 1.3, 0, 0, 7); F(c, col);
   c.restore();
 }
 /* a bat shape along angle a from the hands: knob, thin handle, gradual taper, rounded barrel, one outline all the way round (version 82) */
@@ -1007,7 +1008,7 @@ function newGame(g) {
     t: 0, seed: (g.seed != null ? g.seed : (Date.now() & 0x7fffffff)) | 0, ai: g.ai || { you: false, cpu: true }, half: 0, outs: 0, b: 0, s: 0, pOff: 0, bOff: { x: 0, y: 0 },
     score: { you: 0, cpu: 0 }, stats: { you: { h: 0, hr: 0, k: 0, bb: 0 }, cpu: { h: 0, hr: 0, k: 0, bb: 0 } },
     vis: g.vis || (opts.batFirst ? 'you' : 'cpu'), phase: 'ready', pt: 0, wt: 0, wlen: WINDUP_T, rt: 0, ball: null, bb: null, sw: null,
-    cpuP: null, cpuB: null, follow: 0, faces: null, faceT: 0, faceKind: null, hr: null, yell: null, bob: null, goodSide: null, fan: {}, fielded: null, over: false, after: null, F: homePos(), ctl: 'P', holder: null, thr: null, playT: 0,
+    cpuP: null, cpuB: null, follow: 0, shake: -999, faces: null, faceT: 0, faceKind: null, hr: null, yell: null, bob: null, goodSide: null, fan: {}, fielded: null, over: false, after: null, F: homePos(), ctl: 'P', holder: null, thr: null, playT: 0,
     runners: [], live: null, lock: false, pick: false, playRuns: 0, playOuts: 0, batR: null, batterGone: false, abOver: false, stretch: false, cat: null
   };
   startHalf();
@@ -1453,7 +1454,7 @@ function readyStep(bH, pH, pIn, bIn) {
       if (fresh) { doPickoff(DIR_BASE[pIn.dir]); return; }
       if (pIn.btn && !pIn.dir && !anyStealing()) { S.pick = false; S.unpickAt = S.t; sfx('click'); hint(); }
     } else if (pIn.btn && pIn.dir) { startWindup(pIn.dir); return; }
-    else if (pIn.btn) { callPick(); sfx('click'); }
+    else if (pIn.btn) { if (runnersOn()) { callPick(); sfx('click'); } else S.shake = S.t; } /* no runners: no pickoff; he shakes off the sign instead (user, Nov 2, version 1.44) */
     else if (pIn.dir === 'l' || pIn.dir === 'r') S.pOff = Math.max(-6, Math.min(6, S.pOff + (pIn.dir === 'l' ? -0.2 : 0.2)));
   } else {
     var cp = S.cpuP;
@@ -2356,7 +2357,7 @@ function hint() {
   if (!S || S.over) { h.textContent = ''; return; }
   if (S.phase === 'batted' && S.live) { h.textContent = pitSide() === ME ? 'Arrows move · Arrow + button: pick fielder, or throw to that base · Button: throw to pitcher' : 'Arrow + button: send runners to that base, forward or back (also while running)'; return; }
   if (batSide() === ME) h.textContent = runnersOn() ? 'Arrow + tap now: runner steals on the pitch · Tap swing · Up + tap power · Down + tap bunt (once he winds up)' : 'Tap to swing · Down + tap to square around and bunt (once he winds up) · Up + tap for power';
-  else h.textContent = S.pick ? (anyStealing() ? 'Runner going! Press a direction to throw to that base' : 'Off the rubber: press a direction to throw to that base · Button: back on the rubber') : 'Left/right: slide on the rubber · Hold a direction, then tap to pitch · Tap alone: step off for a pickoff';
+  else h.textContent = S.pick ? (anyStealing() ? 'Runner going! Press a direction to throw to that base' : 'Off the rubber: press a direction to throw to that base · Button: back on the rubber') : 'Left/right: slide on the rubber · Hold a direction, then tap to pitch' + (runnersOn() ? ' · Tap alone: step off for a pickoff' : '');
 }
 function updateHUD() {
   if (QUIET) return;
@@ -2551,7 +2552,8 @@ function pitcherPose() {
     var k2 = (w - 0.55) / 0.45; return { hand: [-8 - 6 * k2, -38 + 4 * k2], glove: [8 + 2 * k2, -26 + 6 * k2], lift: 7 * (1 - k2) };
   }
   if (S.follow > 0 && S.phase === 'pitch') { var f = S.follow / 18; return { hand: [-2 + 4 * (1 - f), -8], glove: [9, -20] }; }
-  if (S.phase === 'ready' && S.ball === null) return st ? { side: true, hand: [-0.5, -19.5], glove: [1, -19.5], ball: true } : { hand: [-3, -20], glove: [3, -20], ball: true };
+  var sk = S.t - (S.shake == null ? -999 : S.shake), hx = S.phase === 'ready' && sk >= 0 && sk < 42 ? 2.2 * Math.sin(sk / 42 * 6 * PI) : 0; /* three shakes in 0.7 s */
+  if (S.phase === 'ready' && S.ball === null) return st ? { side: true, hand: [-0.5, -19.5], glove: [1, -19.5], ball: true, headX: hx } : { hand: [-3, -20], glove: [3, -20], ball: true, headX: hx };
   return { ball: S.phase === 'ready' };
 }
 /* catch-up swing (user, Oct 24, version 90): online, the other player's swing can show up on this screen after most of it has
@@ -2649,7 +2651,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.43'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.44'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,

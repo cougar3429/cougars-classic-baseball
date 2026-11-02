@@ -9,6 +9,11 @@ import json, sys
 from common import page
 
 CHECKS = {
+'no pickoff with the bases empty (version 1.44): the pitcher\'s button alone shakes off the sign instead; with a runner on it still steps off': r"""() => { const res = {};
+  T.start(false); let S = T.C.S; T.until(() => S.phase === 'ready', 600); S.runners = []; T.run(5); T.press(null); res.empty = { pick: S.pick, shook: S.t - S.shake < 5, phase: S.phase };
+  T.run(60); res.after = { pick: S.pick, phase: S.phase };
+  T.start(false); S = T.C.S; T.until(() => S.phase === 'ready', 600); T.put([1]); T.I.takeLeads(); T.run(5); T.press(null); res.runner = { pick: S.pick };
+  return { ok: !res.empty.pick && res.empty.shook && res.empty.phase === 'ready' && !res.after.pick && res.runner.pick, res }; }""",
 'outfielder plays the carom (version 1.42): on a ball to the wall in the gap, the computer outfielder runs diagonally toward where it will come off the wall, not straight out to the wall first': r"""() => {
   T.start(false); const S = T.C.S; S.seed = 111; T.hit(12, 2.4); S.ctl = 'P'; let who = null, p0 = null, pw = null;
   for (let i = 0; i < 400 && !S.holder && !(S.bb && S.bb.gone); i++) { T.C.tick(); if (S.cpuChase && !who) { who = S.cpuChase; p0 = [S.F[who].x, S.F[who].y]; } if (S.bb.wall && !pw && who) pw = [S.F[who].x, S.F[who].y]; }
@@ -287,9 +292,9 @@ CHECKS = {
     if (power) { pmin = Math.min(pmin, e); pmax = Math.max(pmax, e); } else { cmin = Math.min(cmin, e); cmax = Math.max(cmax, e); } }
   return { ok: cmin >= 1.8 && cmax <= 2.81 && pmin < 1.4 && pmax > 3, n, contact: [cmin.toFixed(2), cmax.toFixed(2)], power: [pmin.toFixed(2), pmax.toFixed(2)] }; }""",
 
-'pickoff cover (version 1.13): the quickest pickoff to any base is caught on the bag, runner on that base or not, from anywhere on the rubber': r"""() => {
+'pickoff cover (version 1.13): the quickest pickoff to any base is caught on the bag, runner on that base or not (with someone on), from anywhere on the rubber': r"""() => {
   const BAG = { 1: [60.2, 63.6], 2: [0, 127.3], 3: [-60.2, 63.6] }, ID = { 1: '1B', 2: '2B', 3: '3B' }, DIR = { 1: 'r', 2: 'u', 3: 'l' }, bad = []; let n = 0;
-  for (const base of [1, 2, 3]) for (const bases of [[], [1], [2], [3], [1, 2, 3]]) for (const off of [-6, 0, 6]) {
+  for (const base of [1, 2, 3]) for (const bases of [[1], [2], [3], [1, 2, 3]]) for (const off of [-6, 0, 6]) { /* bases empty: no pickoff since version 1.44 */
     T.start(false); const S = T.C.S; T.until(() => S.phase === 'ready', 600); T.put(bases); T.I.takeLeads(); S.pOff = off; S.F.P.x = off; T.run(120);
     const bag = BAG[base], id = ID[base]; T.press(null); T.press(DIR[base]); let got = null, thrown = false; n++;
     for (let k = 0; k < 300; k++) { T.C.tick(); if (S.thr) thrown = true; if (!thrown) continue;
