@@ -270,7 +270,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.38</small>
+    <small id="ver">Version 1.39</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -313,7 +313,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.38</small>
+    <small class="lver" id="lver">Version 1.39</small>
   </section>
 
   <section class="screen" id="flip" hidden>
@@ -851,6 +851,11 @@ var SFX = {
   },
   /* one person yelling, in the OUT bark's voice (version 1.18): "Boo!" and "No!" for the loser's tap on the final screen */
   boo1: function (t) { voice(t, 0.55, [150, 175, 112], [[340, 300, 6, 1], [900, 820, 8, 0.45], [2300, 2200, 10, 0.15]], 'b'); },
+  /* a stadium air horn (user, Nov 2, version 1.39): three sawtooth tones that bend up into pitch, through a lowpass, 0.8 s; made here, no credit needed */
+  airhorn: function (t) {
+    var g = gain(); env(g, t, 0.2, 0.02, 0.58, 0.16); var lp = A.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600; lp.Q.value = 2; lp.connect(g);
+    [[466.16, 0], [554.37, 6], [698.46, -5]].forEach(function (f) { var o = osc('sawtooth', f[0] * 0.94, t, t + 0.8, lp, f[1]); o.frequency.exponentialRampToValueAtTime(f[0], t + 0.07); });
+  },
   cheer: function (t) { if (!clip('cheer', t, 0.8)) cheerSnd(t, 3.8, 0.4); }, /* the recorded crowd (version 1.07) */
   yell: function (t, k) { clip(YELL_CLIPS[k] || YELL_CLIPS[0], t, 0.9); },
   boo: function (t) {
@@ -1417,10 +1422,11 @@ function tick(IN) {
   /* version 1.17 (user, Nov 1): also after runs, and what a tap plays follows the last thing that happened (a run, a home run or an out:
      S.goodSide is the team it was good for). The crowd is the home crowd: good for the home team, any tap plays the crowd cheer;
      good for the visitors, the home player's tap plays the crowd boo and the visitor's tap a "Yeah!". The home run hitter's own tap keeps its yell.
+     Version 1.39 (user, Nov 2): the tap that played the crowd cheer is an air horn now, so a tap never cuts off or restarts a cheer already playing.
      Version 1.33 (user, Nov 1): visitors never move the crowd; good for the home team, the visitor's tap is a single "Boo!" (the home player's tap still plays the crowd cheer). */
   if (S.goodSide && S.phase === 'result') [[bat, bH, inB], [other(bat), pH, inP]].forEach(function (q) { /* the call is showing: the play is over */
     if (S.hr && q[0] === S.hr.side) return;
-    if (q[1] && q[2].btn && (!S.fan[q[0]] || S.t - S.fan[q[0]].t >= 30)) S.fan[q[0]] = { t: S.t, k: S.goodSide === homeSide() ? (q[0] === homeSide() ? 'cheer' : 'boo1') : q[0] === homeSide() ? 'boo' : 'yeah' };
+    if (q[1] && q[2].btn && (!S.fan[q[0]] || S.t - S.fan[q[0]].t >= 30)) S.fan[q[0]] = { t: S.t, k: S.goodSide === homeSide() ? (q[0] === homeSide() ? 'horn' : 'boo1') : q[0] === homeSide() ? 'boo' : 'yeah' };
   });
 }
 /* your runners: direction + button during the wind-up, the first half of a pitch, and any live play (down + button also squares to bunt) */
@@ -2385,7 +2391,7 @@ function fanView() {
     FANV[side] = f.t; var old = FANV.bus[side], t = A.currentTime;
     if (old) { old.gain.setTargetAtTime(0.0001, t, 0.04); setTimeout(function () { try { old.disconnect(); } catch (e) { } }, 400); }
     var bus = A.createGain(); bus.connect(master); FANV.bus[side] = bus; BUS = bus;
-    try { if (f.k === 'cheer') { if (!clip('cheer', t + 0.02, 0.8)) cheerSnd(t + 0.02, 3.8, 0.4); } else if (f.k === 'yeah') clip('yeah', t + 0.02, 0.9); else if (f.k === 'boo1') SFX.boo1(t + 0.02); else SFX.boo(t + 0.02); } catch (e) { }
+    try { SFX_COUNT['tap_' + f.k] = (SFX_COUNT['tap_' + f.k] || 0) + 1; if (f.k === 'horn') SFX.airhorn(t + 0.02); else if (f.k === 'yeah') clip('yeah', t + 0.02, 0.9); else if (f.k === 'boo1') SFX.boo1(t + 0.02); else SFX.boo(t + 0.02); } catch (e) { }
     BUS = null;
   });
 }
@@ -2630,7 +2636,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.38'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.39'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,

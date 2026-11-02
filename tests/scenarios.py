@@ -9,6 +9,11 @@ import json, sys
 from common import page
 
 CHECKS = {
+'air horn tap (version 1.39): the home player\'s tap after a play good for the home team plays the air horn, never the crowd cheer, so a cheer already playing is not cut off': r"""async () => {
+  const C = window.__ccb; T.start(false); const S = T.C.S; S.phase = 'result'; S.rt = 200; S.goodSide = S.vis === 'you' ? 'cpu' : 'you'; S.hr = null; S.fan = {};
+  const c0 = Object.assign({}, C.sfxCount); T.press(null); await new Promise(r => setTimeout(r, 150)); T.run(35); T.press(null); await new Promise(r => setTimeout(r, 150));
+  const d = k => (C.sfxCount[k] || 0) - (c0[k] || 0);
+  return { ok: S.fan.you && S.fan.you.k === 'horn' && d('tap_horn') === 2 && d('tap_cheer') === 0, kind: S.fan.you && S.fan.you.k, horns: d('tap_horn'), cheerTaps: d('tap_cheer') }; }""",
 'move controls from the in-game menu (version 1.38): MOVE CONTROLS on the Quit screen, drag, DONE goes back to it; the game stays paused (1-player)': r"""() => {
   const $ = id => document.getElementById(id), k = () => $('stage').getBoundingClientRect().width / 844;
   const fire = (el, type, x, y) => el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 9, clientX: x, clientY: y, isPrimary: true }));
@@ -213,9 +218,9 @@ CHECKS = {
   }
   return { ok: res.every(r => r.label === 'REMATCH' && r.picked === (r.firstBat ? 'pitch first' : 'bat first') && r.nowVis === (r.firstBat ? 'cpu' : 'you')), res }; }""",
 
-'cheer and boo taps (versions 1.17, 1.33): after a run or an out, while the call shows; good for home: home cheers, visitor a single "Boo!" (never the crowd); good for visitors: home boos, visitor "Yeah!"; the last thing decides': r"""() => { const res = {};
+'cheer and boo taps (versions 1.17, 1.33): after a run or an out, while the call shows; good for home: home air horn (version 1.39), visitor a single "Boo!" (never the crowd); good for visitors: home boos, visitor "Yeah!"; the last thing decides': r"""() => { const res = {};
   /* the table: you are the visitor (bat first) or home (pitch first); the last thing was good for one team */
-  for (const [youBatFirst, good, want] of [[true, 'cpu', 'boo1'], [true, 'you', 'yeah'], [false, 'you', 'cheer'], [false, 'cpu', 'boo']]) {
+  for (const [youBatFirst, good, want] of [[true, 'cpu', 'boo1'], [true, 'you', 'yeah'], [false, 'you', 'horn'], [false, 'cpu', 'boo']]) {
     T.start(youBatFirst); const S = T.C.S; S.phase = 'result'; S.rt = 100; S.goodSide = good; S.hr = null; S.fan = {}; T.press(null);
     res[(youBatFirst ? 'visitor' : 'home') + ', good for ' + (good === S.vis ? 'visitors' : 'home')] = [want, S.fan.you && S.fan.you.k];
   }
