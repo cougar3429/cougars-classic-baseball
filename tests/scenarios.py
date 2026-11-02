@@ -92,7 +92,7 @@ CHECKS = {
   const e = document.getElementById('spd'), was = e.hidden; e.hidden = false; const r = e.getBoundingClientRect(), stage = document.getElementById('cv').getBoundingClientRect();
   const k = stage.width / 844, left = (r.left - stage.left) / k, alpha = parseFloat((getComputedStyle(e).backgroundColor.match(/[\d.]+\)$/) || ['1'])[0]); e.hidden = was;
   return { ok: left > 422 + 30 && alpha <= 0.5, left: Math.round(left), homePlateX: 422, alpha }; }""",
-'coin flip, 1-player (version 1.30): BAT FIRST by default; you call it; the winner picks; no pick in 5 s makes the winner home; the computer picks at random; no flip on a rematch': r"""async () => {
+'coin flip, 1-player (version 1.30): BAT FIRST by default; you call it; the winner picks; no pick in 5 s makes the winner home; the computer picks at random; a rematch is switched by default with COIN FLIP offered (1.43)': r"""async () => {
   const C = window.__ccb, $ = id => document.getElementById(id), wait = ms => new Promise(r => setTimeout(r, ms));
   const until = async (fn, ms) => { const t = performance.now(); while (performance.now() - t < ms) { if (fn()) return true; await wait(20); } return false; };
   const keep = Object.assign({}, C.FLIPT); Object.assign(C.FLIPT, { wait: 600, spin: 200, show: 100, go: 100, cpu: 100 });
@@ -124,7 +124,7 @@ CHECKS = {
     && res.youWinPitch.vis === 'cpu' && res.youWinNoPick.vis === 'cpu' && /Time's up/.test(res.youWinNoPick.said)
     && !res.cpuWinsA.pickShown && res.cpuWinsA.vis === 'cpu' && /computer wins the toss and chooses to BAT FIRST/.test(res.cpuWinsA.said)
     && res.cpuWinsB.vis === 'you' && /PITCH FIRST/.test(res.cpuWinsB.said) && res.coinSounds === 5
-    && res.rematch.flipOffered === false && res.rematch.setup && res.rematch.bat === String(lastVis === 'cpu');
+    && res.rematch.flipOffered === true && res.rematch.setup && res.rematch.bat === String(lastVis === 'cpu');
   return { ok, res }; }""",
 
 'coin flip, 2-player host (version 1.30): waits for a selfie; a random caller; no call in 5 s is called for him; no pick in 5 s makes the winner home; the other phone can call and pick': r"""async () => {
