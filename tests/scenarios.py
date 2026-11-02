@@ -9,6 +9,13 @@ import json, sys
 from common import page
 
 CHECKS = {
+'steal home and the bunt (version 1.41): before the wind-up, down + button orders the runner on third to steal home (no bunt); once the wind-up starts it only bunts': r"""() => { const res = {};
+  T.start(true); let S = T.C.S; T.until(() => S.phase === 'ready', 600); T.put([3]); T.I.takeLeads(); S.cpuP = { slide: 0, delay: 40, type: 'fast', sign: 1, target: 0, pick: 0 }; S.pt = 0; T.run(10);
+  T.press('d'); let r = S.runners.find(x => !x.bat); res.ready = { go: r.go, squared: !!S.sw };
+  T.until(() => S.phase === 'pitch', 300); T.run(2); res.onPitch = { at: r.at, to: r.to, lead: r.lead };
+  T.start(true); S = T.C.S; T.until(() => S.phase === 'ready', 600); T.put([3]); T.I.takeLeads(); S.cpuP = { slide: 0, delay: 5, type: 'fast', sign: 1, target: 0, pick: 0 }; S.pt = 0;
+  T.until(() => S.phase === 'windup', 300); T.press('d'); r = S.runners.find(x => !x.bat); res.windup = { bunt: !!(S.sw && S.sw.type === 'bunt'), lead: r.lead, to: r.to, go: r.go };
+  return { ok: res.ready.go && !res.ready.squared && res.onPitch.to === 4 && !res.onPitch.lead && res.windup.bunt && res.windup.lead && !res.windup.go, res }; }""",
 'off the wall (version 1.40): the ball comes off the wall 5.3% faster, so it rolls 10% farther': r"""() => { const res = {};
   for (const sp of [0.9, 1.5, 2.2]) { T.start(true); const S = T.C.S; S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 199); S.bb.wall = true; S.bb.v = sp; S.spd = { ev: 3, wall: null }; T.I.batterToFirst(false);
     T.I.wallHit(200); let v = S.bb.v, d = 0; const v0 = v; while (v > 0) { v = v * 0.997 - 0.004; if (v < 0) v = 0; d += v; }
@@ -387,12 +394,13 @@ CHECKS = {
   T.hold('r'); T.C.human.btn = true; T.C.tick(); T.C.human.btn = false; const off = S.pick; T.run(30); const threw = !!S.thr || S.phase !== 'ready'; T.release();
   return { ok: off === false || !threw, steppedOff: off, threw }; }""",
 
-'bunt stance: up/down move him, left/right aim, other presses do nothing, down + button goes back to hitting': r'''() => { T.start(true); const S = T.C.S; S.runners = [];
+'bunt stance: up/down move him, left/right aim, other presses do nothing, down + button goes back to hitting; not before the wind-up (version 1.41)': r'''() => { T.start(true); const S = T.C.S; S.runners = [];
+  T.press('d'); const notInReady = !S.sw; S.cpuP = { slide: 0, delay: 5, type: 'fast', sign: 1, target: 0, pick: 0 }; T.until(() => S.phase === 'windup', 300); S.wlen = 99999;
   T.press('d'); const inBunt = !!(S.sw && S.sw.type === 'bunt'); const y0 = S.bOff.y, x0 = S.bOff.x;
   T.hold('u'); T.run(10); const movedUp = S.bOff.y > y0; T.hold('l'); T.run(5); const aimL = S.sw && S.sw.aim === 'l', xSame = S.bOff.x === x0; T.release(); T.C.tick();
   T.press(null); T.press('u'); T.press('l'); T.press('r'); const stillBunt = !!(S.sw && S.sw.type === 'bunt');
   T.press('d'); T.run(3); const out = !S.sw; T.press('d'); const back = !!(S.sw && S.sw.type === 'bunt');
-  return { ok: inBunt && movedUp && aimL && xSame && stillBunt && out && back, inBunt, movedUp, aimLeft: aimL, sidewaysDidNotMove: xSame, otherPressesIgnored: stillBunt, downButtonLeft: out, downButtonSquaresAgain: back }; }''',
+  return { ok: notInReady && inBunt && movedUp && aimL && xSame && stillBunt && out && back, notInReady, inBunt, movedUp, aimLeft: aimL, sidewaysDidNotMove: xSame, otherPressesIgnored: stillBunt, downButtonLeft: out, downButtonSquaresAgain: back }; }''',
 'bunt fielded fully in foul ground is foul (65 degrees; version 1.14 calls a ball still on the line fair)': r"""() => { T.start(true); const S = T.C.S; S.runners = []; const a = 65 * Math.PI / 180;
   S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.abOver = true; S.batterGone = true; S.playT = 0;
   S.bb = { bunt: true, x: 0, y: 1, ux: -Math.sin(a), uy: Math.cos(a), v: 0.45, ev: 0.45, dist: 0, h: 0, hPeak: 0, foul: false, wall: false, t: 0, gone: false };
@@ -414,7 +422,7 @@ CHECKS = {
 
 'computer catcher throws on a bunt with a runner on (gets an out most of the time)': r"""() => { let outs = 0, n = 0;
   for (let k = 0; k < 80 && n < 15; k++) { T.start(true); const S = T.C.S; S.runners = []; T.C.newRunner(1); T.I.takeLeads(); S.runners[0].go = false;
-    T.until(() => S.phase === 'ready', 200); T.run(10); T.press('d'); for (let i = 0; i < 400 && ['ready', 'windup', 'pitch'].includes(S.phase); i++) T.C.tick();
+    T.until(() => S.phase === 'ready', 200); T.until(() => S.phase === 'windup', 300); T.press('d'); for (let i = 0; i < 400 && ['ready', 'windup', 'pitch'].includes(S.phase); i++) T.C.tick();
     if (!S.bb || !S.bb.bunt || S.bb.foul) continue; for (let i = 0; i < 700 && S.phase === 'batted'; i++) T.C.tick(); n++; if (S.runners.some(r => r.out) || (S.batR && S.batR.out)) outs++; }
   return { ok: n > 0 && outs / n >= 0.6, bunts: n, withAnOut: outs }; }""",
 'you throw home on a bases-loaded ground ball: force out at home (any infielder)': r"""() => { const res = [];
