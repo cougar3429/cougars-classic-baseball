@@ -9,6 +9,13 @@ import json, sys
 from common import page
 
 CHECKS = {
+'computer pickoff timing (version 1.37): he steps off at his pitch moment, not right away, so a steal can be called first; the runner then goes': r"""() => {
+  T.start(true); const S = T.C.S; T.until(() => S.phase === 'ready', 600); T.put([1]); S.runners.forEach(r => { r.lead = false; r.to = null; }); T.I.takeLeads();
+  S.cpuP = { slide: 0, delay: 60, type: 'fast', sign: 1, target: 0, pick: 1 }; S.pt = 0;
+  T.run(30); const offEarly = S.pick; T.press('u'); const r = S.runners.find(x => !x.bat); const ordered = r.go;
+  let n = 0; while (!S.pick && n < 100) { T.C.tick(); n++; } const at = S.pt; T.run(3);
+  const going = { at: r.at, to: r.to, lead: r.lead }; let q = 0; for (let i = 0; i < 60 && !q; i++) { T.C.tick(); q = S.pickQ || (S.thr && S.thr.base) || 0; }
+  return { ok: !offEarly && ordered && at >= 60 && going.at === 1 && going.to === 2 && !going.lead && q === 2, offEarly, ordered, steppedOffAt: at, going, throwTo: q }; }""",
 'steal order click (version 1.35): only the batting player\'s phone hears it, never the defense\'s': r"""() => { const C = window.__ccb, res = {};
   for (const me of ['you', 'cpu']) {
     C.newGame({ seed: 5, ai: { you: false, cpu: false }, me, vis: 'you' }); const S = C.S; S.paused = true; T.until(() => S.phase === 'ready', 400); T.put([1]); T.I.takeLeads();

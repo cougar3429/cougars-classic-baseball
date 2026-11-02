@@ -270,7 +270,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.36</small>
+    <small id="ver">Version 1.37</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -313,7 +313,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.36</small>
+    <small class="lver" id="lver">Version 1.37</small>
   </section>
 
   <section class="screen" id="flip" hidden>
@@ -1449,12 +1449,12 @@ function readyStep(bH, pH, pIn, bIn) {
     if (cp && cp.slide != null) { var sd = cp.slide - S.pOff; S.pOff += Math.max(-0.2, Math.min(0.2, sd)); }
     S.F.P.x = S.pOff;
     if (cp && cp.pick) {
-      if (S.pt >= 10) callPick();
+      if (S.pt >= cp.delay) callPick(); /* steps off at the same random moment he would have pitched, 0.75-1.4 s in (user, Nov 2, version 1.37; was 0.17 s) */
       if (S.pick && pickSettled()) { cp.pick = 0; return; }
       if (S.pick && !S.pickQ) { /* a runner breaks: throw to the base he is stealing */
         var st = null; S.runners.forEach(function (r) { if (alive(r) && !r.lead && r.to != null && r.to > r.at && (!st || r.to > st.to)) st = r; });
         if (st) { S.pickQ = st.to; S.pickQT = 0; }
-        else if (S.pt >= 40) { S.pickQ = cp.pick; S.pickQT = 0; }
+        else if (S.t - S.pickAt >= 30) { S.pickQ = cp.pick; S.pickQT = 0; } /* 0.5 s after stepping off */
       }
       if (S.pickQ && pickReady()) cp.pick = 0;
       return;
@@ -2627,7 +2627,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.36'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.37'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
