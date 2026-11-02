@@ -9,6 +9,11 @@ import json, sys
 from common import page
 
 CHECKS = {
+'off the wall (version 1.40): the ball comes off the wall 5.3% faster, so it rolls 10% farther': r"""() => { const res = {};
+  for (const sp of [0.9, 1.5, 2.2]) { T.start(true); const S = T.C.S; S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 199); S.bb.wall = true; S.bb.v = sp; S.spd = { ev: 3, wall: null }; T.I.batterToFirst(false);
+    T.I.wallHit(200); let v = S.bb.v, d = 0; const v0 = v; while (v > 0) { v = v * 0.997 - 0.004; if (v < 0) v = 0; d += v; }
+    let w = Math.max(0.3, Math.min(0.6, v0 / 1.053)), d0 = 0; while (w > 0) { w = w * 0.997 - 0.004; if (w < 0) w = 0; d0 += w; } res[sp] = +(d / d0).toFixed(3); }
+  return { ok: Object.values(res).every(x => x > 1.09 && x < 1.11), farther: res }; }""",
 'air horn tap (version 1.39): the home player\'s tap after a play good for the home team plays the air horn, never the crowd cheer, so a cheer already playing is not cut off': r"""async () => {
   const C = window.__ccb; T.start(false); const S = T.C.S; S.phase = 'result'; S.rt = 200; S.goodSide = S.vis === 'you' ? 'cpu' : 'you'; S.hr = null; S.fan = {};
   const c0 = Object.assign({}, C.sfxCount); T.press(null); await new Promise(r => setTimeout(r, 150)); T.run(35); T.press(null); await new Promise(r => setTimeout(r, 150));
@@ -158,13 +163,13 @@ CHECKS = {
   }
   return { ok: res['50% center'] === 50 && res['54% center'] === 54 && res['55% center'] === 80 && res['70% center'] === 95 && res['50% near line'] === 60, res }; }""",
 
-'throw speeds (versions 1.24, 1.28): center fielder to second 15% slower; outfield throws home 12% faster; others unchanged': r"""() => {
+'throw speeds (versions 1.24, 1.28, 1.40): outfield throws to second 5% slower, center fielder another 15%; outfield throws home 12% faster; others unchanged': r"""() => {
   const time = (id, base) => { T.start(true); const S = T.C.S; T.hit(0, 1); const p = S.F[id]; S.bb.x = p.x; S.bb.y = p.y; T.I.giveBall(id); S.gatherT = 0;
     S.thr = null; const tx = base === 2 ? 0 : base === 4 ? 0 : 60.2, ty = base === 2 ? 127.3 : base === 4 ? -1 : 63.6; ['1B', '2B'].forEach(f => { S.F[f].x = 200; S.F[f].y = 200; });
     S.queued = null; S.animStart = null; S.quick = true; T.I.giveBall(id); S.gatherT = 0; S.windT = 1; S.queued = base; let n = 0;
     for (; n < 400; n++) { T.C.tick(); if (S.thr && S.thr.sp) return +(S.thr.sp).toFixed(3); } return null; };
   const cf2 = time('CF', 2), cf1 = time('CF', 1), lf2 = time('LF', 2), lf4 = time('LF', 4), rf4 = time('RF', 4), cf4 = time('CF', 4);
-  return { ok: Math.abs(cf2 - 1.02) < 0.01 && Math.abs(cf1 - 0.96) < 0.01 && Math.abs(lf2 - 1.2) < 0.01 && Math.abs(lf4 - 1.344) < 0.01 && Math.abs(cf4 - 1.344) < 0.01 && Math.abs(rf4 - 1.21) < 0.01, cf2, cf1, lf2, lf4, cf4, rf4 }; }""",
+  return { ok: Math.abs(cf2 - 0.969) < 0.01 && Math.abs(cf1 - 0.96) < 0.01 && Math.abs(lf2 - 1.14) < 0.01 && Math.abs(lf4 - 1.344) < 0.01 && Math.abs(cf4 - 1.344) < 0.01 && Math.abs(rf4 - 1.21) < 0.01, cf2, cf1, lf2, lf4, cf4, rf4 }; }""",
 
 'uncaught third strike (version 1.23): swing-and-miss strike three past the catcher, the batter may run if first is empty or there are two outs': r"""() => { const res = {};
   for (const [name, bases, outs, want] of [['bases empty, 0 outs', [], 0, 'runs'], ['runner on first, 1 out', [1], 1, 'out'], ['runner on first, 2 outs', [1], 2, 'runs'], ['runner on second, 0 outs', [2], 0, 'runs']]) {
