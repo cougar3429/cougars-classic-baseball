@@ -9,6 +9,12 @@ import json, sys
 from common import page
 
 CHECKS = {
+'outfielder plays the carom (version 1.42): on a ball to the wall in the gap, the computer outfielder runs diagonally toward where it will come off the wall, not straight out to the wall first': r"""() => {
+  T.start(false); const S = T.C.S; S.seed = 111; T.hit(12, 2.4); S.ctl = 'P'; let who = null, p0 = null, pw = null;
+  for (let i = 0; i < 400 && !S.holder && !(S.bb && S.bb.gone); i++) { T.C.tick(); if (S.cpuChase && !who) { who = S.cpuChase; p0 = [S.F[who].x, S.F[who].y]; } if (S.bb.wall && !pw && who) pw = [S.F[who].x, S.F[who].y]; }
+  if (!pw) return { ok: false, why: 'never reached the wall', who };
+  const dx = Math.abs(pw[0] - p0[0]), dy = Math.abs(pw[1] - p0[1]);
+  return { ok: who === 'CF' && dx > dy, who, sideways: +dx.toFixed(1), outward: +dy.toFixed(1), fielded: S.holder }; }""",
 'steal home and the bunt (version 1.41): before the wind-up, down + button orders the runner on third to steal home (no bunt); once the wind-up starts it only bunts': r"""() => { const res = {};
   T.start(true); let S = T.C.S; T.until(() => S.phase === 'ready', 600); T.put([3]); T.I.takeLeads(); S.cpuP = { slide: 0, delay: 40, type: 'fast', sign: 1, target: 0, pick: 0 }; S.pt = 0; T.run(10);
   T.press('d'); let r = S.runners.find(x => !x.bat); res.ready = { go: r.go, squared: !!S.sw };
@@ -539,7 +545,7 @@ CHECKS = {
   return { ok: blockedInBox.length === 0 && steersInGame && back, blockedInBox, steersInGame, setupBack: back }; }""",
 'runners on 1st and 2nd: two runners are never sent to the same base (before, during and after the pitch)': r"""() => {
   /* the computer pitcher sometimes calls a pickoff in the first 40 ticks (random), which sends the runners back; start over when he does */
-  const run = (seq) => { let S; for (let k = 0; k < 20; k++) { T.start(true); S = T.C.S; T.put([1, 2]); T.I.takeLeads(); T.run(40); if (!S.pick) break; }
+  const run = (seq) => { let S; for (let k = 0; k < 20; k++) { T.start(true); S = T.C.S; T.put([1, 2]); T.I.takeLeads(); S.cpuP = { slide: 0, delay: 60, type: 'fast', sign: 1, target: 0, pick: 0 }; T.run(40); if (!S.pick) break; } /* no pickoff (since 1.37 it can come later than 40 ticks) */
     for (const step of seq) { if (step === 'windup') T.until(() => S.phase === 'windup', 400);
       else if (step === 'stealplay') { S.runners.forEach(r => { r.lead = false; r.go = false; }); const a = S.runners.find(r => r.at === 1), b = S.runners.find(r => r.at === 2); a.to = null; b.to = 3; b.p = 0.3; S.phase = 'batted'; S.live = { kind: 'steal', still: 0 }; S.bb = T.I.mkBall(0, -21); T.I.giveBall('C'); }
       else T.press(step); }
