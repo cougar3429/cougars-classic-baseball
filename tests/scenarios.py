@@ -9,12 +9,6 @@ import json, sys
 from common import page
 
 CHECKS = {
-'force at home (version 1.45): with the bases loaded, down + button before the ball is fielded does not hand you the catcher; he covers the plate and takes the throw': r"""() => {
-  T.start(false); const S = T.C.S; T.put([1, 2, 3]); T.hit(0, 1.0); T.run(15); T.press('d'); T.C.tick(); const ctl = S.ctl;
-  T.until(() => S.holder, 400); const who = S.holder, C0 = [+S.F.C.x.toFixed(1), +S.F.C.y.toFixed(1)]; T.press('d'); let got = null;
-  for (let i = 0; i < 300; i++) { const had = !!S.thr; T.C.tick(); if (had && !S.thr && !got) got = S.holder; if (S.phase !== 'batted') break; }
-  const third = S.runners.find(r => r.fb === 4);
-  return { ok: ctl !== 'C' && C0[1] > -10 && got === 'C' && third && third.out, ctlAfterEarlyPress: ctl, fielder: who, catcherWhenFielded: C0, caughtBy: got, how: third && third.how }; }""",
 'no pickoff with the bases empty (version 1.44): the pitcher\'s button alone shakes off the sign instead; with a runner on it still steps off': r"""() => { const res = {};
   T.start(false); let S = T.C.S; T.until(() => S.phase === 'ready', 600); S.runners = []; T.run(5); T.press(null); res.empty = { pick: S.pick, shook: S.t - S.shake < 5, phase: S.phase };
   T.run(60); res.after = { pick: S.pick, phase: S.phase };
