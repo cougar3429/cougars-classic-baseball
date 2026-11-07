@@ -9,6 +9,8 @@ import json, sys
 from common import page
 
 CHECKS = {
+'center fielder spot (version 1.51): 30 from the center-field fence (was 40), straight away center': r"""() => { T.start(false); const S = T.C.S; T.until(() => S.phase === 'ready', 600); const f = S.F.CF;
+  return { ok: f.x === 0 && f.y === 173 && 203 - f.y === 30, x: f.x, y: f.y, toFence: 203 - f.y }; }""",
 'bat break (version 1.48): every strikeout the batter stays in the box and breaks his bat (over the knee or slammed down), with one snap sound; gone for the next batter': r"""() => { const C = window.__ccb, res = { kinds: {}, snaps: 0, ks: 0, drawn: 0 };
   for (let g = 0; g < 12; g++) { T.start(true); const S = C.S; S.seed = 300 + g; T.until(() => S.phase === 'ready', 600); S.s = 2; S.b = 0; S.runners = [];
     const s0 = C.sfxCount.snap || 0; T.until(() => S.brk || S.outs > 0 || S.b > 0, 1200); /* you never swing: a called strike three, or a ball */
@@ -35,7 +37,7 @@ CHECKS = {
   T.start(false); S = T.C.S; T.until(() => S.phase === 'ready', 600); T.put([1]); T.I.takeLeads(); T.run(5); T.press(null); res.runner = { pick: S.pick };
   return { ok: !res.empty.pick && res.empty.shook && res.empty.phase === 'ready' && !res.after.pick && res.runner.pick, res }; }""",
 'outfielder plays the carom (version 1.42): on a ball to the wall in the gap, the computer outfielder runs diagonally toward where it will come off the wall, not straight out to the wall first': r"""() => {
-  T.start(false); const S = T.C.S; S.seed = 111; T.hit(12, 2.4); S.ctl = 'P'; let who = null, p0 = null, pw = null;
+  T.start(false); const S = T.C.S; S.seed = 111; T.hit(12, 2.6); S.ctl = 'P'; /* 2.6 since 1.51 (the center fielder plays deeper) */ let who = null, p0 = null, pw = null;
   for (let i = 0; i < 400 && !S.holder && !(S.bb && S.bb.gone); i++) { T.C.tick(); if (S.cpuChase && !who) { who = S.cpuChase; p0 = [S.F[who].x, S.F[who].y]; } if (S.bb.wall && !pw && who) pw = [S.F[who].x, S.F[who].y]; }
   if (!pw) return { ok: false, why: 'never reached the wall', who };
   const dx = Math.abs(pw[0] - p0[0]), dy = Math.abs(pw[1] - p0[1]);
