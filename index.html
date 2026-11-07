@@ -270,7 +270,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.47</small>
+    <small id="ver">Version 1.48</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -313,7 +313,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.47</small>
+    <small class="lver" id="lver">Version 1.48</small>
   </section>
 
   <section class="screen" id="flip" hidden>
@@ -618,7 +618,9 @@ function drawBatter(c, x, y, s, col, pose) {
   c.beginPath(); c.moveTo(-4.6, -29); c.bezierCurveTo(-5.4, -24, -4.8, -19, -3.6, -15.5); c.lineTo(5.4, -15.5); c.bezierCurveTo(6.8, -20, 6.8, -25, 4.6, -29); c.closePath(); F(c, col);
   c.fillStyle = T.dark; c.fillRect(-3.9, -17.2, 9.4, 1.6);
   var hx = pose.hx, hy = pose.hy, a = pose.a;
-  drawBat(c, hx, hy, a);
+  if (pose.knee) { rr(c, 2.6, -15.5 - 6 * pose.knee, 5, 4.6, 1.6); F(c, T.pants); } /* the front knee comes up to break the bat over it */
+  if (!pose.noBat) drawBat(c, hx, hy, a);
+  if (pose.pieces) pose.pieces.forEach(function (p) { drawBatPiece(c, p.x, p.y, p.a, p.h); });
   limb(c, 3.5, -26, hx, hy, 3.4, col);
   limb(c, -1.5, -25, hx, hy, 3.4, col);
   circ(c, hx, hy, 1.9); F(c, T.dark);
@@ -879,6 +881,8 @@ var SFX = {
     var g = gain(); n.connect(bp); bp.connect(g); env(g, t, 0.35, 0.03, 0.03, 0.14); n.start(t);
   },
   crack: function (t, ev) { var k = Math.min(1, ev / 3); crack(t, 2600, 0.05 + k * 0.05, 0.4 + 0.6 * k); crack(t, 900, 0.08, 0.3 + 0.4 * k); boom(t, 240, 120, 0.08, 0.3 + 0.3 * k); },
+  /* the bat snapping after a strikeout (user, Nov 6, version 1.48): a sharp wood crack, made here (no credit needed) */
+  snap: function (t) { crack(t, 1900, 0.045, 0.7); crack(t + 0.015, 3300, 0.03, 0.45); crack(t + 0.03, 900, 0.06, 0.3); boom(t, 190, 90, 0.07, 0.25); },
   thud: function (t) { boom(t, 160, 70, 0.12, 0.6); crack(t, 500, 0.05, 0.2); },
   mitt: function (t) { crack(t, 1500, 0.035, 0.7); boom(t, 180, 90, 0.06, 0.5); },
   glove: function (t) { crack(t, 1300, 0.03, 0.45); },
@@ -1008,7 +1012,7 @@ function newGame(g) {
     t: 0, seed: (g.seed != null ? g.seed : (Date.now() & 0x7fffffff)) | 0, ai: g.ai || { you: false, cpu: true }, half: 0, outs: 0, b: 0, s: 0, pOff: 0, bOff: { x: 0, y: 0 },
     score: { you: 0, cpu: 0 }, stats: { you: { h: 0, hr: 0, k: 0, bb: 0 }, cpu: { h: 0, hr: 0, k: 0, bb: 0 } },
     vis: g.vis || (opts.batFirst ? 'you' : 'cpu'), phase: 'ready', pt: 0, wt: 0, wlen: WINDUP_T, rt: 0, ball: null, bb: null, sw: null,
-    cpuP: null, cpuB: null, follow: 0, shake: -999, faces: null, faceT: 0, faceKind: null, hr: null, yell: null, bob: null, goodSide: null, fan: {}, fielded: null, over: false, after: null, F: homePos(), ctl: 'P', holder: null, thr: null, playT: 0,
+    cpuP: null, cpuB: null, follow: 0, shake: -999, brk: null, faces: null, faceT: 0, faceKind: null, hr: null, yell: null, bob: null, goodSide: null, fan: {}, fielded: null, over: false, after: null, F: homePos(), ctl: 'P', holder: null, thr: null, playT: 0,
     runners: [], live: null, lock: false, pick: false, playRuns: 0, playOuts: 0, batR: null, batterGone: false, abOver: false, stretch: false, cat: null
   };
   startHalf();
@@ -1383,6 +1387,7 @@ function tick(IN) {
   if (S.faceT > 0) { S.faceT--; if (S.faceT === 0) { S.faces = null; updatePortraits(); } }
   if (S.hr && S.t >= S.hr.end) S.hr = null;
   if (S.follow > 0) S.follow--;
+  if (S.brk && S.t - S.brk.t === BRK_SNAP[S.brk.kind]) sfx('snap');
   var bat = batSide(), bH = !S.ai[bat], pH = !S.ai[other(bat)];
   var inB = bH ? (IN[bat] || NO_IN) : NO_IN, inP = pH ? (IN[other(bat)] || NO_IN) : NO_IN;
   var pIn = pH ? inP : cpuPitcher();
@@ -1663,7 +1668,7 @@ function pitchEnd() {
   }
   var kx = S.F.C.x; S.ball = null;
   if (c.k === 'K') {
-    S.abOver = true; S.batterGone = true; S.outs++;
+    S.abOver = true; S.batterGone = true; S.outs++; batBreak();
     result('STRIKEOUT', null, 'out'); sfx('bark', null, 0.15); sfx(side === homeSide() ? 'boo' : 'cheer', null, 0.6);
   } else if (c.k === 'S') { result(c.text, c.sub, 'pitch'); sfx('strike', null, 0.12); }
   else if (c.k === 'BB') {
@@ -1690,7 +1695,7 @@ function retPos() {
 function applyCallLive(c, title) {
   var side = batSide();
   if (c.k === 'K') {
-    S.abOver = true; S.batterGone = true; S.outs++; sfx('bark', null, 0.15);
+    S.abOver = true; S.batterGone = true; S.outs++; batBreak(); sfx('bark', null, 0.15);
     if (S.outs >= 3) { endLive('out', 'Strikeout'); return; }
     toast(title || 'STRIKEOUT', title ? 'Strikeout' : null, 80); return;
   }
@@ -2034,7 +2039,7 @@ function cpuDefense() {
    ball radius 3.1 + half its outline 0.35 + half the chalk 1.2 + the 3 px lift toward fair (2.59 px across the line). */
 var FOUL_D = (3.1 + 0.35 + 1.2 + 3 * KX / Math.sqrt(KX * KX + KY * KY)) / (KX * KY / Math.sqrt(KX * KX + KY * KY));
 function callFoul() {
-  if (S.bb.bunt && S.s >= 2) { var ks = batSide(); S.outs++; S.stats[ks].k++; S.batterGone = true; result('STRIKEOUT', 'Foul bunt with two strikes', 'out'); sfx('bark', null, 0.1); sfx(ks === homeSide() ? 'boo' : 'cheer', null, 0.5); return; }
+  if (S.bb.bunt && S.s >= 2) { var ks = batSide(); S.outs++; S.stats[ks].k++; S.batterGone = true; batBreak(); result('STRIKEOUT', 'Foul bunt with two strikes', 'out'); sfx('bark', null, 0.1); sfx(ks === homeSide() ? 'boo' : 'cheer', null, 0.5); return; }
   if (S.s < 2) S.s++; result('FOUL BALL', null, 'pitch'); sfx('foul');
 }
 function battedStep(dIn) {
@@ -2044,7 +2049,7 @@ function battedStep(dIn) {
     bb.v = bb.v * DECAY - FRICTION; if (bb.v < 0) bb.v = 0;
     bb.x += bb.ux * bb.v; bb.y += bb.uy * bb.v; bb.dist += bb.v; bb.h = 0; backstops(bb);
     if (bb.v < 0.05 || bb.t > 240) {
-      if (bb.bunt && S.s >= 2) { var ks = batSide(); S.outs++; S.stats[ks].k++; S.batterGone = true; result('STRIKEOUT', 'Foul bunt with two strikes', 'out'); sfx('bark', null, 0.1); sfx(ks === homeSide() ? 'boo' : 'cheer', null, 0.5); return; }
+      if (bb.bunt && S.s >= 2) { var ks = batSide(); S.outs++; S.stats[ks].k++; S.batterGone = true; batBreak(); result('STRIKEOUT', 'Foul bunt with two strikes', 'out'); sfx('bark', null, 0.1); sfx(ks === homeSide() ? 'boo' : 'cheer', null, 0.5); return; }
       if (S.s < 2) S.s++; result('FOUL BALL', null, 'pitch'); sfx('foul');
     }
     return;
@@ -2224,7 +2229,7 @@ function result(text, sub, kind, big) {
   setLive(false); if (text) toast(text, sub, S.rt, big); updateHUD();
 }
 function afterResult() {
-  var kind = S.after;
+  var kind = S.after; S.brk = null;
   if (kind === 'walkoff') { updateHUD(); endGame(); return; } S.sw = null; S.fielded = null; S.ball = null;
   if (S.outs >= 3) { S.runners = []; S.playRuns = 0; }
   S.freezeR = false; settleRunners(); commitRuns(); if (S.wo) return;
@@ -2530,7 +2535,7 @@ function render() {
     var o = r.slide > 0 ? { noGlove: true, rot: -r.slideDir * 1.15, sy: 0.9 } : { noGlove: true, run: (r.to != null && !r.wait && !S.freezeR && (!r.lead || r.step)) ? S.t / (r.lead ? 5 : 2.8) : null };
     list.push({ y: q[1] + (r.to == null || r.lead ? 6 : 0), d: function () { drawFielder(ctx, q[0], q[1], rs, batCol, o); } }); /* on a base he is drawn in front of a fielder standing on it */
   });
-  if (!S.batterGone) list.push({ y: BAT_Y, d: function () { drawBatter(ctx, BAT_X + S.bOff.x * KX, BAT_Y - S.bOff.y * KY, BAT_S, batCol, batterPose()); } });
+  if (!S.batterGone || brkOn()) list.push({ y: BAT_Y, d: function () { drawBatter(ctx, BAT_X + S.bOff.x * KX, BAT_Y - S.bOff.y * KY, BAT_S, batCol, batterPose()); } });
   if (!playing) {
     var cfx = S.F.C.x;
     if (S.cat && S.cat.up && S.phase === 'pitch') { var cq = proj(cfx + 2.3, -19); list.push({ y: cq[1], d: function () { drawFielder(ctx, cq[0], cq[1], SPR, pitCol, { run: S.F.C.mv ? S.t / 3.2 : null }); } }); }
@@ -2570,7 +2575,52 @@ function swingStep() {
   if (key !== SWV.key) { SWV.key = key; SWV.t = Math.min(sw.t, 1); }
   else SWV.t = Math.min(sw.t, SWV.t + (sw.t - SWV.t > 1 ? 2.5 : 1));
 }
+/* breaking the bat after a strikeout (user, Nov 6, version 1.48): every strikeout, over the knee or slammed on the plate, picked from the
+   game clock (both phones agree; the game's dice are not used). Drawing only, apart from the snap sound; he stays in the box while it plays */
+var BRK_SNAP = { knee: 26, slam: 21 }, BRK_LEN = 110;
+function batBreak() { S.brk = { t: S.t, kind: ((S.t * 7 + S.half * 3 + S.outs) % 2) ? 'knee' : 'slam' }; }
+function brkOn() { return !!(S && S.brk && S.t - S.brk.t < BRK_LEN + 60); }
+function brkPose() {
+  var b = S.brk, t = S.t - b.t, L = BAT_LEN, H = L / 2, D = PI / 180;
+  var ez = function (k) { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); }, lerp = function (a, c, k) { return a + (c - a) * k; };
+  /* a piece falling to the ground from (x, y) with speed (vx, vy), turning from angle a0 to a1 as it lands; one small bounce */
+  var fall = function (x, y, vx, vy, a0, a1, tt) {
+    var g = 0.14, tl = (vy + Math.sqrt(vy * vy + 2 * g * -y)) / g, px, py;
+    if (tt <= tl) { px = x + vx * tt; py = y + vy * tt + g * tt * tt / 2; }
+    else { var t2 = tt - tl, bv = -(vy + g * tl) * 0.3, tb = -2 * bv / g; px = x + vx * tl + vx * 0.4 * Math.min(t2, tb + 6); py = t2 < tb ? bv * t2 + g * t2 * t2 / 2 : 0; }
+    return { x: px, y: Math.min(0, py) - 1, a: lerp(a0, a1, ez(tt / (tl + 4))) };
+  };
+  var stance = { hx: -4.8, hy: -28.6, a: -107 * D };
+  if (b.kind === 'knee') {
+    if (t < 16) { var k = ez(t / 16); return { hx: lerp(stance.hx, -8, k), hy: lerp(stance.hy, -20, k), a: lerp(stance.a, 0, k) }; }
+    if (t < 26) { var k2 = ez((t - 16) / 10); return { hx: -8, hy: lerp(-20, -13, k2), a: 0, knee: k2 }; }
+    var mid = { x: -8 + H, y: -13 }, pcs = [], kn = Math.max(0, 1 - (t - 26) / 14);
+    pcs.push(fall(mid.x, mid.y, 0.35, -0.6, 25 * D, 4 * D, t - 26)); pcs[0].h = 'barrel';
+    if (t < 46) pcs.push({ x: -8, y: -13 - 2 * ez((t - 26) / 8), a: -25 * D, h: 'handle', held: true });
+    else { var f2 = fall(-8, -15, -0.12, -0.3, -25 * D, -172 * D, t - 46); f2.h = 'handle'; pcs.push(f2); }
+    return { hx: t < 46 ? -8 : lerp(-8, -3, ez((t - 46) / 10)), hy: t < 46 ? -15 : lerp(-15, -18, ez((t - 46) / 10)), a: 0, noBat: true, knee: kn, pieces: pcs };
+  }
+  if (t < 14) { var k3 = ez(t / 14); return { hx: lerp(stance.hx, -2, k3), hy: lerp(stance.hy, -38, k3), a: lerp(stance.a, -75 * D, k3) }; }
+  if (t < 21) { var k4 = (t - 14) / 7; k4 = k4 * k4; return { hx: lerp(-2, 2, k4), hy: lerp(-38, -24, k4), a: lerp(-75 * D, 55 * D, k4) }; }
+  var A = 55 * D, ms = { x: 2 + H * Math.cos(A), y: -24 + H * Math.sin(A) }, ps = [];
+  var fl = fall(ms.x, ms.y, 0.45, -1.1, A, 8 * D + 4 * PI, t - 21); fl.h = 'barrel'; ps.push(fl);
+  if (t < 44) ps.push({ x: 2, y: -24, a: A, h: 'handle', held: true });
+  else { var f3 = fall(2 + 4 * Math.cos(A), -24 + 4 * Math.sin(A), 0.05, 0.1, A, 175 * D, t - 44); f3.x -= 4 * Math.cos(f3.a); f3.y -= 0; f3.h = 'handle'; ps.push(f3); }
+  return { hx: t < 44 ? 2 : lerp(2, -1, ez((t - 44) / 10)), hy: t < 44 ? -24 : lerp(-24, -18, ez((t - 44) / 10)), a: A, noBat: true, pieces: ps };
+}
+/* half a bat: the handle half (knob end at x, y) or the barrel half (broken end at x, y), along angle a, with a jagged break */
+function drawBatPiece(c, x, y, a, half) {
+  var L = BAT_LEN / 2, ux = Math.cos(a), uy = Math.sin(a), px = -uy, py = ux, w0 = half === 'handle' ? 1.45 : 1.15, w1 = half === 'handle' ? 0.9 : 1.75;
+  c.beginPath(); c.moveTo(x + px * w0, y + py * w0); c.lineTo(x + ux * L + px * w1, y + uy * L + py * w1);
+  var ex = x + ux * L, ey = y + uy * L;
+  if (half === 'handle') { c.lineTo(ex + ux * 1.2 + px * 0.3, ey + uy * 1.2 + py * 0.3); c.lineTo(ex - ux * 0.4, ey - uy * 0.4); c.lineTo(ex + ux * 1.4 - px * 0.5, ey + uy * 1.4 - py * 0.5); }
+  else c.arc(ex, ey, w1, a - PI / 2, a + PI / 2);
+  c.lineTo(x - px * w0, y - py * w0);
+  if (half === 'barrel') { c.lineTo(x - ux * 1.3 - px * 0.4, y - uy * 1.3 - py * 0.4); c.lineTo(x + ux * 0.3, y + uy * 0.3); c.lineTo(x - ux * 1.1 + px * 0.6, y - uy * 1.1 + py * 0.6); }
+  c.closePath(); c.fillStyle = theme.bat; c.fill(); c.lineJoin = 'round'; c.strokeStyle = theme.outline || 'rgba(60,35,15,0.55)'; c.lineWidth = 0.8; c.stroke();
+}
 function batterPose() {
+  if (brkOn()) return brkPose();
   var sw = S.sw;
   if (sw && sw.type === 'bunt') return { hx: 4, hy: -22.3, a: 0 };
   if (sw) {
@@ -2656,7 +2706,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.47'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.48'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,

@@ -9,6 +9,12 @@ import json, sys
 from common import page
 
 CHECKS = {
+'bat break (version 1.48): every strikeout the batter stays in the box and breaks his bat (over the knee or slammed down), with one snap sound; gone for the next batter': r"""() => { const C = window.__ccb, res = { kinds: {}, snaps: 0, ks: 0, drawn: 0 };
+  for (let g = 0; g < 12; g++) { T.start(true); const S = C.S; S.seed = 300 + g; T.until(() => S.phase === 'ready', 600); S.s = 2; S.b = 0; S.runners = [];
+    const s0 = C.sfxCount.snap || 0; T.until(() => S.brk || S.outs > 0 || S.b > 0, 1200); /* you never swing: a called strike three, or a ball */
+    if (!S.brk) continue; res.ks++; res.kinds[S.brk.kind] = (res.kinds[S.brk.kind] || 0) + 1; if (T.I.brkOn && T.I.brkOn()) res.drawn++;
+    T.until(() => S.phase !== 'result', 400); res.snaps += (C.sfxCount.snap || 0) - s0; if (S.brk) res.left = true; }
+  return { ok: res.ks >= 4 && res.snaps === res.ks && !res.left && res.drawn === res.ks && Object.keys(res.kinds).length === 2, res }; }""",
 'catcher steal throw (version 1.47): the catcher throws to second 5% slower (1.75 to 1.6625); to third unchanged': r"""() => { const res = {};
   for (const [base, bases] of [[2, [1]], [3, [2]]]) { T.start(true); const S = T.C.S; T.until(() => S.phase === 'ready', 600); T.put(bases); T.I.takeLeads();
     S.runners.forEach(r => { if (!r.bat) r.go = true; }); S.cpuP = { slide: 0, delay: 10, type: 'slow', sign: 1, target: 0, pick: 0 }; S.pt = 0;
