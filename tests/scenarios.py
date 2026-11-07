@@ -377,7 +377,7 @@ CHECKS = {
   T.run(2); T.press(null); const y1 = S.yell && S.yell.t; T.run(5); T.press(null); const y2 = S.yell && S.yell.t; T.run(35); T.press(null); const y3 = S.yell && S.yell.t;
   return { ok: !!y1 && y2 === y1 && y3 > y1 && S.yell.k >= 0 && S.yell.k <= 2 && S.hr.end - S.hr.t0 >= 300, y1, y2, y3, k: S.yell.k, len: S.hr.end - S.hr.t0 }; }""",
 
-'bobble (versions 1.05, 1.34, 1.57): about 20% of grounders still over 80% speed at the fielder pop loose about 2 feet, BOBBLE shows and he turns red; slower ones 10% or less': r"""() => {
+'bobble (versions 1.05, 1.34, 1.57): about 20% of grounders still over 80% speed at the fielder pop loose about 3 feet (1.60), BOBBLE shows and he turns red; slower ones 10% or less': r"""() => {
   let hard = 0, bob = 0, soft = 0, softBob = 0, minRoll = 99, maxRoll = 0, called = false;
   for (let i = 0; i < 400; i++) {
     T.start(false); const S = T.C.S; S.seed = 1000 + i; const fast = i % 2 === 0; T.hit(0, fast ? 4 : 2.2);
@@ -386,7 +386,7 @@ CHECKS = {
       const d = Math.hypot(S.bb.x - x0, S.bb.y - y0); minRoll = Math.min(minRoll, d); maxRoll = Math.max(maxRoll, d); }
     if (fast) { hard++; if (S.bob) bob++; } else { soft++; if (S.bob) softBob++; }
   }
-  const rate = bob / hard; return { ok: rate > 0.13 && rate < 0.28 && softBob / soft <= 0.1 && maxRoll < 3.2 && minRoll > 1.2 && called, hard, bob, rate: rate.toFixed(3), soft, softBob, roll: [minRoll.toFixed(2), maxRoll.toFixed(2)], called }; }""",
+  const rate = bob / hard; return { ok: rate > 0.13 && rate < 0.28 && softBob / soft <= 0.1 && maxRoll < 4.0 && minRoll > 2.3 && (minRoll + maxRoll) / 2 > 2.8 && (minRoll + maxRoll) / 2 < 3.4 && called, hard, bob, rate: rate.toFixed(3), soft, softBob, roll: [minRoll.toFixed(2), maxRoll.toFixed(2)], called }; }""",
 
 'portraits (version 1.03): an out makes the batting team mad with smoke and the fielders happy for 5 s; a run reaction is not cut short': r"""() => { T.start(true); const S = T.C.S, el = id => document.getElementById(id);
   T.until(() => S.phase === 'ready', 600); S.b = 0; S.s = 2; S.cpuP = null;
