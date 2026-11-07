@@ -9,6 +9,15 @@ import json, sys
 from common import page
 
 CHECKS = {
+'team colors (version 1.57): pick a primary and an alternate (never the same); saved; you wear your primary, the computer a random other color; scoreboard, tags and coach follow': r"""() => { const C = window.__ccb, $ = id => document.getElementById(id), res = {};
+  C.setCols('green', 'yellow'); res.saved = JSON.parse(localStorage.getItem('ccb-col'));
+  $('colb1').click(); const shown = !$('colpick').hidden; document.querySelector('#swa button[data-c="green"]').click(); res.swapped = Object.assign({}, C.myCol); $('coldone').click();
+  C.setCols('green', 'yellow'); const cpu = {};
+  for (let i = 0; i < 40; i++) { T.start(true); cpu[C.S.col.cpu] = (cpu[C.S.col.cpu] || 0) + 1; if (C.S.col.you !== 'green') res.wrong = C.S.col; }
+  res.cpuColors = cpu; T.start(true); C.S.paused = false;
+  const sb = getComputedStyle(document.querySelector('#sb .vis')).backgroundColor, tag = $('wl').style.background, coach = $('fl').innerHTML.includes('Green coach') || $('fr').innerHTML.includes('Green coach');
+  res.view = { sb, tag, coach }; C.setCols('red', 'blue');
+  return { ok: shown && res.saved.p === 'green' && res.swapped.p === 'yellow' && res.swapped.a === 'green' && !res.wrong && !cpu.green && Object.keys(cpu).length >= 4 && res.view.coach, res }; }""",
 'outfielder spots (versions 1.51, 1.55): each 25% closer to the fence than before, along his line from home plate': r"""() => { T.start(false); const S = T.C.S; T.until(() => S.phase === 'ready', 600);
   const gap = id => { const f = S.F[id], d = Math.hypot(f.x, f.y), u = f.x / d; return +(203 - 42 * u * u - d).toFixed(1); };
   const res = { LF: gap('LF'), CF: gap('CF'), RF: gap('RF') };
@@ -98,10 +107,10 @@ CHECKS = {
     for (let i = 0; i < 400; i++) { T.C.tick(); if (S.cpuRunTo === 4) ranPlate = true; if (r.out && outAt == null) { const c = S.F.C; outAt = +Math.hypot(c.x, c.y + 1).toFixed(1); } if (S.phase === 'result') break; }
     res.tagOnLine = { out: r.out, ranToPlate: ranPlate, feetFromPlate: outAt }; }
   return { ok: res.closeCatcher.who === 'C' && res.closeCatcher.first !== 'throw 1' && res.closeCatcher2.first !== 'throw 1' && res.noPlay.first === 'throw 1' && res.noPlay.runner === 'scored' && res.tagOnLine.out && !res.tagOnLine.ranToPlate && res.tagOnLine.feetFromPlate > 8, res }; }""",
-'bobble chances (version 1.34): over 80% speed 20%; 75-80% 10%; over 50% to 75% 5%; 50% or less never': r"""() => {
+'bobble chances (versions 1.34, 1.57): over 80% speed 20%; over 60% to 80% 10%; over 50% to 60% 5%; 50% or less never': r"""() => {
   const I = window.__ccbi; let lo = 0, hi = 50; for (let i = 0; i < 80; i++) { const m = (lo + hi) / 2; if (I.bobbleP(m) === 0.2) hi = m; else lo = m; } const max = hi / 0.8; /* the fastest hit, from the 80% line */
-  const at = {}; for (const pc of [30, 49.99, 51, 60, 74, 74.9, 75, 78, 79.99, 81, 100]) at[pc] = I.bobbleP(max * pc / 100);
-  return { ok: at[30] === 0 && at[49.99] === 0 && at[51] === 0.05 && at[60] === 0.05 && at[74] === 0.05 && at[74.9] === 0.05 && at[75] === 0.1 && at[78] === 0.1 && at[79.99] === 0.1 && at[81] === 0.2 && at[100] === 0.2, at }; }""",
+  const at = {}; for (const pc of [30, 49.99, 51, 59.99, 61, 74, 74.9, 75, 78, 79.99, 81, 100]) at[pc] = I.bobbleP(max * pc / 100);
+  return { ok: at[30] === 0 && at[49.99] === 0 && at[51] === 0.05 && at[59.99] === 0.05 && at[61] === 0.1 && at[74] === 0.1 && at[74.9] === 0.1 && at[75] === 0.1 && at[78] === 0.1 && at[79.99] === 0.1 && at[81] === 0.2 && at[100] === 0.2, at }; }""",
 'moving the controls (version 1.32): MOVE on Game Setup, drag the D pad and the button, saved on the phone, RESET puts them back; dragging does not steer or swing': r"""() => {
   const $ = id => document.getElementById(id), st = () => $('stage').getBoundingClientRect(), k = () => st().width / 844;
   const at = el => { const r = el.getBoundingClientRect(), s = st(); return [Math.round((r.left - s.left) / k()), Math.round((r.top - s.top) / k())]; };
@@ -165,13 +174,13 @@ CHECKS = {
   Math.random = () => 0.7; I.flipStart(true); await wait(200);
   res.before = [C.FLIP.F.step, $('flp').textContent];
   I.flipOpp({ cam: true }); await wait(200); res.selfie = [C.FLIP.F.step, $('flp').textContent];
-  I.flipOpp({ cam: false }); await wait(200); const F = C.FLIP.F; res.call = [F.step, F.caller, $('flp').textContent, $('flcall').hidden];
+  I.flipOpp({ cam: false, col: { p: 'blue', a: 'red' } }); await wait(200); const F = C.FLIP.F; res.call = [F.step, F.caller, $('flp').textContent, $('flcall').hidden];
   await until(() => F.step === 'spin', 2000); res.auto = [F.call, F.auto, $('flp').textContent];
   await until(() => F.step === 'pick', 2000); res.pick = [F.winner, $('flp').textContent, $('flpick').hidden];
   await until(() => F.step === 'go', 2000); res.noPick = [F.pick, F.auto2, $('flp').textContent];
   res.sent = sent.filter(m => m.event === 'fl').length; I.flipStop();
   /* run 2: random 0.2 makes Ann (the host) the caller; Ann doesn't call; then the coin (heads) */
-  Math.random = () => 0.2; I.flipStart(true); I.flipOpp({ cam: false }); await wait(200); const G = C.FLIP.F;
+  Math.random = () => 0.2; I.flipStart(true); I.flipOpp({ cam: false, col: { p: 'blue', a: 'red' } }); await wait(200); const G = C.FLIP.F;
   res.hostCalls = [G.caller, $('flcall').hidden]; $('ftails').click(); await until(() => G.step === 'pick', 2000);
   res.bobWins = [G.call, G.coin, G.winner, $('flp').textContent];
   I.flipOpp({ cam: false, pick: { n: G.n, v: 'bat' } }); await wait(200); res.bobPicks = [G.step, G.pick, $('flp').textContent];
@@ -362,7 +371,7 @@ CHECKS = {
   T.run(2); T.press(null); const y1 = S.yell && S.yell.t; T.run(5); T.press(null); const y2 = S.yell && S.yell.t; T.run(35); T.press(null); const y3 = S.yell && S.yell.t;
   return { ok: !!y1 && y2 === y1 && y3 > y1 && S.yell.k >= 0 && S.yell.k <= 2 && S.hr.end - S.hr.t0 >= 300, y1, y2, y3, k: S.yell.k, len: S.hr.end - S.hr.t0 }; }""",
 
-'bobble (versions 1.05, 1.34): about 20% of grounders still over 80% speed at the fielder pop loose about 2 feet, with no call; slower ones 10% or less': r"""() => {
+'bobble (versions 1.05, 1.34, 1.57): about 20% of grounders still over 80% speed at the fielder pop loose about 2 feet, BOBBLE shows and he turns red; slower ones 10% or less': r"""() => {
   let hard = 0, bob = 0, soft = 0, softBob = 0, minRoll = 99, maxRoll = 0, called = false;
   for (let i = 0; i < 400; i++) {
     T.start(false); const S = T.C.S; S.seed = 1000 + i; const fast = i % 2 === 0; T.hit(0, fast ? 4 : 2.2);
@@ -371,7 +380,7 @@ CHECKS = {
       const d = Math.hypot(S.bb.x - x0, S.bb.y - y0); minRoll = Math.min(minRoll, d); maxRoll = Math.max(maxRoll, d); }
     if (fast) { hard++; if (S.bob) bob++; } else { soft++; if (S.bob) softBob++; }
   }
-  const rate = bob / hard; return { ok: rate > 0.13 && rate < 0.28 && softBob / soft <= 0.1 && maxRoll < 3.2 && minRoll > 1.2 && !called, hard, bob, rate: rate.toFixed(3), soft, softBob, roll: [minRoll.toFixed(2), maxRoll.toFixed(2)], called }; }""",
+  const rate = bob / hard; return { ok: rate > 0.13 && rate < 0.28 && softBob / soft <= 0.1 && maxRoll < 3.2 && minRoll > 1.2 && called, hard, bob, rate: rate.toFixed(3), soft, softBob, roll: [minRoll.toFixed(2), maxRoll.toFixed(2)], called }; }""",
 
 'portraits (version 1.03): an out makes the batting team mad with smoke and the fielders happy for 5 s; a run reaction is not cut short': r"""() => { T.start(true); const S = T.C.S, el = id => document.getElementById(id);
   T.until(() => S.phase === 'ready', 600); S.b = 0; S.s = 2; S.cpuP = null;

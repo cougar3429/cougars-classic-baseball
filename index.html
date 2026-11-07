@@ -44,6 +44,13 @@ body.day { background: #4f9e44; }
 .por .face svg, .por .face img, .sthumb svg, .sthumb img, .moods img { display: block; width: 100%; height: 100%; object-fit: cover; }
 /* coach selfie (version 1.01): button with a thumbnail on the title and 2 Player screens, and the camera screen */
 .selbtn { display: flex; align-items: center; gap: 8px; border: 2px solid var(--ink); border-radius: 10px; background: var(--cream); color: var(--ink); font: 700 14px var(--font-body); padding: 3px 12px 3px 4px; min-height: 44px; box-shadow: 0 3px 0 var(--ink); cursor: pointer; }
+.swp { display: flex; flex: none; } .swp i { width: 16px; height: 34px; border: 2px solid var(--ink); box-sizing: border-box; } .swp i:first-child { border-radius: 17px 0 0 17px; border-right-width: 1px; } .swp i:last-child { border-radius: 0 17px 17px 0; border-left-width: 1px; }
+#colpick { z-index: 4; background: #0b1a12; } /* opaque, above the selfie camera, which can open it (version 1.57) */
+#colpick .crow { display: flex; align-items: center; gap: 10px; }
+#colpick .crow > span { width: 92px; text-align: right; font: 700 12px var(--font-body); letter-spacing: 0.1em; text-transform: uppercase; color: #cfdccf; }
+.sws { display: flex; gap: 6px; }
+.sws button { width: 40px; height: 40px; border-radius: 50%; border: 3px solid var(--ink); cursor: pointer; padding: 0; box-shadow: 0 3px 0 var(--ink); }
+.sws button[aria-pressed="true"] { outline: 3px solid var(--gold); outline-offset: 2px; }
 .sthumb { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--ink); box-sizing: border-box; overflow: hidden; background: var(--cream); flex: none; }
 .trow { display: flex; gap: 14px; align-items: center; }
 .nrow { display: flex; gap: 8px; align-items: stretch; }
@@ -267,10 +274,11 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
         <button type="button" id="p2" aria-pressed="false">2 PLAYER</button>
       </div>
       <button type="button" class="selbtn" id="self1" aria-label="Coach selfie"><span class="sthumb"></span>SELFIE</button>
+      <button type="button" class="selbtn colbtn" id="colb1" aria-label="Team colors"><span class="swp"><i></i><i></i></span>COLORS</button>
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.56</small>
+    <small id="ver">Version 1.57</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -302,7 +310,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     <div class="lobby">
       <div class="lcol">
         <label class="lname" for="pname">Your name</label>
-        <div class="nrow"><input id="pname" maxlength="10" autocomplete="off" spellcheck="false"><button type="button" class="selbtn" id="self2" aria-label="Coach selfie"><span class="sthumb"></span>SELFIE</button></div>
+        <div class="nrow"><input id="pname" maxlength="10" autocomplete="off" spellcheck="false"><button type="button" class="selbtn" id="self2" aria-label="Coach selfie"><span class="sthumb"></span>SELFIE</button><button type="button" class="selbtn colbtn" id="colb2" aria-label="Team colors"><span class="swp"><i></i><i></i></span>COLORS</button></div>
         <button class="big-btn" id="host" type="button">HOST A GAME</button>
         <p id="hstat" class="lstat">Host a game, or ask to join one from the list.</p>
         <div id="reqs" class="reqs"></div>
@@ -313,7 +321,15 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.56</small>
+    <small class="lver" id="lver">Version 1.57</small>
+  </section>
+
+  <section class="screen" id="colpick" hidden>
+    <h1>Team Colors</h1>
+    <p>You wear your primary. In 2-player, if both teams pick the same primary, one of you (at random) wears his alternate.</p>
+    <div class="crow"><span>Primary</span><div class="sws" id="swp" role="group" aria-label="Primary color"></div></div>
+    <div class="crow"><span>Alternate</span><div class="sws" id="swa" role="group" aria-label="Alternate color"></div></div>
+    <button class="big-btn" id="coldone" type="button">DONE</button>
   </section>
 
   <section class="screen" id="flip" hidden>
@@ -333,6 +349,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       <p id="camp">Line up your face in the oval and tap SNAP. A neutral face works best. Your photo is used in the game.</p>
       <div class="moods" id="cammoods" hidden></div>
       <div class="frow"><button class="big-btn" id="snap" type="button">SNAP</button><button class="big-btn" id="camuse" type="button" hidden>USE IT</button><button class="big-btn alt" id="retake" type="button" hidden>RETAKE</button></div>
+      <div class="frow"><button type="button" class="selbtn colbtn" id="colb3" aria-label="Team colors"><span class="swp"><i></i><i></i></span>COLORS</button></div>
       <div class="frow"><button class="big-btn alt" id="camno" type="button">NO SELFIE</button><button class="big-btn alt" id="camback" type="button">CANCEL</button></div>
     </div>
   </section>
@@ -580,12 +597,13 @@ function drawFielder(c, x, y, s, col, o) {
   limb(c, 6.5, -24.5, glove[0], glove[1], 3.2, col);
   rr(c, -6.6, -27.6, 13.2, 12, 3.8); F(c, col);
   c.fillStyle = T.dark; c.fillRect(-5.6, -17.2, 11.2, 1.6);
-  if (o.noGlove) { circ(c, glove[0], glove[1], 1.6); F(c, T.skin); } else { circ(c, glove[0], glove[1], 2.6); F(c, T.glove); }
-  circ(c, hand[0], hand[1], 1.6); F(c, T.skin);
+  var skin = o.skin || T.skin;
+  if (o.noGlove) { circ(c, glove[0], glove[1], 1.6); F(c, skin); } else { circ(c, glove[0], glove[1], 2.6); F(c, T.glove); }
+  circ(c, hand[0], hand[1], 1.6); F(c, skin);
   if (o.ball) { circ(c, hand[0], hand[1] - 1, 1.5); F(c, '#ffffff'); }
   if (o.side) c.restore();
   var hx = o.headX || 0; /* the pitcher shaking off a sign (version 1.44): the head turns side to side, the cap brim a little more */
-  circ(c, hx, -32, 4.9); F(c, T.skin);
+  circ(c, hx, -32, 4.9); F(c, skin);
   c.beginPath(); c.arc(hx, -32.8, 5.1, PI, 0); c.closePath(); F(c, col);
   c.beginPath(); c.ellipse(hx * 1.5, -32.6, 5.9, 1.3, 0, 0, 7); F(c, col);
   c.restore();
@@ -651,12 +669,39 @@ function drawBall(c, fx, fy, h, shade) {
   c.strokeStyle = theme.outline || 'rgba(0,0,0,0.35)'; c.lineWidth = 0.7; c.stroke();
 }
 
+/* ============ team colors (user, Nov 7, version 1.57) ============
+   Each player picks a primary and an alternate from 8 colors, on the title screen, in the 2 Player lobby or on the selfie screen; saved on
+   the phone; never changed during a game. 1-player: you wear your primary, the computer a random other color. 2-player: each wears his
+   primary; if they match, one player picked at random keeps it and the other wears his alternate. Shown on the players, the scoreboard,
+   the name tags and the cartoon coach. ink: the text color that reads on it */
+var TEAMCOLS = { red: { name: 'Red', hex: '#e0413b', ink: '#ffffff' }, blue: { name: 'Blue', hex: '#2f6fe0', ink: '#ffffff' }, black: { name: 'Black', hex: '#2b2e35', ink: '#ffffff' },
+  green: { name: 'Green', hex: '#2e9e4f', ink: '#ffffff' }, orange: { name: 'Orange', hex: '#f08a24', ink: '#16202b' }, white: { name: 'White', hex: '#f4f3ef', ink: '#16202b' },
+  yellow: { name: 'Yellow', hex: '#f5c932', ink: '#16202b' }, cyan: { name: 'Cyan', hex: '#25bcd6', ink: '#16202b' } };
+var COL_ORDER = ['red', 'blue', 'black', 'green', 'orange', 'white', 'yellow', 'cyan'];
+function validCol(c) { return COL_ORDER.indexOf(c) >= 0; }
+function colHex(c) { return (TEAMCOLS[c] || TEAMCOLS.red).hex; }
+function colInk(c) { return (TEAMCOLS[c] || TEAMCOLS.red).ink; }
+/* mix a #rrggbb color toward white (k > 0) or black (k < 0) */
+function colMix(hex, k) { var n = parseInt(hex.slice(1), 16), c = [n >> 16, (n >> 8) & 255, n & 255].map(function (v) { return Math.round(k > 0 ? v + (255 - v) * k : v * (1 + k)); }); return '#' + c.map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join(''); }
+var myCol = { p: 'red', a: 'blue' };
+try { var mc = JSON.parse(localStorage.getItem('ccb-col') || 'null'); if (mc && validCol(mc.p) && validCol(mc.a) && mc.p !== mc.a) myCol = mc; } catch (e) { }
+function setMyCol(p, a) { if (!validCol(p) || !validCol(a) || p === a) return; myCol = { p: p, a: a }; try { localStorage.setItem('ccb-col', JSON.stringify(myCol)); } catch (e) { } colButtons(); selfThumbs(); }
+/* 1-player: the computer wears a random color that isn't yours */
+function pickCols1() { var o = COL_ORDER.filter(function (c) { return c !== myCol.p; }); return { you: myCol.p, cpu: o[Math.floor(Math.random() * o.length)] }; }
+/* 2-player (the host decides): host is 'you', guest 'cpu' */
+function pickCols2(host, guest) {
+  if (host.p !== guest.p) return { you: host.p, cpu: guest.p };
+  return Math.random() < 0.5 ? { you: host.p, cpu: guest.a } : { you: host.a, cpu: guest.p };
+}
+
 /* ============ coach faces ============ */
-function coachSVG(team, mood) {
-  var red = team === 'red';
+/* team: a color from TEAMCOLS; look: 'a' (the gray-haired coach, your side) or 'b' (the one with glasses, the other side) */
+function coachSVG(team, mood, look) {
+  var red = look ? look === 'a' : team === 'red';
   var C = red ? { bg: '#f6d2c4', jk: '#c8372f', ear: '#dc9c76', face: '#eab48e', cap: '#c8372f', brim: '#9e2a24', brow: '#6d6d74', eye: '#2a1d18', nose: '#d9946c', mouth: '#5a2a20' }
               : { bg: '#d3e2f7', jk: '#2457a6', ear: '#b07a52', face: '#c68b62', cap: '#2457a6', brim: '#183d7a', brow: '#3b2a1f', eye: '#21160f', nose: '#a8704b', mouth: '#2e1c12' };
-  var s = '<svg viewBox="0 0 80 80" role="img" aria-label="' + (red ? 'Red' : 'Blue') + ' coach, ' + mood + '">';
+  if (TEAMCOLS[team]) { var h = colHex(team); C.jk = h; C.cap = h; C.brim = colMix(h, -0.28); C.bg = colMix(h, 0.78); }
+  var s = '<svg viewBox="0 0 80 80" role="img" aria-label="' + (TEAMCOLS[team] ? TEAMCOLS[team].name : 'Team') + ' coach, ' + mood + '">';
   s += '<rect width="80" height="80" fill="' + C.bg + '"/>';
   s += '<path d="M9 80 C13 62 27 57 40 57 C53 57 67 62 71 80 Z" fill="' + C.jk + '"/><path d="M33 57 L40 66 L47 57 Z" fill="#fff"/>';
   s += '<circle cx="22" cy="43" r="4.5" fill="' + C.ear + '"/><circle cx="58" cy="43" r="4.5" fill="' + C.ear + '"/>';
@@ -702,13 +747,13 @@ function cleanSelfie(o) { var lm = {}; LM_KEYS.forEach(function (k) { lm[k] = [+
 try { var savedSelf = JSON.parse(localStorage.getItem('ccb-selfie') || 'null'); if (validSelfie(savedSelf)) mySelfie = cleanSelfie(savedSelf); } catch (e) { }
 /* the face shown for a team: this phone's selfie for its own team, the opponent's (sent over) in an online game, else the cartoon coach */
 function faceFor(side) { if (side === ME) return mySelfie; if (NET.oppFace && NET.g) return NET.oppFace; return null; }
-function setFace(el, f, team, mood) {
-  if (!f) { el.innerHTML = coachSVG(team, mood); return; }
+function setFace(el, f, team, mood, look) {
+  if (!f) { el.innerHTML = coachSVG(team, mood, look); return; }
   el.textContent = ''; var im = new Image(); im.alt = 'Coach selfie' + (mood !== 'neutral' ? ', ' + mood : '');
   im.src = (f.moods && f.moods[mood]) || f.img; el.appendChild(im);
   if (!f.moods && !f.making) makeMoods(f, function () { if (S) updatePortraits(); selfThumbs(); });
 }
-function selfThumbs() { document.querySelectorAll('.sthumb').forEach(function (el) { setFace(el, mySelfie, 'red', 'neutral'); }); }
+function selfThumbs() { document.querySelectorAll('.sthumb').forEach(function (el) { setFace(el, mySelfie, myCol.p, 'neutral', 'a'); }); }
 /* happy and mad: each output pixel is taken from the photo moved back by the sum of a few smooth pushes around the landmarks */
 function makeMoods(f, done) {
   f.making = true; var im = new Image();
@@ -1015,7 +1060,7 @@ function newGame(g) {
   S = {
     t: 0, seed: (g.seed != null ? g.seed : (Date.now() & 0x7fffffff)) | 0, ai: g.ai || { you: false, cpu: true }, half: 0, outs: 0, b: 0, s: 0, pOff: 0, bOff: { x: 0, y: 0 },
     score: { you: 0, cpu: 0 }, stats: { you: { h: 0, hr: 0, k: 0, bb: 0 }, cpu: { h: 0, hr: 0, k: 0, bb: 0 } },
-    vis: g.vis || (opts.batFirst ? 'you' : 'cpu'), phase: 'ready', pt: 0, wt: 0, wlen: WINDUP_T, rt: 0, ball: null, bb: null, sw: null,
+    vis: g.vis || (opts.batFirst ? 'you' : 'cpu'), col: g.col && validCol(g.col.you) && validCol(g.col.cpu) ? { you: g.col.you, cpu: g.col.cpu } : pickCols1(), phase: 'ready', pt: 0, wt: 0, wlen: WINDUP_T, rt: 0, ball: null, bb: null, sw: null,
     cpuP: null, cpuB: null, follow: 0, shake: -999, brk: null, faces: null, faceT: 0, faceKind: null, hr: null, yell: null, bob: null, goodSide: null, fan: {}, fielded: null, over: false, after: null, F: homePos(), ctl: 'P', holder: null, thr: null, playT: 0,
     runners: [], live: null, lock: false, pick: false, playRuns: 0, playOuts: 0, batR: null, batterGone: false, abOver: false, stretch: false, cat: null
   };
@@ -1027,7 +1072,7 @@ function pitSide() { return other(batSide()); }
 /* labels from this phone's point of view */
 function tag(side) { if (side === ME) return NET.oppName && !S.ai[other(ME)] ? (NET.name || 'Player').toUpperCase() : 'YOU'; return S.ai[side] ? 'CPU' : (NET.oppName || 'OPP').toUpperCase(); } /* online: both players' names (version 86) */
 function wins(side, it) { return (side === ME ? 'You win' : S.ai[side] ? 'The computer wins' : (NET.oppName || 'Your opponent') + ' wins') + (it ? ' it' : ''); }
-function teamColor(side) { return side === S.vis ? 'red' : 'blue'; }
+function teamColor(side) { return S.col && validCol(S.col[side]) ? S.col[side] : side === S.vis ? 'red' : 'blue'; } /* team colors (version 1.57; before, visitors red and home blue) */
 function startHalf() {
   S.pOff = 0; S.bOff = { x: 0, y: 0 }; S.runners = []; S.batR = null; S.batterGone = false; S.abOver = false; S.lock = false; S.pick = false; S.playRuns = 0; S.freezeR = false; S.wo = false;
   S.goodSide = null; S.outs = 0; S.b = 0; S.s = 0; S.phase = 'ready'; S.pt = 0; S.sw = null; S.ball = null; S.bb = null; S.fielded = null; S.cpuP = null; resetPlay();
@@ -1377,11 +1422,11 @@ function hrCelebrate(side) { S.hr = { side: side, t0: S.t, end: S.t + Math.max(3
    it pops loose about 2 feet (version 1.05) and he has to go get it again (he can't touch it for 0.3 s) */
 /* bobble chance by the ball's speed when the fielder touches it, as a share of the fastest hit: over 80% 20% (user, Oct 24, version 1.05);
    75-80% 10%, over 50% up to 75% 5% (user, Nov 1, version 1.34); 50% or less never */
-function bobbleP(v) { var f = v / BALLMAX; return f > 0.8 ? 0.2 : f >= 0.75 ? 0.1 : f > 0.5 ? 0.05 : 0; }
+function bobbleP(v) { var f = v / BALLMAX; return f > 0.8 ? 0.2 : f > 0.6 ? 0.1 : f > 0.5 ? 0.05 : 0; } /* version 1.57 (user, Nov 7): over 60% to 80% 10%, over 50% to 60% 5% */
 function bobble(id, bb) {
   var a = (rnd() * 2 - 1) * PI * 0.6, c = dcos(a), sn = dsin(a), ux = bb.ux * c - bb.uy * sn, uy = bb.ux * sn + bb.uy * c;
-  bb.ux = ux; bb.uy = uy; bb.v = 0.12 + rnd() * 0.03; /* rolls about 2 feet (version 1.05) */ bb.touched = true; S.bob = { id: id, t: S.t + 18 };
-  sfx('bobble'); /* a short sound, no call on screen (user, Oct 24, version 1.05) */
+  bb.ux = ux; bb.uy = uy; bb.v = 0.12 + rnd() * 0.03; /* rolls about 2 feet (version 1.05) */ bb.touched = true; S.bob = { id: id, t: S.t + 18, at: S.t };
+  sfx('bobble'); toast('BOBBLE', null, 50); /* the word shows (user, Nov 7, version 1.57; 1.05 had none); it may not be an error, so not ERROR */
 }
 function react(happy, kind, ticks) { S.faces = {}; S.faces[happy] = 'happy'; S.faces[other(happy)] = 'mad'; S.faceKind = kind; S.faceT = ticks; updatePortraits(); }
 function tick(IN) {
@@ -2380,6 +2425,8 @@ function hint() {
 function updateHUD() {
   if (QUIET) return;
   $('sv').textContent = S.score[S.vis]; $('sh').textContent = S.score[homeSide()];
+  var sbv = document.querySelector('#sb .vis'), sbh = document.querySelector('#sb .home'), cv = teamColor(S.vis), ch2 = teamColor(homeSide()); /* team colors on the scoreboard (version 1.57) */
+  sbv.style.background = colHex(cv); sbv.style.color = colInk(cv); sbh.style.background = colHex(ch2); sbh.style.color = colInk(ch2);
   $('in').textContent = Math.floor(S.half / 2) + 1; $('ih').textContent = S.half % 2 === 0 ? '▲' : '▼';
   var bs = document.querySelectorAll('#sb i.b'), ss = document.querySelectorAll('#sb i.s'), os = document.querySelectorAll('#sb i.o');
   Array.prototype.forEach.call(bs, function (e, i) { e.classList.toggle('on', i < S.b); });
@@ -2391,10 +2438,11 @@ function updatePortraits() {
   HRV.mood = null; /* the celebration view redraws its flash over this */
   var bat = batSide(), pit = other(bat);
   var mb = S.faces && S.faces[bat] || 'neutral', mp = S.faces && S.faces[pit] || 'neutral';
-  setFace($('fl'), faceFor(bat), teamColor(bat), mb); setFace($('fr'), faceFor(pit), teamColor(pit), mp);
+  setFace($('fl'), faceFor(bat), teamColor(bat), mb, bat === 'you' ? 'a' : 'b'); setFace($('fr'), faceFor(pit), teamColor(pit), mp, pit === 'you' ? 'a' : 'b');
   $('sml').hidden = mb !== 'mad'; $('smr').hidden = mp !== 'mad';
   $('pl').classList.toggle('big', mb !== 'neutral'); $('pr').classList.toggle('big', mp !== 'neutral'); /* doubled while warped (version 1.08) */ /* smoke off the head of any mad face (user, Oct 24, version 1.03) */
   $('wl').textContent = tag(bat); $('wr').textContent = tag(pit);
+  $('wl').style.background = colHex(teamColor(bat)); $('wl').style.color = colInk(teamColor(bat)); $('wr').style.background = colHex(teamColor(pit)); $('wr').style.color = colInk(teamColor(pit));
 }
 /* the hit speed readout (version 68's, back in 1.21): speed off the bat, the ball's speed now, and at the fence the home run chance and roll */
 var spdText = null;
@@ -2449,7 +2497,7 @@ function hrView() {
   $('pl').classList.toggle('hrc', !!on && left); $('pr').classList.toggle('hrc', !!on && !left);
   if (on) {
     var e = S.t - on.t0, mood = e < 96 && Math.floor(e / 12) % 2 ? 'neutral' : 'happy';
-    if (mood !== HRV.mood) { HRV.mood = mood; setFace(left ? $('fl') : $('fr'), faceFor(on.side), teamColor(on.side), mood); }
+    if (mood !== HRV.mood) { HRV.mood = mood; setFace(left ? $('fl') : $('fr'), faceFor(on.side), teamColor(on.side), mood, on.side === 'you' ? 'a' : 'b'); }
   }
   fanView();
   if (S && S.yell && S.yell.t !== HRV.yellT && S.t - S.yell.t < 90) { /* up to 1.5 s late (the other player's tap arrives over the network) */
@@ -2514,7 +2562,7 @@ function render() {
   ctx.setTransform(K * DPR, 0, 0, K * DPR, 0, 0);
   if (!S) { drawIdle(); return; }
   var bat = batSide(), pit = other(bat);
-  var batCol = teamColor(bat) === 'red' ? theme.red : theme.blue, pitCol = teamColor(pit) === 'red' ? theme.red : theme.blue;
+  var batCol = colHex(teamColor(bat)), pitCol = colHex(teamColor(pit));
   var playing = (!!S.live || S.freePlay || S.wasLive) && (S.phase === 'batted' || S.phase === 'result');
   var list = [];
   FIELDERS.forEach(function (f) {
@@ -2531,6 +2579,7 @@ function render() {
     else if (hold && isOF(f.id) && S.gatherT > 0) { var gk = 1 - S.gatherT / GATHER_OF; o = { sy: 1 - 0.24 * Math.sin(gk * PI), glove: [4, -8 - 8 * gk], hand: [-4, -9 - 8 * gk], ball: true }; }
     else if (hold) o = { glove: [6, -22], hand: [-1, -21], ball: true, run: o.run };
     else if (S.followId === f.id && S.followT > 0) o = throwPose(1 + 0.6 * (S.t - S.followStart) / FOLLOW_T);
+    if (S.bob && S.bob.id === f.id && S.t - S.bob.at < 45) o = Object.assign({}, o, { skin: '#e8574a' }); /* the man who bobbled it turns red for 0.75 s (version 1.57) */
     list.push({ y: p[1], d: function () {
       if (playing && S.ctl === f.id && pitSide() === ME) ring(ctx, p[0], p[1], sc);
       drawFielder(ctx, p[0], p[1], sc, pitCol, o);
@@ -2719,7 +2768,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.56'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.57'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
@@ -2905,7 +2954,7 @@ function beginOnline() {
   if (!NET.ch) return;
   var g = NET.g; opts.innings = g.innings; opts.mercy = g.mercy;
   $('netmsg').hidden = true; audio(); if (opts.murmur) murmur(true); $('menu').hidden = false;
-  newGame({ seed: g.seed, ai: { you: false, cpu: false }, me: NET.role === 'host' ? 'you' : 'cpu', vis: g.vis });
+  newGame({ seed: g.seed, ai: { you: false, cpu: false }, me: NET.role === 'host' ? 'you' : 'cpu', vis: g.vis, col: g.col });
   RB.start(ME, 1); NET.remB = -1; NET.adv = 0; NET.log = {}; NET.oppAck = 0; NET.lastSent = 0; NET.lastFlush = 0; NET.ackSent = -1; NET.stepOk = true; NET.stallAt = 0; NET.live = true; acc = 0;
   var early = NET.early || []; NET.early = []; early.forEach(function (m) { NET.recv(m); });
   updatePortraits(); hint(); sendFace();
@@ -3083,6 +3132,17 @@ $('camno').addEventListener('click', function () { sfx('click'); mySelfie = null
 $('camback').addEventListener('click', function () { sfx('click'); camClose(); });
 $('self1').addEventListener('click', function () { audio(); sfx('click'); goFull(); wantFull = true; camOpen('title'); });
 $('self2').addEventListener('click', function () { sfx('click'); camOpen('lobby'); });
+/* team colors picker (version 1.57): two rows of 8; picking the other row's color swaps them */
+function colButtons() { document.querySelectorAll('.colbtn .swp').forEach(function (sp) { var i = sp.querySelectorAll('i'); i[0].style.background = colHex(myCol.p); i[1].style.background = colHex(myCol.a); }); colRows(); }
+function colRows() {
+  [['swp', 'p'], ['swa', 'a']].forEach(function (row) {
+    var box = $(row[0]); if (!box.children.length) COL_ORDER.forEach(function (c) { var b = document.createElement('button'); b.type = 'button'; b.dataset.c = c; b.style.background = colHex(c); b.setAttribute('aria-label', TEAMCOLS[c].name); b.title = TEAMCOLS[c].name;
+      b.addEventListener('click', function () { sfx('click'); var o = row[1] === 'p' ? myCol.a : myCol.p; if (row[1] === 'p') setMyCol(c, c === o ? myCol.p : o); else setMyCol(c === o ? myCol.a : o, c); }); box.appendChild(b); });
+    Array.prototype.forEach.call(box.children, function (b) { b.setAttribute('aria-pressed', String(b.dataset.c === myCol[row[1]])); });
+  });
+}
+['colb1', 'colb2', 'colb3'].forEach(function (id) { $(id).addEventListener('click', function () { audio(); sfx('click'); colRows(); $('colpick').hidden = false; }); });
+$('coldone').addEventListener('click', function () { sfx('click'); $('colpick').hidden = true; });
 $('start').addEventListener('click', function () {
   audio(); sfx('click'); var two = $('p2').getAttribute('aria-pressed') === 'true';
   $('bfrow').hidden = two; $('cf').hidden = false; setSide(true, false); $('go').textContent = two ? 'LOBBY' : 'PLAY BALL'; $('setnote').textContent = two ? 'Mercy: the game ends when a team leads by this many runs. When you host, your innings and mercy rule are used.' : 'Mercy: the game ends when a team leads by this many runs.';
@@ -3134,7 +3194,7 @@ function flipMe() { return FLIP.net && NET.role !== 'host' ? 'cpu' : 'you'; }
 function flipName(team) { return team === flipMe() ? 'You' : FLIP.net ? (NET.oppName || 'Your opponent') : 'The computer'; }
 function flipStop() { FLIP.on = false; clearInterval(FLIP.iv); FLIP.iv = null; clearTimeout(FLIP.goT); FLIP.F = null; $('flip').hidden = true; }
 function flipStart(net) {
-  flipStop(); FLIP.on = true; FLIP.net = net; FLIP.oppCam = net ? null : false; FLIP.myCall = FLIP.myPick = null; FLIP.sendUntil = 0; FLIP.seen = -1;
+  flipStop(); FLIP.on = true; FLIP.net = net; FLIP.oppCam = net ? null : false; FLIP.oppCol = null; FLIP.myCall = FLIP.myPick = null; FLIP.sendUntil = 0; FLIP.seen = -1;
   $('netmsg').hidden = true; $('flip').hidden = false; $('flback').hidden = false; $('coin').style.transform = '';
   if (!net || NET.role === 'host') { FLIP.F = { n: 0, step: 'wait' }; FLIP.t0 = performance.now(); flipRun(); }
   else { FLIP.F = null; flipShow(); }
@@ -3146,10 +3206,10 @@ function flipSend() { if (FLIP.net && NET.role === 'host' && NET.ch && FLIP.F) N
 function flipRun() {
   if (!FLIP.on) return;
   var now = performance.now(), el = now - FLIP.t0, F = FLIP.F, me = flipMe();
-  if (FLIP.net && NET.role !== 'host') { if (NET.ch && now - (FLIP.lastFs || 0) >= 300) { FLIP.lastFs = now; NET.ch.send({ type: 'broadcast', event: 'fs', payload: { cam: !$('cam').hidden, call: FLIP.myCall, pick: FLIP.myPick } }); } flipCount(); return; }
+  if (FLIP.net && NET.role !== 'host') { if (NET.ch && now - (FLIP.lastFs || 0) >= 300) { FLIP.lastFs = now; NET.ch.send({ type: 'broadcast', event: 'fs', payload: { cam: !$('cam').hidden || !$('colpick').hidden, call: FLIP.myCall, pick: FLIP.myPick, col: myCol } }); } flipCount(); return; }
   if (FLIP.net && (now < FLIP.sendUntil || F.step !== 'started') && Math.floor(now / 300) !== Math.floor((now - 100) / 300)) flipSend(); /* sent again every 300 ms in case one is lost */
   if (F.step === 'wait') {
-    if ($('cam').hidden && FLIP.oppCam === false) flipSet({ step: 'call', caller: FLIP.net ? (Math.random() < 0.5 ? 'you' : 'cpu') : 'you' });
+    if ($('cam').hidden && $('colpick').hidden && FLIP.oppCam === false && (!FLIP.net || FLIP.oppCol)) flipSet({ step: 'call', caller: FLIP.net ? (Math.random() < 0.5 ? 'you' : 'cpu') : 'you', col: FLIP.net ? pickCols2(myCol, FLIP.oppCol) : null });
     else flipShow();
   } else if (F.step === 'call') {
     if (F.call) flipSet({ step: 'spin', coin: Math.random() < 0.5 ? 'H' : 'T' });
@@ -3177,7 +3237,7 @@ function flipVis(F) { return F.pick === 'bat' ? F.winner : other(F.winner); }
 function flipBegin() {
   var F = FLIP.F, vis = flipVis(F); clearInterval(FLIP.iv); FLIP.iv = null;
   if (!FLIP.net) { flipStop(); play1(vis); return; }
-  NET.g.vis = vis; FLIP.on = NET.role === 'host'; $('flip').hidden = true;
+  NET.g.vis = vis; if (F.col) NET.g.col = F.col; FLIP.on = NET.role === 'host'; $('flip').hidden = true;
   if (NET.role === 'host') { F.step = 'started'; F.vis = vis; F.n++; FLIP.sendUntil = performance.now() + 3000; FLIP.iv = setInterval(function () { if (performance.now() > FLIP.sendUntil || !NET.ch) { flipStop(); return; } flipSend(); }, 300); }
   else FLIP.F = null;
   beginOnline();
@@ -3186,7 +3246,7 @@ function flipBegin() {
 function flipRecv(F) {
   if (!FLIP.on || !FLIP.net || NET.role === 'host' || !F || typeof F.n !== 'number') return;
   if (FLIP.F && F.n <= FLIP.F.n) return;
-  var prev = FLIP.F; FLIP.F = F; FLIP.t0 = performance.now();
+  var prev = FLIP.F; FLIP.F = F; FLIP.t0 = performance.now(); if (F.col && validCol(F.col.you) && validCol(F.col.cpu) && NET.g) NET.g.col = { you: F.col.you, cpu: F.col.cpu };
   if (F.step === 'started') { if (!NET.live) { FLIP.F = { n: F.n, step: 'go', winner: F.winner, pick: F.pick }; flipBegin(); } return; }
   if (F.step === 'go') { clearTimeout(FLIP.goT); FLIP.goT = setTimeout(function () { if (FLIP.on && FLIP.F && FLIP.F.step === 'go') flipBegin(); }, FLIPT.go); }
   if (!prev || prev.step !== F.step) flipShow(); else flipCount();
@@ -3194,7 +3254,7 @@ function flipRecv(F) {
 /* the host: what the other phone reports */
 function flipOpp(p) {
   if (!FLIP.on || !FLIP.net || NET.role !== 'host' || !p) return;
-  FLIP.oppCam = !!p.cam; var F = FLIP.F;
+  FLIP.oppCam = !!p.cam; var F = FLIP.F; if (p.col && validCol(p.col.p) && validCol(p.col.a)) FLIP.oppCol = { p: p.col.p, a: p.col.a }; /* his colors (version 1.57) */
   if (F.step === 'call' && F.caller === 'cpu' && !F.call && p.call && p.call.n === F.n && (p.call.v === 'H' || p.call.v === 'T')) { F.call = p.call.v; }
   if (F.step === 'pick' && F.winner === 'cpu' && !F.pick && p.pick && p.pick.n === F.n && (p.pick.v === 'bat' || p.pick.v === 'pitch')) { F.pick = p.pick.v; }
 }
@@ -3304,9 +3364,9 @@ lagLabels();
 $('tips').checked = opts.tips;
 $('tips').addEventListener('change', function () { opts.tips = $('tips').checked; try { localStorage.setItem('ccb-tips', opts.tips ? 'on' : 'off'); } catch (e) { } sfx('click'); });
 layout(); setTheme('day'); pressGroup('mon', 'moff', opts.murmur); $('mv').textContent = opts.mercy;
-$('fl').innerHTML = coachSVG('red', 'neutral'); $('fr').innerHTML = coachSVG('blue', 'neutral'); selfThumbs();
+$('fl').innerHTML = coachSVG('red', 'neutral'); $('fr').innerHTML = coachSVG('blue', 'neutral'); selfThumbs(); colButtons();
 $('hint').textContent = '';
 requestAnimationFrame(frame);
-window.__ccb = { get S() { return S; }, FLIPT: FLIPT, get FLIP() { return FLIP; }, get SWV() { return SWV; }, get ZIP() { return ZIP; }, tick: function (IN) { tick(IN); }, newGame: function (o) { var g = {}; if (o) for (var k in o) { if (k === 'seed' || k === 'ai' || k === 'me' || k === 'vis') g[k] = o[k]; else opts[k] = o[k]; } newGame(g); }, save: save, load: load, syncView: syncView, RB: RB, packIn: packIn, view: function () { swingLabel(); hrView(); }, endTap: endTap, get sfxCount() { return SFX_COUNT; }, clips: function () { audio(); return Object.keys(CLIPBUF).map(function (k) { return [k, Math.round(CLIPBUF[k].duration * 100) / 100]; }); }, NET: NET, get selfie() { return mySelfie; }, setSelfie: function (o) { mySelfie = o && validSelfie(o) ? cleanSelfie(o) : null; selfThumbs(); }, checkFace: checkFace, quiet: function (q) { QUIET = !!q; }, get ME() { return ME; }, newRunner: function (a) { return newRunner(a, null); }, human: human };
+window.__ccb = { get S() { return S; }, FLIPT: FLIPT, setCols: function (p, a) { setMyCol(p, a); }, get myCol() { return myCol; }, get FLIP() { return FLIP; }, get SWV() { return SWV; }, get ZIP() { return ZIP; }, tick: function (IN) { tick(IN); }, newGame: function (o) { var g = {}; if (o) for (var k in o) { if (k === 'seed' || k === 'ai' || k === 'me' || k === 'vis' || k === 'col') g[k] = o[k]; else opts[k] = o[k]; } newGame(g); }, save: save, load: load, syncView: syncView, RB: RB, packIn: packIn, view: function () { swingLabel(); hrView(); }, endTap: endTap, get sfxCount() { return SFX_COUNT; }, clips: function () { audio(); return Object.keys(CLIPBUF).map(function (k) { return [k, Math.round(CLIPBUF[k].duration * 100) / 100]; }); }, NET: NET, get selfie() { return mySelfie; }, setSelfie: function (o) { mySelfie = o && validSelfie(o) ? cleanSelfie(o) : null; selfThumbs(); }, checkFace: checkFace, quiet: function (q) { QUIET = !!q; }, get ME() { return ME; }, newRunner: function (a) { return newRunner(a, null); }, human: human };
 })();
 </script>

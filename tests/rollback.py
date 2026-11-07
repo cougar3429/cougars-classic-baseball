@@ -39,7 +39,7 @@ function player(seed, n, delay) {
 }
 const un = p => ({ dir: p.d, btn: !!p.b, vx: p.x / 16, vy: p.y / 16 });
 function setup(w, seed, me, delay) {
-  const C = w.__ccb; C.newGame({ innings: 3, mercy: 10, batFirst: true, seed, ai: { you: false, cpu: false }, me: me || 'you', vis: 'you' });
+  const C = w.__ccb; C.newGame({ innings: 3, mercy: 10, batFirst: true, seed, ai: { you: false, cpu: false }, me: me || 'you', vis: 'you', col: { you: 'red', cpu: 'blue' } }); // 2-player games always get their colors from the host (version 1.57)
   C.S.paused = true; if (me) C.RB.start(me, delay); return C;
 }
 window.runGame = function (seed, lag, maxT, delay) {

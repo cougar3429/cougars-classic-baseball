@@ -74,6 +74,8 @@ def main():
         # coin flip (version 1.30): Bob opens the selfie camera after asking; Ann accepts and her phone waits for him to finish.
         # Ann's dice are fixed at 0.7: Bob is the caller and the coin lands tails. Bob calls TAILS, wins, and picks BAT FIRST.
         B.locator('#self2').click()
+        # team colors (version 1.57): both pick red first; Ann's alternate is blue, Bob's green. One of them keeps red, the other wears his alternate
+        ann.evaluate("() => window.__ccb.setCols('red', 'blue')"); bob.evaluate("() => window.__ccb.setCols('red', 'green')")
         ann.evaluate('() => { window.__rand = Math.random; Math.random = () => 0.7; }')
         A.locator('#reqs button', has_text='ACCEPT').click(timeout=5000)
         flip = {}
@@ -90,6 +92,8 @@ def main():
         for f in (ann, bob): f.wait_for_function('() => window.__ccb.NET.live', timeout=8000)
         flip['vis'] = [f.evaluate('() => window.__ccb.S.vis') for f in (ann, bob)]
         flip['coin_sound'] = [f.evaluate('() => window.__ccb.sfxCount.coin || 0') for f in (ann, bob)]
+        flip['colors'] = [f.evaluate('() => window.__ccb.S.col') for f in (ann, bob)]
+        if flip['colors'][0] != flip['colors'][1] or flip['colors'][0] not in ({'you': 'red', 'cpu': 'green'}, {'you': 'blue', 'cpu': 'red'}): problems.append(f"team colors: {flip['colors']}")
         if flip.get('step_while_selfie') != 'wait' or flip['vis'] != ['cpu', 'cpu'] or flip['coin_sound'] != [1, 1]: problems.append(f'coin flip: {flip}')
         faces = None
         try:
@@ -217,7 +221,7 @@ def main():
     print(f'host button right after opening the lobby: {early_host}')
     for x in problems + errs[:5]: print('   ', x)
     ok = not problems and not errs
-    print('PASS' if ok else 'FAIL', '- online 2-player: lobby, deny, accept, coin flip (waits for a selfie, the guest calls and picks), play, agree, selfies, lag readout, clock sync, game over first on one phone, rematch (accept, swap, agree, decline, the asker picks), dropout and reconnect, wait time limit, quit, finish vs CPU')
+    print('PASS' if ok else 'FAIL', '- online 2-player: lobby, deny, accept, coin flip (waits for a selfie, the guest calls and picks), team colors, play, agree, selfies, lag readout, clock sync, game over first on one phone, rematch (accept, swap, agree, decline, the asker picks), dropout and reconnect, wait time limit, quit, finish vs CPU')
     sys.exit(0 if ok else 1)
 
 
