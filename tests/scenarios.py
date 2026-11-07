@@ -307,12 +307,12 @@ CHECKS = {
   }
   return { ok: !bad.length && cpuHomeOuts === 6, cases: n, cpuHomeOuts, bad }; }""",
 
-'contact swing speed (version 1.14): 1.80 to 2.81 off the bat; power unchanged': r"""() => { let cmin = 9, cmax = 0, pmin = 9, pmax = 0, n = 0;
+'contact swing speed (versions 1.14, 1.52): 2.00 (50%) to 2.81 off the bat; power unchanged': r"""() => { let cmin = 9, cmax = 0, pmin = 9, pmax = 0, n = 0;
   for (let i = 0; i < 160; i++) { T.start(true); const S = T.C.S; S.seed = 7000 + i; S.cpuP = null; const power = i % 2 === 1;
     T.until(() => S.phase === 'pitch' && S.ball.fy <= 20 - (i % 20), 900); if (S.phase !== 'pitch') continue; T.press(power ? 'u' : null);
     for (let k = 0; k < 40 && !S.bb; k++) T.C.tick(); if (!S.bb || S.bb.foul) continue; n++; const e = S.bb.ev;
     if (power) { pmin = Math.min(pmin, e); pmax = Math.max(pmax, e); } else { cmin = Math.min(cmin, e); cmax = Math.max(cmax, e); } }
-  return { ok: cmin >= 1.8 && cmax <= 2.81 && pmin < 1.4 && pmax > 3, n, contact: [cmin.toFixed(2), cmax.toFixed(2)], power: [pmin.toFixed(2), pmax.toFixed(2)] }; }""",
+  return { ok: cmin >= 2.0 && cmax <= 2.81 && pmin < 1.4 && pmax > 3, n, contact: [cmin.toFixed(2), cmax.toFixed(2)], power: [pmin.toFixed(2), pmax.toFixed(2)] }; }""",
 
 'pickoff cover (version 1.13): the quickest pickoff to any base is caught on the bag, runner on that base or not (with someone on), from anywhere on the rubber': r"""() => {
   const BAG = { 1: [60.2, 63.6], 2: [0, 127.3], 3: [-60.2, 63.6] }, ID = { 1: '1B', 2: '2B', 3: '3B' }, DIR = { 1: 'r', 2: 'u', 3: 'l' }, bad = []; let n = 0;
