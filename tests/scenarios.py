@@ -9,6 +9,12 @@ import json, sys
 from common import page
 
 CHECKS = {
+'outfielder speed (version 1.59): outfielders run 20 ft/s at full speed; infielders unchanged (19.2)': r"""() => { const res = {};
+  for (const id of ['LF', 'CF', 'RF', '2B']) { T.start(true); const S = T.C.S; T.hit(0, 0.01); S.cpuChase = null; S.ctl = 'P'; const f = S.F[id], x0 = f.x, y0 = f.y;
+    S.holder = 'P'; S.bb.x = S.F.P.x; S.bb.y = S.F.P.y; for (let i = 0; i < 30; i++) { f.x = x0; f.y = y0; } 
+    const pts = []; S.queued = null; for (let i = 0; i < 40; i++) { T.I.moveToward(id, x0 + 200, y0, 0.32); S.t++; pts.push([f.x, f.y]); }
+    res[id] = pts.length > 30 ? +(Math.hypot(pts[39][0] - pts[29][0], pts[39][1] - pts[29][1]) / 10 * 60).toFixed(2) : null; }
+  return { ok: res.LF === 20 && res.CF === 20 && res.RF === 20 && res['2B'] === 19.2, ftPerSec: res }; }""",
 'team colors (version 1.57): pick a primary and an alternate (never the same); saved; you wear your primary, the computer a random other color; scoreboard, tags and coach follow': r"""() => { const C = window.__ccb, $ = id => document.getElementById(id), res = {};
   C.setCols('green', 'yellow'); res.saved = JSON.parse(localStorage.getItem('ccb-col'));
   $('colb1').click(); const shown = !$('colpick').hidden; document.querySelector('#swa button[data-c="green"]').click(); res.swapped = Object.assign({}, C.myCol); $('coldone').click();
