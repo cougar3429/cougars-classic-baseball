@@ -270,7 +270,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.52</small>
+    <small id="ver">Version 1.53</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -313,7 +313,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.52</small>
+    <small class="lver" id="lver">Version 1.53</small>
   </section>
 
   <section class="screen" id="flip" hidden>
@@ -1623,10 +1623,12 @@ function tryContact() {
   else {
     /* contact swing (user, Nov 1, version 1.14): a higher floor and less dependence on pitch speed, 1.80 off the slowest pitch to about 2.81 off the fastest
        (was 1.35 to 2.81); the power swing is unchanged */
-    var base = sw.type === 'power' ? 1.5 + 1.2 * pf : 2.0 + 0.7 * pf, m = sw.type === 'power' ? (r < 0.15 ? 0.6 + r : 1.15 + 0.3 * ((r - 0.15) / 0.85)) : (0.9 + 0.14 * r);
+    /* version 1.53 (user, Nov 6): set ranges, as a share of the fastest a ball comes off the bat, off the slowest and the fastest pitch;
+       in between they slide with pitch speed, and the swing lands at random inside the range. 18% of power swings are mishits. */
+    var EVR = sw.type !== 'power' ? EV_CONTACT : r < MISHIT_P ? EV_MISHIT : EV_POWER, u = sw.type !== 'power' ? r : r < MISHIT_P ? r / MISHIT_P : (r - MISHIT_P) / (1 - MISHIT_P);
+    var pk = Math.max(0, Math.min(1, pf)), lo = EVR[0][0] + (EVR[1][0] - EVR[0][0]) * pk, hi = EVR[0][1] + (EVR[1][1] - EVR[0][1]) * pk;
     /* direction: 90% batter timing (early = left, late = right), 10% pitch location (inside pulls left) */
-    ev = Math.min(BALLMAX, base * m);
-    if (sw.type !== 'power') ev = Math.max(ev, CONTACT_MIN * BALLMAX); /* a contact swing is always at least 50% off the bat (user, Nov 6, version 1.52; it could be 45%) */
+    ev = Math.min(BALLMAX, BALLMAX * (lo + (hi - lo) * u));
     ang = 0.9 * (off / Wd * 62) + 0.1 * (-b.fx / BAT_REACH * 62);
   }
   var rad = ang * PI / 180, ux = -dsin(rad), uy = dcos(rad);
@@ -2582,7 +2584,8 @@ function swingStep() {
 }
 /* breaking the bat after a strikeout (user, Nov 6, version 1.48): every strikeout, over the knee or slammed on the plate, picked from the
    game clock (both phones agree; the game's dice are not used). Drawing only, apart from the snap sound; he stays in the box while it plays */
-var CONTACT_MIN = 0.5;
+/* off the bat, as a share of the fastest: [[slow pitch low, high], [fast pitch low, high]] (user, Nov 6, version 1.53) */
+var EV_CONTACT = [[0.60, 0.72], [0.72, 0.86]], EV_POWER = [[0.70, 0.82], [0.84, 0.98]], EV_MISHIT = [[0.25, 0.32], [0.30, 0.38]], MISHIT_P = 0.18;
 var BRK_SNAP = { knee: 30, slam: 21 }, BRK_LEN = 110;
 function batBreak() { S.brk = { t: S.t, kind: ((S.t * 7 + S.half * 3 + S.outs) % 2) ? 'knee' : 'slam' }; }
 function brkOn() { return !!(S && S.brk && S.t - S.brk.t < BRK_LEN + 60); }
@@ -2715,7 +2718,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.52'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.53'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
