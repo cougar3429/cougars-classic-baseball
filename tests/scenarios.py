@@ -9,6 +9,14 @@ import json, sys
 from common import page
 
 CHECKS = {
+'catcher on the plate (version 1.46): with a play at home he stands centered on the plate, as high as he can while still on it; you can still switch to him': r"""() => { const res = {};
+  T.start(false); let S = T.C.S; T.put([1, 2, 3]); T.hit(0, 1.0); T.until(() => S.holder, 400); S.ctl = S.holder; T.press('d'); let at = null;
+  for (let i = 0; i < 300; i++) { const had = !!S.thr; T.C.tick(); if (had && !S.thr && !at) at = [+S.F.C.x.toFixed(2), +S.F.C.y.toFixed(2)]; if (S.phase !== 'batted') break; }
+  const third = S.runners.find(r => r.fb === 4); res.forced = { catcherAt: at, out: third && third.out, how: third && third.how };
+  T.start(false); S = T.C.S; T.put([3]); T.hit(-20, 2.0); const r3 = S.runners.find(r => r.at === 3); r3.to = 4; r3.p = 0; T.until(() => Math.abs(S.F.C.y - 2.3) < 0.05 || !r3.to || r3.scored || r3.out, 300); res.runnerComing = [+S.F.C.x.toFixed(2), +S.F.C.y.toFixed(2)];
+  T.start(false); S = T.C.S; T.put([1, 2, 3]); T.hit(0, 1.0); T.run(15); T.press('d'); res.switchTo = S.ctl;
+  const onPlate = p => p && Math.abs(p[0]) < 0.05 && Math.abs(p[1] - 2.3) < 0.05 && Math.hypot(p[0], p[1] + 1) < 3.5;
+  return { ok: onPlate(res.forced.catcherAt) && res.forced.out && onPlate(res.runnerComing) && res.switchTo === 'C', res }; }""",
 'no pickoff with the bases empty (version 1.44): the pitcher\'s button alone shakes off the sign instead; with a runner on it still steps off': r"""() => { const res = {};
   T.start(false); let S = T.C.S; T.until(() => S.phase === 'ready', 600); S.runners = []; T.run(5); T.press(null); res.empty = { pick: S.pick, shook: S.t - S.shake < 5, phase: S.phase };
   T.run(60); res.after = { pick: S.pick, phase: S.phase };
