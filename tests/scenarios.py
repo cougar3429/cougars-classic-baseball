@@ -205,13 +205,14 @@ CHECKS = {
   }
   return { ok: res['50% center'] === 50 && res['54% center'] === 54 && res['55% center'] === 80 && res['70% center'] === 95 && res['50% near line'] === 60 && res['contact 70% center'] === 70 && res['contact 50% near line'] === 50, res }; }""",
 
-'throw speeds (versions 1.24, 1.28, 1.40, 1.47): outfield throws to second 5% slower, center fielder another 15%; outfield throws home 12% then 15% faster; others unchanged': r"""() => {
+"outfield throw speeds (version 1.56): set feet per second by fielder and base; pitcher 72, home 90; the same baseline for all three": r"""() => {
   const time = (id, base) => { T.start(true); const S = T.C.S; T.hit(0, 1); const p = S.F[id]; S.bb.x = p.x; S.bb.y = p.y; T.I.giveBall(id); S.gatherT = 0;
-    S.thr = null; const tx = base === 2 ? 0 : base === 4 ? 0 : 60.2, ty = base === 2 ? 127.3 : base === 4 ? -1 : 63.6; ['1B', '2B'].forEach(f => { S.F[f].x = 200; S.F[f].y = 200; });
+    S.thr = null; ['1B', '2B', '3B'].forEach(f => { S.F[f].x = 200; S.F[f].y = 200; });
     S.queued = null; S.animStart = null; S.quick = true; T.I.giveBall(id); S.gatherT = 0; S.windT = 1; S.queued = base; let n = 0;
-    for (; n < 400; n++) { T.C.tick(); if (S.thr && S.thr.sp) return +(S.thr.sp).toFixed(3); } return null; };
-  const cf2 = time('CF', 2), cf1 = time('CF', 1), lf2 = time('LF', 2), lf4 = time('LF', 4), rf4 = time('RF', 4), cf4 = time('CF', 4);
-  return { ok: Math.abs(cf2 - 0.969) < 0.01 && Math.abs(cf1 - 0.96) < 0.01 && Math.abs(lf2 - 1.14) < 0.01 && Math.abs(lf4 - 1.5456) < 0.01 && Math.abs(cf4 - 1.5456) < 0.01 && Math.abs(rf4 - 1.3915) < 0.01, cf2, cf1, lf2, lf4, cf4, rf4 }; }""",
+    for (; n < 400; n++) { T.C.tick(); if (S.thr && S.thr.sp) return Math.round(S.thr.sp * 60); } return null; };
+  const want = { LF: { 1: 70, 2: 67, 3: 50, 4: 90, P: 72 }, CF: { 1: 67, 2: 50, 3: 67, 4: 90, P: 72 }, RF: { 1: 50, 2: 67, 3: 70, 4: 90, P: 72 } }, got = {}, bad = [];
+  for (const id of ['LF', 'CF', 'RF']) { got[id] = {}; for (const b of [1, 2, 3, 4, 'P']) { got[id][b] = time(id, b); if (got[id][b] !== want[id][b]) bad.push(id + '>' + b + ' ' + got[id][b]); } }
+  return { ok: bad.length === 0, bad, fps: got }; }""",
 
 'uncaught third strike (version 1.23): swing-and-miss strike three past the catcher, the batter may run if first is empty or there are two outs': r"""() => { const res = {};
   for (const [name, bases, outs, want] of [['bases empty, 0 outs', [], 0, 'runs'], ['runner on first, 1 out', [1], 1, 'out'], ['runner on first, 2 outs', [1], 2, 'runs'], ['runner on second, 0 outs', [2], 0, 'runs']]) {

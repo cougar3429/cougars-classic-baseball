@@ -270,7 +270,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.55</small>
+    <small id="ver">Version 1.56</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -313,7 +313,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.55</small>
+    <small class="lver" id="lver">Version 1.56</small>
   </section>
 
   <section class="screen" id="flip" hidden>
@@ -1770,14 +1770,14 @@ function stealThrow(id) { return id === 'C' && !!S.live && S.live.kind === 'stea
 var PIVOT_WIND = 5, PIVOT_THROW = 1.3;
 function pivoting(id) { return S.pivot && id === S.holder; }
 function windFor(id) { return isOF(id) ? WIND_OF : stealThrow(id) ? C_WIND : pivoting(id) ? PIVOT_WIND : WIND_IF; }
-function armFor(id, base) { var a = stealThrow(id) ? C_THROW : pivoting(id) ? PIVOT_THROW : id === 'RF' ? THROW * RF_ARM : THROW; return isOF(id) && base === 1 ? a * OF_TO_FIRST * (id === 'RF' ? RF_TO_FIRST : 1) : isOF(id) && base === 2 ? a * OF_TO_SECOND * (id === 'CF' ? CF_TO_SECOND : 1) : isOF(id) && base === 4 ? a * OF_TO_HOME : id === 'C' && base === 2 ? a * C_TO_SECOND : a; }
-var OF_TO_FIRST = 0.8; /* outfield throws to first are 20% slower, so an outfielder rarely throws the batter out at first (user, Oct 24, version 100) */
-var RF_ARM = 0.9; /* the right fielder's throws are 10% slower */
-var OF_TO_HOME = 1.12 * 1.15; /* outfield throws home are 12% faster (user, Nov 1, version 1.28), then another 15% (user, Nov 6, version 1.47): 1.288 */
+/* outfield throws (user, Nov 6, version 1.56): set speeds in feet per second by fielder and target, all from the same baseline (the right fielder's
+   overall 10% cut is gone); throws to the pitcher 72, home 90. A game tick is 1/60 s, so a speed in ft/s is divided by 60 */
+var OF_FPS = { LF: { 1: 70, 2: 67, 3: 50 }, CF: { 1: 67, 2: 50, 3: 67 }, RF: { 1: 50, 2: 67, 3: 70 } }, OF_TO_P_FPS = 72, OF_HOME_FPS = 90;
+function armFor(id, base) {
+  if (isOF(id)) return (base === 4 ? OF_HOME_FPS : OF_FPS[id][base] || OF_TO_P_FPS) / 60;
+  var a = stealThrow(id) ? C_THROW : pivoting(id) ? PIVOT_THROW : THROW; return id === 'C' && base === 2 ? a * C_TO_SECOND : a;
+}
 var C_TO_SECOND = 0.95; /* the catcher's throws to second are 5% slower, so a steal of second on a slow pitch can work (user, Nov 6, version 1.47) */
-var OF_TO_SECOND = 0.95; /* every outfielder's throw to second is 5% slower so hits off the wall can be doubles (user, Nov 2, version 1.40) */
-var CF_TO_SECOND = 0.85; /* the center fielder's throws to second are 15% slower (user, Nov 1, version 1.24) */
-var RF_TO_FIRST = 0.95; /* and his throws to first another 5% slower (user, Nov 1, version 1.20): 0.684 of a normal throw (was 0.72) */
 function requestThrow(base) {
   if (!S.holder) return;
   if (base === 'P' && S.holder === 'P') return; /* he already has it */
@@ -2719,7 +2719,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.55'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.56'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
