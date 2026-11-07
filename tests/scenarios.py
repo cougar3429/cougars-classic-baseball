@@ -333,9 +333,9 @@ CHECKS = {
   const b2 = (window.__ccb.sfxCount || {}).tada || 0; T.I.wallHit(200); T.run(400); const afterHr = (window.__ccb.sfxCount || {}).tada || 0;
   return { ok: afterRun - before >= 1 && afterHr === b2, runTadas: afterRun - before, hrTadas: afterHr - b2, score: S.score }; }""",
 
-'recorded sounds (version 1.07): the crowd cheer (5 s) and the Yeah yell decode and play': r"""async () => {
+'recorded sounds (versions 1.07, 1.49): the crowd cheer (5 s), the Yeah yell and the bat crack (0.3 s) decode and play': r"""async () => {
   window.__ccb.clips(); let c = []; for (let i = 0; i < 60 && c.length < 2; i++) { await new Promise(r => setTimeout(r, 50)); c = window.__ccb.clips(); }
-  const m = Object.fromEntries(c); return { ok: m.cheer > 4.9 && m.cheer < 5.2 && m.yeah > 0.3 && m.yeah < 0.8, clips: m }; }""",
+  const m = Object.fromEntries(c); return { ok: m.cheer > 4.9 && m.cheer < 5.2 && m.yeah > 0.3 && m.yeah < 0.8 && m.bat > 0.25 && m.bat < 0.4, clips: m }; }""",
 
 'swing label (version 1.05): CONTACT or POWER shows after the batter swings, nothing for a bunt': r"""() => {
   const el = document.getElementById('swl'), seen = [];
