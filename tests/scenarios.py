@@ -9,8 +9,10 @@ import json, sys
 from common import page
 
 CHECKS = {
-'center fielder spot (version 1.51): 30 from the center-field fence (was 40), straight away center': r"""() => { T.start(false); const S = T.C.S; T.until(() => S.phase === 'ready', 600); const f = S.F.CF;
-  return { ok: f.x === 0 && f.y === 173 && 203 - f.y === 30, x: f.x, y: f.y, toFence: 203 - f.y }; }""",
+'outfielder spots (versions 1.51, 1.55): each 25% closer to the fence than before, along his line from home plate': r"""() => { T.start(false); const S = T.C.S; T.until(() => S.phase === 'ready', 600);
+  const gap = id => { const f = S.F[id], d = Math.hypot(f.x, f.y), u = f.x / d; return +(203 - 42 * u * u - d).toFixed(1); };
+  const res = { LF: gap('LF'), CF: gap('CF'), RF: gap('RF') };
+  return { ok: Math.abs(res.CF - 30) < 0.2 && Math.abs(res.LF - 26.7) < 0.2 && Math.abs(res.RF - 25.8) < 0.2, toFence: res, was: { LF: 35.6, CF: 40, RF: 34.4 } }; }""",
 'bat break (version 1.48): every strikeout the batter stays in the box and breaks his bat (over the knee or slammed down), with one snap sound; gone for the next batter': r"""() => { const C = window.__ccb, res = { kinds: {}, snaps: 0, ks: 0, drawn: 0 };
   for (let g = 0; g < 12; g++) { T.start(true); const S = C.S; S.seed = 300 + g; T.until(() => S.phase === 'ready', 600); S.s = 2; S.b = 0; S.runners = [];
     const s0 = C.sfxCount.snap || 0; T.until(() => S.brk || S.outs > 0 || S.b > 0, 1200); /* you never swing: a called strike three, or a ball */
