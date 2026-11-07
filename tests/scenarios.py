@@ -195,13 +195,13 @@ CHECKS = {
   const runs = k => res[k] && !/back|stays/.test(res[k]) && res[k] !== 'no fair contact';
   return { ok: Object.keys(res).every(runs), res }; }""",
 
-'home run chance (version 1.25): no +25 bonus under 55% speed at the fence; +10 near the lines still applies': r"""() => { const res = {};
-  for (const [name, frac, x] of [['50% center', 0.50, 0], ['54% center', 0.54, 0], ['55% center', 0.55, 0], ['70% center', 0.70, 0], ['50% near line', 0.50, 150]]) {
+'home run chance (versions 1.25, 1.54): power swings: +25 at 55% speed or more at the fence, +10 near the lines; contact swings get no bonus': r"""() => { const res = {};
+  for (const [name, frac, x, pw] of [['50% center', 0.50, 0, 1], ['54% center', 0.54, 0, 1], ['55% center', 0.55, 0, 1], ['70% center', 0.70, 0, 1], ['50% near line', 0.50, 150, 1], ['contact 70% center', 0.70, 0, 0], ['contact 50% near line', 0.50, 150, 0]]) {
     T.start(true); const S = T.C.S; S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; const y = x ? 115 : 200, d = Math.hypot(x, y);
-    S.bb = T.I.mkBall(x, y); S.bb.wall = false; S.bb.v = frac * 4; S.spd = { ev: 3, wall: null }; T.I.batterToFirst(false); T.I.wallHit(d);
+    S.bb = T.I.mkBall(x, y); S.bb.pw = !!pw; S.bb.wall = false; S.bb.v = frac * 4; S.spd = { ev: 3, wall: null }; T.I.batterToFirst(false); T.I.wallHit(d);
     res[name] = Math.round(S.spd.wall.ch);
   }
-  return { ok: res['50% center'] === 50 && res['54% center'] === 54 && res['55% center'] === 80 && res['70% center'] === 95 && res['50% near line'] === 60, res }; }""",
+  return { ok: res['50% center'] === 50 && res['54% center'] === 54 && res['55% center'] === 80 && res['70% center'] === 95 && res['50% near line'] === 60 && res['contact 70% center'] === 70 && res['contact 50% near line'] === 50, res }; }""",
 
 'throw speeds (versions 1.24, 1.28, 1.40, 1.47): outfield throws to second 5% slower, center fielder another 15%; outfield throws home 12% then 15% faster; others unchanged': r"""() => {
   const time = (id, base) => { T.start(true); const S = T.C.S; T.hit(0, 1); const p = S.F[id]; S.bb.x = p.x; S.bb.y = p.y; T.I.giveBall(id); S.gatherT = 0;
