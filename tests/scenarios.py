@@ -209,7 +209,7 @@ CHECKS = {
 'home run chance (versions 1.25, 1.54): power swings: +25 at 55% speed or more at the fence, +10 near the lines; contact swings get no bonus': r"""() => { const res = {};
   for (const [name, frac, x, pw] of [['50% center', 0.50, 0, 1], ['54% center', 0.54, 0, 1], ['55% center', 0.55, 0, 1], ['70% center', 0.70, 0, 1], ['50% near line', 0.50, 150, 1], ['contact 70% center', 0.70, 0, 0], ['contact 50% near line', 0.50, 150, 0]]) {
     T.start(true); const S = T.C.S; S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; const y = x ? 115 : 200, d = Math.hypot(x, y);
-    S.bb = T.I.mkBall(x, y); S.bb.pw = !!pw; S.bb.wall = false; S.bb.v = frac * 4; S.spd = { ev: 3, wall: null }; T.I.batterToFirst(false); T.I.wallHit(d);
+    S.bb = T.I.mkBall(x, y); S.bb.pw = !!pw; S.bb.wall = false; S.bb.v = frac * 3.6; S.spd = { ev: 3, wall: null }; T.I.batterToFirst(false); T.I.wallHit(d);
     res[name] = Math.round(S.spd.wall.ch);
   }
   return { ok: res['50% center'] === 50 && res['54% center'] === 54 && res['55% center'] === 80 && res['70% center'] === 95 && res['50% near line'] === 60 && res['contact 70% center'] === 70 && res['contact 50% near line'] === 50, res }; }""",
@@ -319,12 +319,12 @@ CHECKS = {
   }
   return { ok: !bad.length && cpuHomeOuts === 6, cases: n, cpuHomeOuts, bad }; }""",
 
-"contact and power speeds (version 1.53): each swing lands inside its set range for the pitch speed; 18% of power swings are mishits": r"""() => { const res = { n: 0, bad: [], mis: 0, pow: 0 };
-  const R = { contact: [[0.60, 0.72], [0.72, 0.86]], power: [[0.70, 0.82], [0.84, 0.98]], mishit: [[0.25, 0.32], [0.30, 0.38]] };
+"contact and power speeds (versions 1.53, 1.58): each swing lands inside its set range for the pitch speed; 18% of power swings are mishits": r"""() => { const res = { n: 0, bad: [], mis: 0, pow: 0 };
+  const R = { contact: [[0.55, 0.67], [0.68, 0.79]], power: [[0.60, 0.73], [0.74, 0.98]], mishit: [[0.25 / 0.9, 0.32 / 0.9], [0.30 / 0.9, 0.38 / 0.9]] }; /* version 1.58 */
   for (let i = 0; i < 240; i++) { T.start(true); const S = T.C.S; S.seed = 7000 + i; S.cpuP = null; const power = i % 2 === 1;
     T.until(() => S.phase === 'pitch' && S.ball.fy <= 20 - (i % 20), 900); if (S.phase !== 'pitch') continue; let sp = S.ball.sp; T.press(power ? 'u' : null);
     for (let k = 0; k < 40 && !S.bb; k++) { if (S.ball) sp = S.ball.sp; T.C.tick(); } if (!S.bb || !S.sw || S.sw.type === 'bunt' || !(S.bb.ev > 0)) continue; res.n++; /* pitch speed at contact (the pitcher can still speed it up) */
-    const pf = Math.max(0, Math.min(1, (sp - 0.819) / (2.34 - 0.819))), f = S.bb.ev / 4, rng = k => [R[k][0][0] + (R[k][1][0] - R[k][0][0]) * pf, R[k][0][1] + (R[k][1][1] - R[k][0][1]) * pf];
+    const pf = Math.max(0, Math.min(1, (sp - 0.819) / (2.34 - 0.819))), f = S.bb.ev / 3.6, rng = k => [R[k][0][0] + (R[k][1][0] - R[k][0][0]) * pf, R[k][0][1] + (R[k][1][1] - R[k][0][1]) * pf];
     const inR = k => { const x = rng(k); return f >= x[0] - 0.001 && f <= x[1] + 0.001; };
     if (power) { res.pow++; if (inR('mishit')) res.mis++; else if (!inR('power')) res.bad.push(['power', +f.toFixed(3), +pf.toFixed(2)]); }
     else if (!inR('contact')) res.bad.push(['contact', +f.toFixed(3), +pf.toFixed(2)]); }
