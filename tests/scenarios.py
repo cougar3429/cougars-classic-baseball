@@ -10,7 +10,7 @@ from common import page
 
 CHECKS = {
 'leads after a pickoff call (version 1.61): you step off, the runners dive back; back on the rubber, they take their leads again; a steal order still stands': r"""() => { const res = {};
-  T.start(false); const S = T.C.S; T.until(() => S.phase === 'ready', 600); T.put([1, 2]); T.I.takeLeads(); T.run(30);
+  T.start(false); const S = T.C.S; T.until(() => S.phase === 'ready', 600); T.put([1, 2]); T.I.takeLeads(); S.runners.forEach(r => { r.go = false; }); T.run(30); /* the computer's runners don't steal here (it rolls a small chance) */
   res.before = S.runners.map(r => r.lead); T.press(null); res.picked = S.pick; T.run(90); res.back = S.runners.map(r => r.at + '>' + r.to);
   T.press(null); res.onRubber = !S.pick; T.run(30); res.after = S.runners.map(r => ({ lead: r.lead, at: r.at, p: +r.p.toFixed(2) }));
   return { ok: res.before.every(x => x) && res.picked && res.back.every(x => x.endsWith('>null')) && res.onRubber && res.after.every(x => x.lead && x.p > 0), res }; }""",
