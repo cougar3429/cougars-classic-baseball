@@ -353,20 +353,23 @@ CHECKS = {
   }
   return { ok: !bad.length, cases: n, bad }; }""",
 
-"run scores sound (versions 1.12, 1.63): the ta-da plays once the run counts, not as he crosses; no ta-da when a force out for the third out wipes the run; none on a home run": r"""() => {
+"run scores sound (version 1.65): the ta-da plays right as he crosses, unless a force out could still make the third out; then it waits until the run is safe, or never plays if it is wiped; none on a home run": r"""() => {
   const tadas = () => (window.__ccb.sfxCount || {}).tada || 0, res = {};
-  /* a run that counts: nothing as he crosses, one ta-da when the play ends */
-  T.start(true); let S = T.C.S; T.put([3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); T.I.snapRunners(); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 160); T.I.batterToFirst(false);
-  let r3 = S.runners.find(r => r.at === 3); r3.to = 4; r3.p = 0.9; let t0 = tadas(); T.until(() => r3.scored, 60); res.atCross = tadas() - t0;
-  T.until(() => S.phase !== 'batted', 900); T.run(5); res.counted = { tadas: tadas() - t0, score: S.score[S.vis] };
-  /* two outs: he crosses, then the batter is forced out at first for the third out; the run never counts */
-  T.start(true); S = T.C.S; S.outs = 2; T.put([3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); T.I.snapRunners(); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 160); T.I.batterToFirst(false);
-  r3 = S.runners.find(r => r.at === 3); r3.to = 4; r3.p = 0.95; t0 = tadas(); T.until(() => r3.scored, 60);
-  T.I.giveBall('1B'); S.F['1B'].x = 60.2; S.F['1B'].y = 63.6; S.ctl = '1B'; T.until(() => S.outs >= 3 || S.half > 0, 200); T.run(5); res.wiped = { tadas: tadas() - t0, score: S.score[S.vis] };
+  const setup = (outs, p) => { T.start(true); const S = T.C.S; S.outs = outs; T.put([3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); T.I.snapRunners(); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 160); T.I.batterToFirst(false);
+    const r3 = S.runners.find(r => r.at === 3); r3.to = 4; r3.p = p; return [S, r3]; };
+  /* 0 outs: safe at once (0 outs + 1 forced batter < 3): the ta-da as he crosses */
+  let [S, r3] = setup(0, 0.9), t0 = tadas(); T.until(() => r3.scored, 60); T.C.tick(); res.zeroOuts = { atCross: tadas() - t0 }; T.until(() => S.phase !== 'batted', 900); T.run(5); res.zeroOuts.total = tadas() - t0; res.zeroOuts.score = S.score[S.vis];
+  /* 2 outs: the batter could be forced at first for the third out, so it waits; he is forced out: no ta-da, no run */
+  [S, r3] = setup(2, 0.95); t0 = tadas(); T.until(() => r3.scored, 60); T.C.tick(); res.wiped = { atCross: tadas() - t0 };
+  T.I.giveBall('1B'); S.F['1B'].x = 60.2; S.F['1B'].y = 63.6; S.ctl = '1B'; T.until(() => S.outs >= 3 || S.half > 0, 200); T.run(5); res.wiped.total = tadas() - t0; res.wiped.score = S.score[S.vis];
+  /* 2 outs: it waits; the batter reaches first safely: the ta-da right then, before the play is over */
+  [S, r3] = setup(2, 0.95); S.bb = T.I.mkBall(-140, 150); t0 = tadas(); T.until(() => r3.scored, 60); T.C.tick(); res.waits = { atCross: tadas() - t0 }; /* the ball in the left-field corner: no throw beats him to first */ const b = S.batR; T.until(() => !b.forced || S.phase !== 'batted', 400);
+  T.C.tick(); res.waits.whenSafe = tadas() - t0; res.waits.stillLive = S.phase === 'batted'; T.until(() => S.phase !== 'batted', 900); T.run(5); res.waits.total = tadas() - t0;
   /* a home run: the fanfare, no ta-da */
   T.start(true); S = T.C.S; T.put([1, 2, 3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 200); S.bb.wall = false; S.bb.v = 4; T.I.batterToFirst(false);
   t0 = tadas(); T.I.wallHit(200); T.run(400); res.hr = tadas() - t0;
-  return { ok: res.atCross === 0 && res.counted.tadas === 1 && res.counted.score === 1 && res.wiped.tadas === 0 && res.wiped.score === 0 && res.hr === 0, res }; }""",
+  return { ok: res.zeroOuts.atCross === 1 && res.zeroOuts.total === 1 && res.zeroOuts.score === 1 && res.wiped.atCross === 0 && res.wiped.total === 0 && res.wiped.score === 0
+    && res.waits.atCross === 0 && res.waits.whenSafe === 1 && res.waits.stillLive && res.waits.total === 1 && res.hr === 0, res }; }""",
 
 'recorded sounds (versions 1.07, 1.49): the crowd cheer (5 s), the Yeah yell and the bat crack (0.3 s) decode and play': r"""async () => {
   window.__ccb.clips(); let c = []; for (let i = 0; i < 60 && c.length < 2; i++) { await new Promise(r => setTimeout(r, 50)); c = window.__ccb.clips(); }
