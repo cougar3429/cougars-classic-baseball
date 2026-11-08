@@ -31,15 +31,23 @@ CHECKS = {
     const pts = []; S.queued = null; for (let i = 0; i < 40; i++) { T.I.moveToward(id, x0 + 200, y0, 0.32); S.t++; pts.push([f.x, f.y]); }
     res[id] = pts.length > 30 ? +(Math.hypot(pts[39][0] - pts[29][0], pts[39][1] - pts[29][1]) / 10 * 60).toFixed(2) : null; }
   return { ok: res.LF === 20 && res.CF === 20 && res.RF === 20 && res['2B'] === 19.2, ftPerSec: res }; }""",
-'team colors (version 1.57): pick a primary and an alternate (never the same); saved; you wear your primary, the computer a random other color; scoreboard, tags and coach follow': r"""() => { const C = window.__ccb, $ = id => document.getElementById(id), res = {};
-  C.setCols('green', 'yellow'); res.saved = JSON.parse(localStorage.getItem('ccb-col'));
-  $('colb1').click(); const shown = !$('colpick').hidden; document.querySelector('#swa button[data-c="green"]').click(); res.swapped = Object.assign({}, C.myCol); $('coldone').click();
-  C.setCols('green', 'yellow'); const cpu = {};
-  for (let i = 0; i < 40; i++) { T.start(true); cpu[C.S.col.cpu] = (cpu[C.S.col.cpu] || 0) + 1; if (C.S.col.you !== 'green') res.wrong = C.S.col; }
-  res.cpuColors = cpu; T.start(true); C.S.paused = false;
-  const sb = getComputedStyle(document.querySelector('#sb .vis')).backgroundColor, tag = $('wl').style.background, coach = $('fl').innerHTML.includes('Green coach') || $('fr').innerHTML.includes('Green coach');
-  res.view = { sb, tag, coach }; C.setCols('red', 'blue');
-  return { ok: shown && res.saved.p === 'green' && res.swapped.p === 'yellow' && res.swapped.a === 'green' && !res.wrong && !cpu.green && Object.keys(cpu).length >= 4 && res.view.coach, res }; }""",
+"uniforms (version 1.67): Home and Away uniforms, primary + secondary (may match); a new player picks before his first game (30 s, then random); you wear Home when home, Away when away; the computer's primary differs from yours": r"""async () => { const C = window.__ccb, $ = id => document.getElementById(id), res = {}, wait = ms => new Promise(r => setTimeout(r, ms));
+  /* a new player: START takes him to the picker with a timer; CONFIRM only once both colors of both uniforms are picked */
+  C.clearKit(); $('title').hidden = false; $('start').click(); res.first = { shown: !$('colpick').hidden, timer: $('coltime').textContent, confirmOff: $('coldone').disabled, label: $('coldone').textContent };
+  const pick = (row, c) => document.querySelector('#' + row + ' button[data-c="' + c + '"]').click();
+  pick('swp', 'purple'); pick('swa', 'purple'); res.afterHome = $('coldone').disabled; $('kita').click(); pick('swp', 'pink'); pick('swa', 'black');
+  res.ready = !$('coldone').disabled; $('coldone').click(); res.saved = C.myKit; res.toSetup = !$('setup').hidden; $('setup').hidden = true;
+  /* time runs out: random colors, saved, on to Game Setup by itself */
+  C.clearKit(); $('title').hidden = false; $('start').click(); C.KP.t0 -= 31000; await wait(400); res.timeout = { kit: !!C.myKit, closed: $('colpick').hidden, setup: !$('setup').hidden }; $('setup').hidden = true;
+  /* in a 1-player game: home uniform when home, away when away; the computer's primary differs */
+  C.setKit({ home: { p: 'green', s: 'yellow' }, away: { p: 'yellow', s: 'green' } }); const cpuP = {}; let bad = null;
+  for (let i = 0; i < 30; i++) { T.start(i % 2 === 0); const S = C.S, mine = S.vis === 'you' ? { p: 'yellow', s: 'green' } : { p: 'green', s: 'yellow' };
+    if (S.col.you.p !== mine.p || S.col.you.s !== mine.s || S.col.cpu.p === mine.p) bad = [S.vis, S.col]; cpuP[S.col.cpu.p] = 1; }
+  T.start(false); C.S.paused = false; await wait(200);
+  res.inGame = { bad, cpuColors: Object.keys(cpuP).length, sb: getComputedStyle(document.querySelector('#sb .home')).backgroundColor, coach: document.getElementById('pl').innerHTML.includes('Green coach') || document.getElementById('pr').innerHTML.includes('Green coach') };
+  C.setKit({ home: { p: 'white', s: 'red' }, away: { p: 'red', s: 'white' } });
+  return { ok: res.first.shown && res.first.timer === '30' && res.first.confirmOff && res.first.label === 'CONFIRM' && res.afterHome && res.ready && res.saved.home.p === 'purple' && res.saved.home.s === 'purple' && res.saved.away.p === 'pink' && res.saved.away.s === 'black' && res.toSetup
+    && res.timeout.kit && res.timeout.closed && res.timeout.setup && !res.inGame.bad && res.inGame.cpuColors >= 4 && res.inGame.sb === 'rgb(46, 158, 79)' && res.inGame.coach, res }; }""",
 'outfielder spots (versions 1.51, 1.55): each 25% closer to the fence than before, along his line from home plate': r"""() => { T.start(false); const S = T.C.S; T.until(() => S.phase === 'ready', 600);
   const gap = id => { const f = S.F[id], d = Math.hypot(f.x, f.y), u = f.x / d; return +(203 - 42 * u * u - d).toFixed(1); };
   const res = { LF: gap('LF'), CF: gap('CF'), RF: gap('RF') };
@@ -157,7 +165,7 @@ CHECKS = {
   const until = async (fn, ms) => { const t = performance.now(); while (performance.now() - t < ms) { if (fn()) return true; await wait(20); } return false; };
   const keep = Object.assign({}, C.FLIPT); Object.assign(C.FLIPT, { wait: 600, spin: 200, show: 100, go: 100, cpu: 100 });
   const rand = Math.random, res = {};
-  $('start').click(); res.newGame = { bat: $('bf').getAttribute('aria-pressed'), flipOffered: !$('cf').hidden };
+  C.setKit({ home: { p: 'white', s: 'red' }, away: { p: 'red', s: 'white' } }); $('start').click(); res.newGame = { bat: $('bf').getAttribute('aria-pressed'), flipOffered: !$('cf').hidden };
   const coin0 = C.sfxCount.coin || 0;
   const run = async (r, call, pick) => {
     $('start').click(); $('cf').click(); Math.random = () => r; const S0 = C.S; $('go').click();
@@ -196,13 +204,13 @@ CHECKS = {
   Math.random = () => 0.7; I.flipStart(true); await wait(200);
   res.before = [C.FLIP.F.step, $('flp').textContent];
   I.flipOpp({ cam: true }); await wait(200); res.selfie = [C.FLIP.F.step, $('flp').textContent];
-  I.flipOpp({ cam: false, col: { p: 'blue', a: 'red' } }); await wait(200); const F = C.FLIP.F; res.call = [F.step, F.caller, $('flp').textContent, $('flcall').hidden];
+  I.flipOpp({ cam: false, kit: { home: { p: 'blue', s: 'blue' }, away: { p: 'red', s: 'red' } } }); await wait(200); const F = C.FLIP.F; res.call = [F.step, F.caller, $('flp').textContent, $('flcall').hidden];
   await until(() => F.step === 'spin', 2000); res.auto = [F.call, F.auto, $('flp').textContent];
   await until(() => F.step === 'pick', 2000); res.pick = [F.winner, $('flp').textContent, $('flpick').hidden];
   await until(() => F.step === 'go', 2000); res.noPick = [F.pick, F.auto2, $('flp').textContent];
   res.sent = sent.filter(m => m.event === 'fl').length; I.flipStop();
   /* run 2: random 0.2 makes Ann (the host) the caller; Ann doesn't call; then the coin (heads) */
-  Math.random = () => 0.2; I.flipStart(true); I.flipOpp({ cam: false, col: { p: 'blue', a: 'red' } }); await wait(200); const G = C.FLIP.F;
+  Math.random = () => 0.2; I.flipStart(true); I.flipOpp({ cam: false, kit: { home: { p: 'blue', s: 'blue' }, away: { p: 'red', s: 'red' } } }); await wait(200); const G = C.FLIP.F;
   res.hostCalls = [G.caller, $('flcall').hidden]; $('ftails').click(); await until(() => G.step === 'pick', 2000);
   res.bobWins = [G.call, G.coin, G.winner, $('flp').textContent];
   I.flipOpp({ cam: false, pick: { n: G.n, v: 'bat' } }); await wait(200); res.bobPicks = [G.step, G.pick, $('flp').textContent];

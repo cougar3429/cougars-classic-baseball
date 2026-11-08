@@ -46,10 +46,18 @@ body.day { background: #4f9e44; }
 .selbtn { display: flex; align-items: center; gap: 8px; border: 2px solid var(--ink); border-radius: 10px; background: var(--cream); color: var(--ink); font: 700 14px var(--font-body); padding: 3px 12px 3px 4px; min-height: 44px; box-shadow: 0 3px 0 var(--ink); cursor: pointer; }
 .swp { display: flex; flex: none; } .swp i { width: 16px; height: 34px; border: 2px solid var(--ink); box-sizing: border-box; } .swp i:first-child { border-radius: 17px 0 0 17px; border-right-width: 1px; } .swp i:last-child { border-radius: 0 17px 17px 0; border-left-width: 1px; }
 #colpick { z-index: 4; background: #0b1a12; } /* opaque, above the selfie camera, which can open it (version 1.57) */
+#colpick { gap: 8px; padding-top: 8px; }
 #colpick .crow { display: flex; align-items: center; gap: 10px; }
+#colpick .kits { display: flex; align-items: flex-start; justify-content: space-between; width: 100%; max-width: 760px; }
+#colpick .kmid { text-align: center; padding-top: 18px; } #colpick .kmid h1 { font-size: 30px; } #colpick .kmid p { margin: 6px 0 0; font-size: 14px; }
+.kit { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 132px; padding: 6px 4px 4px; border: 3px solid var(--ink); border-radius: 14px; background: #16301f; color: var(--cream); cursor: pointer; font: 400 15px var(--font-display); }
+.kit[aria-pressed="true"] { outline: 4px solid var(--gold); outline-offset: 2px; background: #1f4a2e; }
+.kfig { display: block; width: 74px; height: 112px; } .kfig svg { width: 100%; height: 100%; display: block; }
+.ctime { font: 700 18px var(--font-body); color: var(--gold); min-width: 40px; }
+.big-btn:disabled { opacity: 0.45; cursor: default; }
 #colpick .crow > span { width: 92px; text-align: right; font: 700 12px var(--font-body); letter-spacing: 0.1em; text-transform: uppercase; color: #cfdccf; }
 .sws { display: flex; gap: 6px; }
-.sws button { width: 40px; height: 40px; border-radius: 50%; border: 3px solid var(--ink); cursor: pointer; padding: 0; box-shadow: 0 3px 0 var(--ink); }
+.sws button { width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--ink); cursor: pointer; padding: 0; box-shadow: 0 3px 0 var(--ink); }
 .sws button[aria-pressed="true"] { outline: 3px solid var(--gold); outline-offset: 2px; }
 .sthumb { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--ink); box-sizing: border-box; overflow: hidden; background: var(--cream); flex: none; }
 .trow { display: flex; gap: 14px; align-items: center; }
@@ -279,7 +287,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.66</small>
+    <small id="ver">Version 1.67</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -322,15 +330,18 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.66</small>
+    <small class="lver" id="lver">Version 1.67</small>
   </section>
 
   <section class="screen" id="colpick" hidden>
-    <h1>Team Colors</h1>
-    <p>You wear your primary. In 2-player, if both teams pick the same primary, one of you (at random) wears his alternate.</p>
-    <div class="crow"><span>Primary</span><div class="sws" id="swp" role="group" aria-label="Primary color"></div></div>
-    <div class="crow"><span>Alternate</span><div class="sws" id="swa" role="group" aria-label="Alternate color"></div></div>
-    <button class="big-btn" id="coldone" type="button">DONE</button>
+    <div class="kits">
+      <button class="kit" id="kith" type="button" aria-pressed="true"><span class="kfig" id="kfh"></span><b>HOME</b></button>
+      <div class="kmid"><h1>Team Colors</h1><p id="colnote">Tap a uniform, then pick its colors.</p></div>
+      <button class="kit" id="kita" type="button" aria-pressed="false"><span class="kfig" id="kfa"></span><b>AWAY</b></button>
+    </div>
+    <div class="crow"><span>Primary</span><div class="sws" id="swp" role="group" aria-label="Primary color: shirt and pants"></div></div>
+    <div class="crow"><span>Secondary</span><div class="sws" id="swa" role="group" aria-label="Secondary color: cap, belt, sleeves, socks and shoes"></div></div>
+    <div class="frow"><span id="coltime" class="ctime"></span><button class="big-btn" id="coldone" type="button">DONE</button></div>
   </section>
 
   <section class="screen" id="flip" hidden>
@@ -580,24 +591,25 @@ function limb(c, x1, y1, x2, y2, w, col) {
 /* front-facing fielder; o: {hand:[x,y], glove:[x,y], lift:n, ball:bool} — right-handed: glove on his left (viewer's right) */
 function drawFielder(c, x, y, s, col, o) {
   var T = theme; o = o || {};
+  var U = col && col.u ? col : null, cp = U ? U.p : col, cs = U ? U.s : col, pants = U ? U.p : T.pants, shoe = U ? U.s : T.dark; col = cp; /* uniform: shirt and pants primary; cap, belt, sleeves, socks and shoes secondary (version 1.67) */
   c.save(); c.translate(x, y); c.scale(s, s);
   shadow(c, 9, 2.8);
   if (o.sy) c.scale(1, o.sy); if (o.rot) c.rotate(o.rot);
   if (o.side) { c.save(); c.scale(0.62, 1); }
   var lift = o.lift || 0, L = 0, R = lift, sx = 0, a = 0;
   if (o.run != null) { a = Math.sin(o.run); L = Math.max(0, a) * 4; R = Math.max(0, -a) * 4; sx = a * 1.3; c.translate(0, -Math.abs(a) * 1.2); }
-  rr(c, -5.2 - sx, -3 - L, 4.4, 3, 1); F(c, T.dark);
-  rr(c, 0.8 + sx, -3 - R, 4.4, 3, 1); F(c, T.dark);
-  c.beginPath(); c.rect(-4.9 - sx, -8.4 - L, 3.9, 5.8); F(c, col);
-  c.beginPath(); c.rect(1 + sx, -8.4 - R, 3.9, 5.8); F(c, col);
-  c.beginPath(); c.rect(-5.3 - sx * 0.5, -12.2, 4.6, 4.2 - L); F(c, T.pants);
-  c.beginPath(); c.rect(0.7 + sx * 0.5, -12.2, 4.6, 4.2 - R); F(c, T.pants);
-  c.beginPath(); c.rect(-5.3, -16.4, 10.6, 4.6); F(c, T.pants);
+  rr(c, -5.2 - sx, -3 - L, 4.4, 3, 1); F(c, shoe);
+  rr(c, 0.8 + sx, -3 - R, 4.4, 3, 1); F(c, shoe);
+  c.beginPath(); c.rect(-4.9 - sx, -8.4 - L, 3.9, 5.8); F(c, cs);
+  c.beginPath(); c.rect(1 + sx, -8.4 - R, 3.9, 5.8); F(c, cs);
+  c.beginPath(); c.rect(-5.3 - sx * 0.5, -12.2, 4.6, 4.2 - L); F(c, pants);
+  c.beginPath(); c.rect(0.7 + sx * 0.5, -12.2, 4.6, 4.2 - R); F(c, pants);
+  c.beginPath(); c.rect(-5.3, -16.4, 10.6, 4.6); F(c, pants);
   var hand = o.hand || [-8.1, -16.4 + (o.run != null ? 3.5 * a : 0)], glove = o.glove || [8.1, -16.2 - (o.run != null ? 3.5 * a : 0)];
-  limb(c, -6.5, -24.5, hand[0], hand[1], 3.2, col);
-  limb(c, 6.5, -24.5, glove[0], glove[1], 3.2, col);
-  rr(c, -6.6, -27.6, 13.2, 12, 3.8); F(c, col);
-  c.fillStyle = T.dark; c.fillRect(-5.6, -17.2, 11.2, 1.6);
+  limb(c, -6.5, -24.5, hand[0], hand[1], 3.2, cs);
+  limb(c, 6.5, -24.5, glove[0], glove[1], 3.2, cs);
+  rr(c, -6.6, -27.6, 13.2, 12, 3.8); F(c, cp);
+  c.fillStyle = U ? cs : T.dark; c.fillRect(-5.6, -17.2, 11.2, 1.6);
   var skin = o.skin || T.skin;
   if (o.noGlove) { circ(c, glove[0], glove[1], 1.6); F(c, skin); } else { circ(c, glove[0], glove[1], 2.6); F(c, T.glove); }
   circ(c, hand[0], hand[1], 1.6); F(c, skin);
@@ -605,8 +617,8 @@ function drawFielder(c, x, y, s, col, o) {
   if (o.side) c.restore();
   var hx = o.headX || 0; /* the pitcher shaking off a sign (version 1.44): the head turns side to side, the cap brim a little more */
   circ(c, hx, -32, 4.9); F(c, skin);
-  c.beginPath(); c.arc(hx, -32.8, 5.1, PI, 0); c.closePath(); F(c, col);
-  c.beginPath(); c.ellipse(hx * 1.5, -32.6, 5.9, 1.3, 0, 0, 7); F(c, col);
+  c.beginPath(); c.arc(hx, -32.8, 5.1, PI, 0); c.closePath(); F(c, cs);
+  c.beginPath(); c.ellipse(hx * 1.5, -32.6, 5.9, 1.3, 0, 0, 7); F(c, cs);
   c.restore();
 }
 /* a bat shape along angle a from the hands: knob, thin handle, gradual taper, rounded barrel, one outline all the way round (version 82) */
@@ -628,32 +640,33 @@ function drawBat(c, hx, hy, a) {
 /* side-on right-handed batter facing the plate (screen right), head toward pitcher */
 function drawBatter(c, x, y, s, col, pose) {
   var T = theme;
+  var U = col && col.u ? col : null, cp = U ? U.p : col, cs = U ? U.s : col, pants = U ? U.p : T.pants, shoe = U ? U.s : T.dark, front = U ? colMix(U.p, 0.12) : (T.night ? '#d9dee8' : '#eef0f3'); col = cp;
   c.save(); c.translate(x, y); c.scale(s, s);
   shadow(c, 10, 3);
   var ku = pose.kneeUp || 0;
-  if (!ku) { c.beginPath(); c.moveTo(1.5, -15.5); c.lineTo(5, -4.5); c.lineTo(8.8, -4.5); c.lineTo(5.5, -15.5); c.closePath(); F(c, T.night ? '#d9dee8' : '#eef0f3');
-    rr(c, 4.6, -6.4, 7.4, 2.6, 1.2); F(c, T.dark); }
+  if (!ku) { c.beginPath(); c.moveTo(1.5, -15.5); c.lineTo(5, -4.5); c.lineTo(8.8, -4.5); c.lineTo(5.5, -15.5); c.closePath(); F(c, front);
+    rr(c, 4.6, -6.4, 7.4, 2.6, 1.2); F(c, shoe); }
   else { /* front knee raised to break the bat over it (version 1.50) */
-    var kx = 6.5 + 2.5 * ku, ky = -8 - 11 * ku, fx = 7 + 1.5 * ku, fy = -3.5 - 6 * ku, lc = T.night ? '#d9dee8' : '#eef0f3';
-    limb(c, 3.5, -14.5, kx, ky, 4.2, lc); limb(c, kx, ky, fx, fy, 3.8, lc); rr(c, fx - 1.6, fy - 1.3, 6.4, 2.6, 1.2); F(c, T.dark); }
-  c.beginPath(); c.moveTo(-3, -15.5); c.lineTo(-5, -1.5); c.lineTo(-1.2, -1.5); c.lineTo(1.5, -15.5); c.closePath(); F(c, T.pants);
-  rr(c, -5.6, -2.8, 7.7, 2.8, 1.3); F(c, T.dark);
+    var kx = 6.5 + 2.5 * ku, ky = -8 - 11 * ku, fx = 7 + 1.5 * ku, fy = -3.5 - 6 * ku, lc = front;
+    limb(c, 3.5, -14.5, kx, ky, 4.2, lc); limb(c, kx, ky, fx, fy, 3.8, lc); rr(c, fx - 1.6, fy - 1.3, 6.4, 2.6, 1.2); F(c, shoe); }
+  c.beginPath(); c.moveTo(-3, -15.5); c.lineTo(-5, -1.5); c.lineTo(-1.2, -1.5); c.lineTo(1.5, -15.5); c.closePath(); F(c, pants);
+  rr(c, -5.6, -2.8, 7.7, 2.8, 1.3); F(c, shoe);
   c.beginPath(); c.moveTo(-4.6, -29); c.bezierCurveTo(-5.4, -24, -4.8, -19, -3.6, -15.5); c.lineTo(5.4, -15.5); c.bezierCurveTo(6.8, -20, 6.8, -25, 4.6, -29); c.closePath(); F(c, col);
-  c.fillStyle = T.dark; c.fillRect(-3.9, -17.2, 9.4, 1.6);
+  c.fillStyle = U ? cs : T.dark; c.fillRect(-3.9, -17.2, 9.4, 1.6);
   var hx = pose.hx, hy = pose.hy, a = pose.a;
   if (!pose.noBat) drawBat(c, hx, hy, a);
   var h2 = pose.h2 || [hx, hy]; /* a second hand of its own when he holds the bat in both hands (version 1.50) */
-  limb(c, 3.5, -26, h2[0], h2[1], 3.4, col);
-  limb(c, -1.5, -25, hx, hy, 3.4, col);
+  limb(c, 3.5, -26, h2[0], h2[1], 3.4, cs);
+  limb(c, -1.5, -25, hx, hy, 3.4, cs);
   if (pose.pieces) pose.pieces.forEach(function (p) { drawBatPiece(c, p.x, p.y, p.a, p.h); }); /* the broken halves, in front of his arms */
   circ(c, hx, hy, 1.9); F(c, T.dark); if (pose.h2) { circ(c, h2[0], h2[1], 1.9); F(c, T.dark); }
   c.fillStyle = T.skin; c.fillRect(-1, -31, 3, 2.6);
-  circ(c, 0.6, -34.2, 5.4); F(c, col);
+  circ(c, 0.6, -34.2, 5.4); F(c, cs); /* batting helmet: secondary */
   c.beginPath(); c.rect(-5, -34.6, 3.2, 4.4); F(c, 'rgba(0,0,0,0.3)');
   c.restore();
 }
 function drawCatcher(c, x, y, col) {
-  var T = theme;
+  var T = theme; if (col && col.u) col = col.p;
   c.save(); c.translate(x, y); c.scale(0.81, 0.81);
   shadow(c, 14, 3.4);
   c.beginPath(); c.moveTo(-12, -2); c.lineTo(-8, -11); c.lineTo(-3, -11); c.lineTo(-6, -2); c.closePath(); F(c, '#22324f');
@@ -677,22 +690,38 @@ function drawBall(c, fx, fy, h, shade) {
    the name tags and the cartoon coach. ink: the text color that reads on it */
 var TEAMCOLS = { red: { name: 'Red', hex: '#e0413b', ink: '#ffffff' }, blue: { name: 'Blue', hex: '#2f6fe0', ink: '#ffffff' }, black: { name: 'Black', hex: '#2b2e35', ink: '#ffffff' },
   green: { name: 'Green', hex: '#2e9e4f', ink: '#ffffff' }, orange: { name: 'Orange', hex: '#f08a24', ink: '#16202b' }, white: { name: 'White', hex: '#f4f3ef', ink: '#16202b' },
-  yellow: { name: 'Yellow', hex: '#f5c932', ink: '#16202b' }, cyan: { name: 'Cyan', hex: '#25bcd6', ink: '#16202b' } };
-var COL_ORDER = ['red', 'blue', 'black', 'green', 'orange', 'white', 'yellow', 'cyan'];
+  yellow: { name: 'Yellow', hex: '#f5c932', ink: '#16202b' }, cyan: { name: 'Cyan', hex: '#25bcd6', ink: '#16202b' },
+  pink: { name: 'Pink', hex: '#f27cb5', ink: '#16202b' }, purple: { name: 'Purple', hex: '#7b4bc4', ink: '#ffffff' } }; /* pink and purple added (user, Nov 8, version 1.67) */
+var COL_ORDER = ['red', 'blue', 'black', 'green', 'orange', 'white', 'yellow', 'cyan', 'pink', 'purple'];
 function validCol(c) { return COL_ORDER.indexOf(c) >= 0; }
 function colHex(c) { return (TEAMCOLS[c] || TEAMCOLS.red).hex; }
 function colInk(c) { return (TEAMCOLS[c] || TEAMCOLS.red).ink; }
 /* mix a #rrggbb color toward white (k > 0) or black (k < 0) */
 function colMix(hex, k) { var n = parseInt(hex.slice(1), 16), c = [n >> 16, (n >> 8) & 255, n & 255].map(function (v) { return Math.round(k > 0 ? v + (255 - v) * k : v * (1 + k)); }); return '#' + c.map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join(''); }
-var myCol = { p: 'red', a: 'blue' };
-try { var mc = JSON.parse(localStorage.getItem('ccb-col') || 'null'); if (mc && validCol(mc.p) && validCol(mc.a) && mc.p !== mc.a) myCol = mc; } catch (e) { }
-function setMyCol(p, a) { if (!validCol(p) || !validCol(a) || p === a) return; myCol = { p: p, a: a }; try { localStorage.setItem('ccb-col', JSON.stringify(myCol)); } catch (e) { } colButtons(); selfThumbs(); }
-/* 1-player: the computer wears a random color that isn't yours */
-function pickCols1() { var o = COL_ORDER.filter(function (c) { return c !== myCol.p; }); return { you: myCol.p, cpu: o[Math.floor(Math.random() * o.length)] }; }
-/* 2-player (the host decides): host is 'you', guest 'cpu' */
-function pickCols2(host, guest) {
-  if (host.p !== guest.p) return { you: host.p, cpu: guest.p };
-  return Math.random() < 0.5 ? { you: host.p, cpu: guest.a } : { you: host.a, cpu: guest.p };
+/* ============ uniforms (user, Nov 8, version 1.67; replaces 1.57's primary/alternate) ============
+   Each player has a Home and an Away uniform, each a primary (shirt and pants) and a secondary (cap, belt, sleeves, socks and shoes);
+   the two may be the same color. A team wears its Home uniform when it is the home team and its Away uniform when it bats first.
+   A new player picks them before his first game (30 s, then whatever is left is random). Saved on the phone; never changed during a game.
+   1-player: the computer wears a random uniform whose primary differs from yours. 2-player: if the two primaries match, the away team
+   wears its Home uniform instead. Scoreboard boxes and name tags use the primary; the cartoon coach's jacket the primary, his cap the secondary. */
+function validUni(u) { return !!u && validCol(u.p) && validCol(u.s); }
+function validKit(k) { return !!k && validUni(k.home) && validUni(k.away); }
+var myKit = null;
+try { var mk = JSON.parse(localStorage.getItem('ccb-kit') || 'null'); if (validKit(mk)) myKit = { home: { p: mk.home.p, s: mk.home.s }, away: { p: mk.away.p, s: mk.away.s } }; } catch (e) { }
+var KIT_FALLBACK = { home: { p: 'white', s: 'red' }, away: { p: 'red', s: 'white' } }; /* only before a first pick, e.g. in the tests */
+function curKit() { return myKit || KIT_FALLBACK; }
+function setKit(k) { if (!validKit(k)) return; myKit = { home: { p: k.home.p, s: k.home.s }, away: { p: k.away.p, s: k.away.s } }; try { localStorage.setItem('ccb-kit', JSON.stringify(myKit)); } catch (e) { } colButtons(); selfThumbs(); }
+function randCol(not) { var o = COL_ORDER.filter(function (c) { return c !== not; }); return o[Math.floor(Math.random() * o.length)]; }
+/* the uniforms for a game: vis is the team batting first */
+function colsFor(g, vis) {
+  var home = other(vis), out = {};
+  if (g.col && validUni(g.col.you) && validUni(g.col.cpu)) return { you: { p: g.col.you.p, s: g.col.you.s }, cpu: { p: g.col.cpu.p, s: g.col.cpu.s } };
+  if (g.kits && validKit(g.kits.you) && validKit(g.kits.cpu)) { /* 2-player: both kits, sent by the host with the coin flip */
+    var hu = g.kits[home].home, au = g.kits[vis].away; if (au.p === hu.p) au = g.kits[vis].home;
+    out[home] = { p: hu.p, s: hu.s }; out[vis] = { p: au.p, s: au.s }; return out;
+  }
+  var k = curKit(), mine = vis === 'you' ? k.away : k.home; /* 1-player: you are 'you' */
+  return { you: { p: mine.p, s: mine.s }, cpu: { p: randCol(mine.p), s: randCol(null) } };
 }
 
 /* ============ coach faces ============ */
@@ -701,8 +730,9 @@ function coachSVG(team, mood, look) {
   var red = look ? look === 'a' : team === 'red';
   var C = red ? { bg: '#f6d2c4', jk: '#c8372f', ear: '#dc9c76', face: '#eab48e', cap: '#c8372f', brim: '#9e2a24', brow: '#6d6d74', eye: '#2a1d18', nose: '#d9946c', mouth: '#5a2a20' }
               : { bg: '#d3e2f7', jk: '#2457a6', ear: '#b07a52', face: '#c68b62', cap: '#2457a6', brim: '#183d7a', brow: '#3b2a1f', eye: '#21160f', nose: '#a8704b', mouth: '#2e1c12' };
-  if (TEAMCOLS[team]) { var h = colHex(team); C.jk = h; C.cap = h; C.brim = colMix(h, -0.28); C.bg = colMix(h, 0.78); }
-  var s = '<svg viewBox="0 0 80 80" role="img" aria-label="' + (TEAMCOLS[team] ? TEAMCOLS[team].name : 'Team') + ' coach, ' + mood + '">';
+  var U = typeof team === 'string' ? (TEAMCOLS[team] ? { p: team, s: team } : null) : team; /* a uniform: jacket the primary, cap the secondary (version 1.67) */
+  if (U && validUni(U)) { var jh = colHex(U.p), chx = colHex(U.s); C.jk = jh; C.cap = chx; C.brim = colMix(chx, -0.28); C.bg = colMix(jh, 0.78); }
+  var s = '<svg viewBox="0 0 80 80" role="img" aria-label="' + (U && validUni(U) ? TEAMCOLS[U.p].name : 'Team') + ' coach, ' + mood + '">';
   s += '<rect width="80" height="80" fill="' + C.bg + '"/>';
   s += '<path d="M9 80 C13 62 27 57 40 57 C53 57 67 62 71 80 Z" fill="' + C.jk + '"/><path d="M33 57 L40 66 L47 57 Z" fill="#fff"/>';
   s += '<circle cx="22" cy="43" r="4.5" fill="' + C.ear + '"/><circle cx="58" cy="43" r="4.5" fill="' + C.ear + '"/>';
@@ -754,7 +784,7 @@ function setFace(el, f, team, mood, look) {
   im.src = (f.moods && f.moods[mood]) || f.img; el.appendChild(im);
   if (!f.moods && !f.making) makeMoods(f, function () { if (S) updatePortraits(); selfThumbs(); });
 }
-function selfThumbs() { document.querySelectorAll('.sthumb').forEach(function (el) { setFace(el, mySelfie, myCol.p, 'neutral', 'a'); }); }
+function selfThumbs() { document.querySelectorAll('.sthumb').forEach(function (el) { setFace(el, mySelfie, curKit().home, 'neutral', 'a'); }); }
 /* happy and mad: each output pixel is taken from the photo moved back by the sum of a few smooth pushes around the landmarks */
 function makeMoods(f, done) {
   f.making = true; var im = new Image();
@@ -1061,7 +1091,7 @@ function newGame(g) {
   S = {
     t: 0, seed: (g.seed != null ? g.seed : (Date.now() & 0x7fffffff)) | 0, ai: g.ai || { you: false, cpu: true }, half: 0, outs: 0, b: 0, s: 0, pOff: 0, bOff: { x: 0, y: 0 },
     score: { you: 0, cpu: 0 }, stats: { you: { h: 0, hr: 0, k: 0, bb: 0 }, cpu: { h: 0, hr: 0, k: 0, bb: 0 } },
-    vis: g.vis || (opts.batFirst ? 'you' : 'cpu'), col: g.col && validCol(g.col.you) && validCol(g.col.cpu) ? { you: g.col.you, cpu: g.col.cpu } : pickCols1(), phase: 'ready', pt: 0, wt: 0, wlen: WINDUP_T, rt: 0, ball: null, bb: null, sw: null,
+    vis: g.vis || (opts.batFirst ? 'you' : 'cpu'), col: colsFor(g, g.vis || (opts.batFirst ? 'you' : 'cpu')), phase: 'ready', pt: 0, wt: 0, wlen: WINDUP_T, rt: 0, ball: null, bb: null, sw: null,
     cpuP: null, cpuB: null, follow: 0, shake: -999, brk: null, faces: null, faceT: 0, faceKind: null, hr: null, yell: null, bob: null, goodSide: null, fan: {}, fielded: null, over: false, after: null, F: homePos(), ctl: 'P', holder: null, thr: null, playT: 0,
     runners: [], live: null, lock: false, pick: false, playRuns: 0, playOuts: 0, batR: null, batterGone: false, abOver: false, stretch: false, cat: null
   };
@@ -1073,7 +1103,7 @@ function pitSide() { return other(batSide()); }
 /* labels from this phone's point of view */
 function tag(side) { if (side === ME) return NET.oppName && !S.ai[other(ME)] ? (NET.name || 'Player').toUpperCase() : 'YOU'; return S.ai[side] ? 'CPU' : (NET.oppName || 'OPP').toUpperCase(); } /* online: both players' names (version 86) */
 function wins(side, it) { return (side === ME ? 'You win' : S.ai[side] ? 'The computer wins' : (NET.oppName || 'Your opponent') + ' wins') + (it ? ' it' : ''); }
-function teamColor(side) { return S.col && validCol(S.col[side]) ? S.col[side] : side === S.vis ? 'red' : 'blue'; } /* team colors (version 1.57; before, visitors red and home blue) */
+function teamColor(side) { if (S.col && validUni(S.col[side])) return S.col[side]; var c = side === S.vis ? 'red' : 'blue'; return { p: c, s: c }; } /* the team's uniform (version 1.67) */ /* team colors (version 1.57; before, visitors red and home blue) */
 function startHalf() {
   S.pOff = 0; S.bOff = { x: 0, y: 0 }; S.runners = []; S.batR = null; S.batterGone = false; S.abOver = false; S.lock = false; S.pick = false; S.playRuns = 0; S.freezeR = false; S.wo = false;
   S.goodSide = null; S.outs = 0; S.b = 0; S.s = 0; S.phase = 'ready'; S.pt = 0; S.sw = null; S.ball = null; S.bb = null; S.fielded = null; S.cpuP = null; resetPlay();
@@ -2443,7 +2473,7 @@ function hint() {
 function updateHUD() {
   if (QUIET) return;
   $('sv').textContent = S.score[S.vis]; $('sh').textContent = S.score[homeSide()];
-  var sbv = document.querySelector('#sb .vis'), sbh = document.querySelector('#sb .home'), cv = teamColor(S.vis), ch2 = teamColor(homeSide()); /* team colors on the scoreboard (version 1.57) */
+  var sbv = document.querySelector('#sb .vis'), sbh = document.querySelector('#sb .home'), cv = teamColor(S.vis).p, ch2 = teamColor(homeSide()).p; /* team colors on the scoreboard (version 1.57) */
   sbv.style.background = colHex(cv); sbv.style.color = colInk(cv); sbh.style.background = colHex(ch2); sbh.style.color = colInk(ch2);
   $('in').textContent = Math.floor(S.half / 2) + 1; $('ih').textContent = S.half % 2 === 0 ? '▲' : '▼';
   var bs = document.querySelectorAll('#sb i.b'), ss = document.querySelectorAll('#sb i.s'), os = document.querySelectorAll('#sb i.o');
@@ -2460,7 +2490,7 @@ function updatePortraits() {
   $('sml').hidden = mb !== 'mad'; $('smr').hidden = mp !== 'mad';
   $('pl').classList.toggle('big', mb !== 'neutral'); $('pr').classList.toggle('big', mp !== 'neutral'); /* doubled while warped (version 1.08) */ /* smoke off the head of any mad face (user, Oct 24, version 1.03) */
   $('wl').textContent = tag(bat); $('wr').textContent = tag(pit);
-  $('wl').style.background = colHex(teamColor(bat)); $('wl').style.color = colInk(teamColor(bat)); $('wr').style.background = colHex(teamColor(pit)); $('wr').style.color = colInk(teamColor(pit));
+  $('wl').style.background = colHex(teamColor(bat).p); $('wl').style.color = colInk(teamColor(bat).p); $('wr').style.background = colHex(teamColor(pit).p); $('wr').style.color = colInk(teamColor(pit).p);
 }
 /* the hit speed readout (version 68's, back in 1.21): speed off the bat, the ball's speed now, and at the fence the home run chance and roll */
 var spdText = null;
@@ -2580,7 +2610,7 @@ function render() {
   ctx.setTransform(K * DPR, 0, 0, K * DPR, 0, 0);
   if (!S) { drawIdle(); return; }
   var bat = batSide(), pit = other(bat);
-  var batCol = colHex(teamColor(bat)), pitCol = colHex(teamColor(pit));
+  var uni = function (u) { return { p: colHex(u.p), s: colHex(u.s), u: true }; }, batCol = uni(teamColor(bat)), pitCol = uni(teamColor(pit)); /* uniforms (version 1.67) */
   var playing = (!!S.live || S.freePlay || S.wasLive) && (S.phase === 'batted' || S.phase === 'result');
   var list = [];
   FIELDERS.forEach(function (f) {
@@ -2787,7 +2817,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.66'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.67'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
@@ -2973,7 +3003,7 @@ function beginOnline() {
   if (!NET.ch) return;
   var g = NET.g; opts.innings = g.innings; opts.mercy = g.mercy;
   $('netmsg').hidden = true; audio(); if (opts.murmur) murmur(true); $('menu').hidden = false;
-  newGame({ seed: g.seed, ai: { you: false, cpu: false }, me: NET.role === 'host' ? 'you' : 'cpu', vis: g.vis, col: g.col });
+  newGame({ seed: g.seed, ai: { you: false, cpu: false }, me: NET.role === 'host' ? 'you' : 'cpu', vis: g.vis, kits: g.kits }); /* uniforms worked out from both kits and who is home, on both phones the same way (version 1.67) */
   RB.start(ME, 1); NET.remB = -1; NET.adv = 0; NET.log = {}; NET.oppAck = 0; NET.lastSent = 0; NET.lastFlush = 0; NET.ackSent = -1; NET.stepOk = true; NET.stallAt = 0; NET.live = true; acc = 0;
   var early = NET.early || []; NET.early = []; early.forEach(function (m) { NET.recv(m); });
   updatePortraits(); hint(); sendFace();
@@ -3151,18 +3181,52 @@ $('camno').addEventListener('click', function () { sfx('click'); mySelfie = null
 $('camback').addEventListener('click', function () { sfx('click'); camClose(); });
 $('self1').addEventListener('click', function () { audio(); sfx('click'); goFull(); wantFull = true; camOpen('title'); });
 $('self2').addEventListener('click', function () { sfx('click'); camOpen('lobby'); });
-/* team colors picker (version 1.57): two rows of 8; picking the other row's color swaps them */
-function colButtons() { document.querySelectorAll('.colbtn .swp').forEach(function (sp) { var i = sp.querySelectorAll('i'); i[0].style.background = colHex(myCol.p); i[1].style.background = colHex(myCol.a); }); colRows(); }
-function colRows() {
-  [['swp', 'p'], ['swa', 'a']].forEach(function (row) {
-    var box = $(row[0]); if (!box.children.length) COL_ORDER.forEach(function (c) { var b = document.createElement('button'); b.type = 'button'; b.dataset.c = c; b.style.background = colHex(c); b.setAttribute('aria-label', TEAMCOLS[c].name); b.title = TEAMCOLS[c].name;
-      b.addEventListener('click', function () { sfx('click'); var o = row[1] === 'p' ? myCol.a : myCol.p; if (row[1] === 'p') setMyCol(c, c === o ? myCol.p : o); else setMyCol(c === o ? myCol.a : o, c); }); box.appendChild(b); });
-    Array.prototype.forEach.call(box.children, function (b) { b.setAttribute('aria-pressed', String(b.dataset.c === myCol[row[1]])); });
-  });
+/* uniform picker (user, Nov 8, version 1.67): Home and Away uniforms side by side, the active one outlined (Home to start; tap Away to switch);
+   the Primary and Secondary rows color the active one. Saved on DONE. A new player is sent here before his first game with 30 s: CONFIRM
+   once both colors of both uniforms are picked; when time runs out, whatever he didn't pick is random and it goes on by itself */
+function kitSVG(u) {
+  var P = colHex(u.p), Sc = colHex(u.s), o = '#16202b', sk = '#e8b48a';
+  return '<svg viewBox="0 0 60 92" aria-hidden="true">' +
+    '<rect x="18" y="80" width="10" height="7" rx="2" fill="' + Sc + '" stroke="' + o + '" stroke-width="1.5"/><rect x="32" y="80" width="10" height="7" rx="2" fill="' + Sc + '" stroke="' + o + '" stroke-width="1.5"/>' + /* shoes */
+    '<rect x="19" y="68" width="8" height="13" fill="' + Sc + '" stroke="' + o + '" stroke-width="1.5"/><rect x="33" y="68" width="8" height="13" fill="' + Sc + '" stroke="' + o + '" stroke-width="1.5"/>' + /* socks */
+    '<path d="M17 50 H43 L42 69 H32 L30 58 L28 69 H18 Z" fill="' + P + '" stroke="' + o + '" stroke-width="1.5" stroke-linejoin="round"/>' + /* pants */
+    '<path d="M18 24 Q30 20 42 24 L44 49 H16 Z" fill="' + P + '" stroke="' + o + '" stroke-width="1.5" stroke-linejoin="round"/>' + /* shirt */
+    '<path d="M18 24 L8 38 L14 42 L20 33 Z" fill="' + Sc + '" stroke="' + o + '" stroke-width="1.5" stroke-linejoin="round"/><path d="M42 24 L52 38 L46 42 L40 33 Z" fill="' + Sc + '" stroke="' + o + '" stroke-width="1.5" stroke-linejoin="round"/>' + /* sleeves */
+    '<circle cx="11" cy="42" r="3" fill="' + sk + '"/><circle cx="49" cy="42" r="3" fill="' + sk + '"/>' +
+    '<rect x="16" y="47" width="28" height="4" fill="' + Sc + '" stroke="' + o + '" stroke-width="1.2"/>' + /* belt */
+    '<circle cx="30" cy="15" r="8" fill="' + sk + '" stroke="' + o + '" stroke-width="1.2"/>' +
+    '<path d="M21 13 Q30 2 39 13 Z" fill="' + Sc + '" stroke="' + o + '" stroke-width="1.5"/><path d="M36 12 H46 Q44 15 36 14 Z" fill="' + Sc + '" stroke="' + o + '" stroke-width="1.2"/>' + /* cap */
+    '</svg>';
 }
-['colb1', 'colb2', 'colb3'].forEach(function (id) { $(id).addEventListener('click', function () { audio(); sfx('click'); colRows(); $('colpick').hidden = false; }); });
-$('coldone').addEventListener('click', function () { sfx('click'); $('colpick').hidden = true; });
+var KP = { on: false, first: false, active: 'home', d: null, picked: null, t0: 0, iv: null, then: null };
+function colButtons() { var k = curKit(); document.querySelectorAll('.colbtn .swp').forEach(function (sp) { var i = sp.querySelectorAll('i'); i[0].style.background = colHex(k.home.p); i[1].style.background = colHex(k.home.s); }); }
+function kpDraw() {
+  $('kfh').innerHTML = kitSVG(KP.d.home); $('kfa').innerHTML = kitSVG(KP.d.away);
+  $('kith').setAttribute('aria-pressed', String(KP.active === 'home')); $('kita').setAttribute('aria-pressed', String(KP.active === 'away'));
+  [['swp', 'p'], ['swa', 's']].forEach(function (row) {
+    var box = $(row[0]); if (!box.children.length) COL_ORDER.forEach(function (c) { var b = document.createElement('button'); b.type = 'button'; b.dataset.c = c; b.style.background = colHex(c); b.setAttribute('aria-label', TEAMCOLS[c].name); b.title = TEAMCOLS[c].name;
+      b.addEventListener('click', function () { sfx('click'); KP.d[KP.active][row[1]] = c; KP.picked[KP.active][row[1]] = true; kpDraw(); }); box.appendChild(b); });
+    Array.prototype.forEach.call(box.children, function (b) { b.setAttribute('aria-pressed', String(b.dataset.c === KP.d[KP.active][row[1]])); });
+  });
+  var all = KP.picked.home.p && KP.picked.home.s && KP.picked.away.p && KP.picked.away.s;
+  $('coldone').textContent = KP.first ? 'CONFIRM' : 'DONE'; $('coldone').disabled = KP.first && !all;
+  $('colnote').textContent = KP.first ? (all ? 'All set. Tap CONFIRM.' : 'Pick both colors for your Home and Away uniforms.') : 'Tap a uniform, then pick its colors.';
+}
+function kpOpen(first, then) {
+  var k = curKit(); KP.on = true; KP.first = first; KP.active = 'home'; KP.then = then || null;
+  KP.d = first ? { home: { p: randCol(null), s: randCol(null) }, away: { p: randCol(null), s: randCol(null) } } : { home: { p: k.home.p, s: k.home.s }, away: { p: k.away.p, s: k.away.s } };
+  KP.picked = { home: { p: !first, s: !first }, away: { p: !first, s: !first } };
+  clearInterval(KP.iv); $('coltime').textContent = '';
+  if (first) { KP.t0 = performance.now(); KP.iv = setInterval(function () { var left = 30 - Math.floor((performance.now() - KP.t0) / 1000); $('coltime').textContent = Math.max(0, left) + ''; if (left <= 0) kpDone(); }, 200); $('coltime').textContent = '30'; }
+  $('colpick').hidden = false; kpDraw();
+}
+function kpDone() { clearInterval(KP.iv); KP.iv = null; KP.on = false; setKit(KP.d); $('colpick').hidden = true; $('coltime').textContent = ''; var t = KP.then; KP.then = null; if (t) t(); } /* time ran out: the colors not picked stay the random ones they started as */
+$('kith').addEventListener('click', function () { sfx('click'); KP.active = 'home'; kpDraw(); });
+$('kita').addEventListener('click', function () { sfx('click'); KP.active = 'away'; kpDraw(); });
+['colb1', 'colb2', 'colb3'].forEach(function (id) { $(id).addEventListener('click', function () { audio(); sfx('click'); kpOpen(!myKit); }); });
+$('coldone').addEventListener('click', function () { sfx('click'); kpDone(); });
 $('start').addEventListener('click', function () {
+  if (!myKit) { audio(); sfx('click'); goFull(); wantFull = true; kpOpen(true, function () { $('start').click(); }); return; } /* a new player picks his uniforms first (version 1.67) */
   audio(); sfx('click'); var two = $('p2').getAttribute('aria-pressed') === 'true';
   $('bfrow').hidden = two; $('cf').hidden = false; setSide(true, false); $('go').textContent = two ? 'LOBBY' : 'PLAY BALL'; $('setnote').textContent = two ? 'Mercy: the game ends when a team leads by this many runs. When you host, your innings and mercy rule are used.' : 'Mercy: the game ends when a team leads by this many runs.';
   goFull(); wantFull = true;
@@ -3213,7 +3277,7 @@ function flipMe() { return FLIP.net && NET.role !== 'host' ? 'cpu' : 'you'; }
 function flipName(team) { return team === flipMe() ? 'You' : FLIP.net ? (NET.oppName || 'Your opponent') : 'The computer'; }
 function flipStop() { FLIP.on = false; clearInterval(FLIP.iv); FLIP.iv = null; clearTimeout(FLIP.goT); FLIP.F = null; $('flip').hidden = true; }
 function flipStart(net) {
-  flipStop(); FLIP.on = true; FLIP.net = net; FLIP.oppCam = net ? null : false; FLIP.oppCol = null; FLIP.myCall = FLIP.myPick = null; FLIP.sendUntil = 0; FLIP.seen = -1;
+  flipStop(); FLIP.on = true; FLIP.net = net; FLIP.oppCam = net ? null : false; FLIP.oppKit = null; FLIP.myCall = FLIP.myPick = null; FLIP.sendUntil = 0; FLIP.seen = -1;
   $('netmsg').hidden = true; $('flip').hidden = false; $('flback').hidden = false; $('coin').style.transform = '';
   if (!net || NET.role === 'host') { FLIP.F = { n: 0, step: 'wait' }; FLIP.t0 = performance.now(); flipRun(); }
   else { FLIP.F = null; flipShow(); }
@@ -3225,10 +3289,10 @@ function flipSend() { if (FLIP.net && NET.role === 'host' && NET.ch && FLIP.F) N
 function flipRun() {
   if (!FLIP.on) return;
   var now = performance.now(), el = now - FLIP.t0, F = FLIP.F, me = flipMe();
-  if (FLIP.net && NET.role !== 'host') { if (NET.ch && now - (FLIP.lastFs || 0) >= 300) { FLIP.lastFs = now; NET.ch.send({ type: 'broadcast', event: 'fs', payload: { cam: !$('cam').hidden || !$('colpick').hidden, call: FLIP.myCall, pick: FLIP.myPick, col: myCol } }); } flipCount(); return; }
+  if (FLIP.net && NET.role !== 'host') { if (NET.ch && now - (FLIP.lastFs || 0) >= 300) { FLIP.lastFs = now; NET.ch.send({ type: 'broadcast', event: 'fs', payload: { cam: !$('cam').hidden || !$('colpick').hidden, call: FLIP.myCall, pick: FLIP.myPick, kit: curKit() } }); } flipCount(); return; }
   if (FLIP.net && (now < FLIP.sendUntil || F.step !== 'started') && Math.floor(now / 300) !== Math.floor((now - 100) / 300)) flipSend(); /* sent again every 300 ms in case one is lost */
   if (F.step === 'wait') {
-    if ($('cam').hidden && $('colpick').hidden && FLIP.oppCam === false && (!FLIP.net || FLIP.oppCol)) flipSet({ step: 'call', caller: FLIP.net ? (Math.random() < 0.5 ? 'you' : 'cpu') : 'you', col: FLIP.net ? pickCols2(myCol, FLIP.oppCol) : null });
+    if ($('cam').hidden && $('colpick').hidden && FLIP.oppCam === false && (!FLIP.net || FLIP.oppKit)) flipSet({ step: 'call', caller: FLIP.net ? (Math.random() < 0.5 ? 'you' : 'cpu') : 'you', kits: FLIP.net ? { you: curKit(), cpu: FLIP.oppKit } : null });
     else flipShow();
   } else if (F.step === 'call') {
     if (F.call) flipSet({ step: 'spin', coin: Math.random() < 0.5 ? 'H' : 'T' });
@@ -3256,7 +3320,7 @@ function flipVis(F) { return F.pick === 'bat' ? F.winner : other(F.winner); }
 function flipBegin() {
   var F = FLIP.F, vis = flipVis(F); clearInterval(FLIP.iv); FLIP.iv = null;
   if (!FLIP.net) { flipStop(); play1(vis); return; }
-  NET.g.vis = vis; if (F.col) NET.g.col = F.col; FLIP.on = NET.role === 'host'; $('flip').hidden = true;
+  NET.g.vis = vis; if (F.kits) NET.g.kits = F.kits; FLIP.on = NET.role === 'host'; $('flip').hidden = true;
   if (NET.role === 'host') { F.step = 'started'; F.vis = vis; F.n++; FLIP.sendUntil = performance.now() + 3000; FLIP.iv = setInterval(function () { if (performance.now() > FLIP.sendUntil || !NET.ch) { flipStop(); return; } flipSend(); }, 300); }
   else FLIP.F = null;
   beginOnline();
@@ -3265,7 +3329,7 @@ function flipBegin() {
 function flipRecv(F) {
   if (!FLIP.on || !FLIP.net || NET.role === 'host' || !F || typeof F.n !== 'number') return;
   if (FLIP.F && F.n <= FLIP.F.n) return;
-  var prev = FLIP.F; FLIP.F = F; FLIP.t0 = performance.now(); if (F.col && validCol(F.col.you) && validCol(F.col.cpu) && NET.g) NET.g.col = { you: F.col.you, cpu: F.col.cpu };
+  var prev = FLIP.F; FLIP.F = F; FLIP.t0 = performance.now(); if (F.kits && validKit(F.kits.you) && validKit(F.kits.cpu) && NET.g) NET.g.kits = F.kits;
   if (F.step === 'started') { if (!NET.live) { FLIP.F = { n: F.n, step: 'go', winner: F.winner, pick: F.pick }; flipBegin(); } return; }
   if (F.step === 'go') { clearTimeout(FLIP.goT); FLIP.goT = setTimeout(function () { if (FLIP.on && FLIP.F && FLIP.F.step === 'go') flipBegin(); }, FLIPT.go); }
   if (!prev || prev.step !== F.step) flipShow(); else flipCount();
@@ -3273,7 +3337,7 @@ function flipRecv(F) {
 /* the host: what the other phone reports */
 function flipOpp(p) {
   if (!FLIP.on || !FLIP.net || NET.role !== 'host' || !p) return;
-  FLIP.oppCam = !!p.cam; var F = FLIP.F; if (p.col && validCol(p.col.p) && validCol(p.col.a)) FLIP.oppCol = { p: p.col.p, a: p.col.a }; /* his colors (version 1.57) */
+  FLIP.oppCam = !!p.cam; var F = FLIP.F; if (validKit(p.kit)) FLIP.oppKit = { home: { p: p.kit.home.p, s: p.kit.home.s }, away: { p: p.kit.away.p, s: p.kit.away.s } }; /* his uniforms (version 1.67) */
   if (F.step === 'call' && F.caller === 'cpu' && !F.call && p.call && p.call.n === F.n && (p.call.v === 'H' || p.call.v === 'T')) { F.call = p.call.v; }
   if (F.step === 'pick' && F.winner === 'cpu' && !F.pick && p.pick && p.pick.n === F.n && (p.pick.v === 'bat' || p.pick.v === 'pitch')) { F.pick = p.pick.v; }
 }
@@ -3386,6 +3450,6 @@ layout(); setTheme('day'); pressGroup('mon', 'moff', opts.murmur); $('mv').textC
 $('fl').innerHTML = coachSVG('red', 'neutral'); $('fr').innerHTML = coachSVG('blue', 'neutral'); selfThumbs(); colButtons();
 $('hint').textContent = '';
 requestAnimationFrame(frame);
-window.__ccb = { get S() { return S; }, FLIPT: FLIPT, setCols: function (p, a) { setMyCol(p, a); }, get myCol() { return myCol; }, get FLIP() { return FLIP; }, get SWV() { return SWV; }, get ZIP() { return ZIP; }, tick: function (IN) { tick(IN); }, newGame: function (o) { var g = {}; if (o) for (var k in o) { if (k === 'seed' || k === 'ai' || k === 'me' || k === 'vis' || k === 'col') g[k] = o[k]; else opts[k] = o[k]; } newGame(g); }, save: save, load: load, syncView: syncView, RB: RB, packIn: packIn, view: function () { swingLabel(); hrView(); }, endTap: endTap, get sfxCount() { return SFX_COUNT; }, clips: function () { audio(); return Object.keys(CLIPBUF).map(function (k) { return [k, Math.round(CLIPBUF[k].duration * 100) / 100]; }); }, NET: NET, get selfie() { return mySelfie; }, setSelfie: function (o) { mySelfie = o && validSelfie(o) ? cleanSelfie(o) : null; selfThumbs(); }, checkFace: checkFace, quiet: function (q) { QUIET = !!q; }, get ME() { return ME; }, newRunner: function (a) { return newRunner(a, null); }, human: human };
+window.__ccb = { get S() { return S; }, FLIPT: FLIPT, setKit: function (k) { setKit(k); }, clearKit: function () { myKit = null; try { localStorage.removeItem('ccb-kit'); } catch (e) { } }, get myKit() { return myKit; }, get KP() { return KP; }, get FLIP() { return FLIP; }, get SWV() { return SWV; }, get ZIP() { return ZIP; }, tick: function (IN) { tick(IN); }, newGame: function (o) { var g = {}; if (o) for (var k in o) { if (k === 'seed' || k === 'ai' || k === 'me' || k === 'vis' || k === 'col' || k === 'kits') g[k] = o[k]; else opts[k] = o[k]; } newGame(g); }, save: save, load: load, syncView: syncView, RB: RB, packIn: packIn, view: function () { swingLabel(); hrView(); }, endTap: endTap, get sfxCount() { return SFX_COUNT; }, clips: function () { audio(); return Object.keys(CLIPBUF).map(function (k) { return [k, Math.round(CLIPBUF[k].duration * 100) / 100]; }); }, NET: NET, get selfie() { return mySelfie; }, setSelfie: function (o) { mySelfie = o && validSelfie(o) ? cleanSelfie(o) : null; selfThumbs(); }, checkFace: checkFace, quiet: function (q) { QUIET = !!q; }, get ME() { return ME; }, newRunner: function (a) { return newRunner(a, null); }, human: human };
 })();
 </script>

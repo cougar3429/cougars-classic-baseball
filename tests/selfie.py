@@ -93,6 +93,7 @@ def main():
                     st = pg.evaluate("() => ({ saved: !!localStorage.getItem('ccb-selfie'), cam: document.getElementById('cam').hidden, thumbs: [...document.querySelectorAll('.sthumb img')].length })")
                     if not (st['saved'] and st['cam'] and st['thumbs'] == 2): problems.append(f'after USE IT: {st}')
                     # 1-player game: your portrait is the selfie, the computer's is the cartoon coach
+                    pg.evaluate("() => window.__ccb.setKit({ home: { p: 'white', s: 'red' }, away: { p: 'red', s: 'white' } })")  # uniforms already picked (version 1.67)
                     pg.locator('#start').click(); pg.locator('#go').click()
                     pg.wait_for_function('() => window.__ccb.S && window.__ccb.S.phase')
                     q = """() => { const S = window.__ccb.S, me = window.__ccb.ME, bat = S.half % 2 === 0 ? S.vis : (S.vis === 'you' ? 'cpu' : 'you');
