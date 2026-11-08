@@ -279,7 +279,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.63</small>
+    <small id="ver">Version 1.64</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -322,7 +322,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.63</small>
+    <small class="lver" id="lver">Version 1.64</small>
   </section>
 
   <section class="screen" id="colpick" hidden>
@@ -1824,7 +1824,7 @@ function pivoting(id) { return S.pivot && id === S.holder; }
 function windFor(id) { return isOF(id) ? WIND_OF : stealThrow(id) ? C_WIND : pivoting(id) ? PIVOT_WIND : WIND_IF; }
 /* outfield throws (user, Nov 6, version 1.56): set speeds in feet per second by fielder and target, all from the same baseline (the right fielder's
    overall 10% cut is gone); throws to the pitcher 72, home 90. A game tick is 1/60 s, so a speed in ft/s is divided by 60 */
-var OF_FPS = { LF: { 1: 70, 2: 67, 3: 50 }, CF: { 1: 67, 2: 50, 3: 67 }, RF: { 1: 50, 2: 67, 3: 70 } }, OF_TO_P_FPS = 72, OF_HOME_FPS = 90;
+var OF_FPS = { LF: { 1: 70, 2: 62, 3: 50 }, CF: { 1: 67, 2: 50, 3: 67 }, RF: { 1: 50, 2: 62, 3: 70 } }, /* left and right fielders to second 62 (user, Nov 7, version 1.64; were 67) */ OF_TO_P_FPS = 72, OF_HOME_FPS = 90;
 function armFor(id, base) {
   if (isOF(id)) return (base === 4 ? OF_HOME_FPS : OF_FPS[id][base] || OF_TO_P_FPS) / 60;
   var a = stealThrow(id) ? C_THROW : pivoting(id) ? PIVOT_THROW : THROW; return id === 'C' && base === 2 ? a * C_TO_SECOND : a;
@@ -2776,7 +2776,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.63'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.64'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
