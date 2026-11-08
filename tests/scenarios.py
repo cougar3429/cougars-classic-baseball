@@ -353,14 +353,20 @@ CHECKS = {
   }
   return { ok: !bad.length, cases: n, bad }; }""",
 
-'run scores sound (version 1.12): the ta-da plays when a runner crosses the plate, not on a home run trot': r"""() => {
-  T.start(true); let S = T.C.S, played = []; const C = T.C; window.__sfxLog = played;
-  T.put([3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); T.I.snapRunners(); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 160); T.I.batterToFirst(false);
-  const r3 = S.runners.find(r => r.at === 3); r3.to = 4; r3.p = 0.9; const before = (window.__ccb.sfxCount || {}).tada || 0;
-  T.run(120); const afterRun = (window.__ccb.sfxCount || {}).tada || 0;
+"run scores sound (versions 1.12, 1.63): the ta-da plays once the run counts, not as he crosses; no ta-da when a force out for the third out wipes the run; none on a home run": r"""() => {
+  const tadas = () => (window.__ccb.sfxCount || {}).tada || 0, res = {};
+  /* a run that counts: nothing as he crosses, one ta-da when the play ends */
+  T.start(true); let S = T.C.S; T.put([3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); T.I.snapRunners(); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 160); T.I.batterToFirst(false);
+  let r3 = S.runners.find(r => r.at === 3); r3.to = 4; r3.p = 0.9; let t0 = tadas(); T.until(() => r3.scored, 60); res.atCross = tadas() - t0;
+  T.until(() => S.phase !== 'batted', 900); T.run(5); res.counted = { tadas: tadas() - t0, score: S.score[S.vis] };
+  /* two outs: he crosses, then the batter is forced out at first for the third out; the run never counts */
+  T.start(true); S = T.C.S; S.outs = 2; T.put([3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); T.I.snapRunners(); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 160); T.I.batterToFirst(false);
+  r3 = S.runners.find(r => r.at === 3); r3.to = 4; r3.p = 0.95; t0 = tadas(); T.until(() => r3.scored, 60);
+  T.I.giveBall('1B'); S.F['1B'].x = 60.2; S.F['1B'].y = 63.6; S.ctl = '1B'; T.until(() => S.outs >= 3 || S.half > 0, 200); T.run(5); res.wiped = { tadas: tadas() - t0, score: S.score[S.vis] };
+  /* a home run: the fanfare, no ta-da */
   T.start(true); S = T.C.S; T.put([1, 2, 3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 200); S.bb.wall = false; S.bb.v = 4; T.I.batterToFirst(false);
-  const b2 = (window.__ccb.sfxCount || {}).tada || 0; T.I.wallHit(200); T.run(400); const afterHr = (window.__ccb.sfxCount || {}).tada || 0;
-  return { ok: afterRun - before >= 1 && afterHr === b2, runTadas: afterRun - before, hrTadas: afterHr - b2, score: S.score }; }""",
+  t0 = tadas(); T.I.wallHit(200); T.run(400); res.hr = tadas() - t0;
+  return { ok: res.atCross === 0 && res.counted.tadas === 1 && res.counted.score === 1 && res.wiped.tadas === 0 && res.wiped.score === 0 && res.hr === 0, res }; }""",
 
 'recorded sounds (versions 1.07, 1.49): the crowd cheer (5 s), the Yeah yell and the bat crack (0.3 s) decode and play': r"""async () => {
   window.__ccb.clips(); let c = []; for (let i = 0; i < 60 && c.length < 2; i++) { await new Promise(r => setTimeout(r, 50)); c = window.__ccb.clips(); }

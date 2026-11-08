@@ -279,7 +279,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.62</small>
+    <small id="ver">Version 1.63</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -322,7 +322,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.62</small>
+    <small class="lver" id="lver">Version 1.63</small>
   </section>
 
   <section class="screen" id="colpick" hidden>
@@ -1227,7 +1227,7 @@ function arrive(r) {
   if (r.bat && r.at >= 1) r.reached = true;
   if (r.at === 4) {
     r.scored = true;
-    if (!r.trot) { S.playRuns++; S.goodSide = batSide(); sfx('tada'); if (homeWins(S.playRuns) || S.phase === 'result') commitRuns(); } /* the ta-da plays as he crosses (user chose this over waiting until the run is final; a later force out for the third out can still wipe it) */
+    if (!r.trot) { S.playRuns++; S.goodSide = batSide(); if (homeWins(S.playRuns) || S.phase === 'result') commitRuns(); } /* (before version 1.63 the ta-da played here, as he crossed: (user chose this over waiting until the run is final; a later force out for the third out can still wipe it) */
     return;
   }
   if (r.trot) { r.to = r.at + 1; r.p = 0; return; }
@@ -1299,12 +1299,13 @@ function settleRunners() {
     if (dest <= 3 && standingOn(dest, r)) { var alt = dest === r.at ? r.to : r.at; dest = alt === 0 ? 1 : alt; }
     if (dest <= 3 && standingOn(dest, r)) { r.out = true; S.outs++; return; }
     r.at = dest; r.to = null; r.p = 0; r.wait = false; r.dest = null;
-    if (dest === 4) { r.scored = true; S.playRuns++; S.goodSide = batSide(); sfx('tada'); }
+    if (dest === 4) { r.scored = true; S.playRuns++; S.goodSide = batSide(); }
   });
 }
 function commitRuns() {
   var n = S.playRuns; S.playRuns = 0; if (!n) return 0;
   S.score[batSide()] += n;
+  for (var i = 0; i < Math.min(n, 4); i++) sfx('tada', null, i * 0.4); /* the run-scored sound plays once the run counts, one per run (user, Nov 7, version 1.63): a force out for the third out on the same play no longer gives a ta-da for a run that never counted */
   react(batSide(), 'run', 300); updateHUD();
   crowd(batSide(), 0.15);
   if (!S.wo && homeWins(0)) walkOff();
@@ -2775,7 +2776,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.62'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.63'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
