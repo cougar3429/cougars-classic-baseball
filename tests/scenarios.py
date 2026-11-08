@@ -9,6 +9,11 @@ import json, sys
 from common import page
 
 CHECKS = {
+'leads after a pickoff call (version 1.61): you step off, the runners dive back; back on the rubber, they take their leads again; a steal order still stands': r"""() => { const res = {};
+  T.start(false); const S = T.C.S; T.until(() => S.phase === 'ready', 600); T.put([1, 2]); T.I.takeLeads(); T.run(30);
+  res.before = S.runners.map(r => r.lead); T.press(null); res.picked = S.pick; T.run(90); res.back = S.runners.map(r => r.at + '>' + r.to);
+  T.press(null); res.onRubber = !S.pick; T.run(30); res.after = S.runners.map(r => ({ lead: r.lead, at: r.at, p: +r.p.toFixed(2) }));
+  return { ok: res.before.every(x => x) && res.picked && res.back.every(x => x.endsWith('>null')) && res.onRubber && res.after.every(x => x.lead && x.p > 0), res }; }""",
 'outfielder speed (version 1.59): outfielders run 20 ft/s at full speed; infielders unchanged (19.2)': r"""() => { const res = {};
   for (const id of ['LF', 'CF', 'RF', '2B']) { T.start(true); const S = T.C.S; T.hit(0, 0.01); S.cpuChase = null; S.ctl = 'P'; const f = S.F[id], x0 = f.x, y0 = f.y;
     S.holder = 'P'; S.bb.x = S.F.P.x; S.bb.y = S.F.P.y; for (let i = 0; i < 30; i++) { f.x = x0; f.y = y0; } 
