@@ -9,6 +9,13 @@ import json, sys
 from common import page
 
 CHECKS = {
+'wild pitch (version 1.68): only the catcher goes after the ball; the pitcher covers home': r"""() => { const res = {};
+  for (const bf of [true, false]) { T.start(bf); const S = T.C.S; T.until(() => S.phase === 'ready', 600); T.put([2]); T.I.takeLeads();
+    S.s = 0; S.phase = 'pitch'; S.ball = { fx: 30, fy: -18, sp: 1.2, lv: 0.6, crossed: true, crossFx: 30 }; S.sw = null; S.cat = { up: false, upT: 0 }; T.I.wildPitch();
+    let chasers = {}; for (let i = 0; i < 150 && S.phase === 'batted'; i++) { T.C.tick(); if (S.cpuChase) chasers[S.cpuChase] = 1; }
+    res[bf ? 'computerFields' : 'youField'] = { chasers: Object.keys(chasers), pitcher: [+S.F.P.x.toFixed(1), +S.F.P.y.toFixed(1)] }; }
+  const ok = r => !r.chasers.some(c => c !== 'C') && r.pitcher[1] < 25;
+  return { ok: ok(res.computerFields) && ok(res.youField) && res.youField.chasers.length === 0, res }; }""",
 'walk-off (version 1.66): the winning run counts only once a force out can no longer make the third out, like real baseball': r"""() => { const res = {};
   const setup = (outs, ball) => { T.start(false); const S = T.C.S; S.half = 5; S.score = { you: 2, cpu: 2 }; S.outs = outs; T.put([3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); T.I.snapRunners();
     S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(ball[0], ball[1]); T.I.batterToFirst(false); const r3 = S.runners.find(r => r.at === 3); r3.to = 4; r3.p = 0.95; return [S, r3]; };
@@ -262,11 +269,11 @@ CHECKS = {
     const runs = !!(S.batR && S.batR.to === 1 && S.live && S.live.kind === 'wild');
     res[name] = { got: runs ? 'runs' : 'out', want, outs: S.outs, k: S.stats[S.vis].k - k0, forcedAhead: S.runners.filter(r => !r.bat && r.forced).map(r => r.fb) };
   }
-  /* a full play: bases empty, the batter runs, nobody touches the ball; he is safe at first */
-  T.start(false); let S = T.C.S; T.until(() => S.phase === 'ready', 600); S.s = 2; S.phase = 'pitch'; S.ball = { fx: 12, fy: -18, sp: 1.2, lv: 0.6, crossed: true, crossFx: 9 }; S.sw = { t: 20, type: 'normal', hit: false, miss: true, ct: 6, len: 16 }; S.cat = { up: false, upT: 0 };
+  /* a full play: bases empty, the batter runs, nobody touches the ball; he is safe at first (the computer fields: since 1.68 only the catcher chases a wild pitch, and the one you field with is yours to steer) */
+  T.start(true); let S = T.C.S; T.until(() => S.phase === 'ready', 600); S.s = 2; S.phase = 'pitch'; S.ball = { fx: 12, fy: -18, sp: 1.2, lv: 0.6, crossed: true, crossFx: 9 }; S.sw = { t: 20, type: 'normal', hit: false, miss: true, ct: 6, len: 16 }; S.cat = { up: false, upT: 0 };
   T.I.wildPitch(); T.until(() => S.phase !== 'batted', 1500); res.play = { call: T.toast(), onFirst: S.runners.some(r => !r.out && r.at === 1 && r.to == null) || T.toast().startsWith('SAFE') };
   const ok = Object.keys(res).filter(k => k !== 'play').every(k => res[k].got === res[k].want && res[k].k === 1 && res[k].outs === (res[k].want === 'out' ? (k.includes('1 out') ? 2 : 1) : (k.includes('2 outs') ? 2 : 0)));
-  return { ok: ok && res.play.call.startsWith('SAFE AT FIRST'), res }; }""",
+  return { ok: ok && (res.play.call.startsWith('SAFE AT FIRST') || /Forced out at first/.test(res.play.call)), res }; } /* a live play decided at first: since 1.68 the computer's catcher fetches it himself and sometimes throws him out */""",
 
 'wild pitch with the bases empty (version 1.22): no chase; the call shows and the next pitch comes by itself; with a runner on it stays live': r"""() => { const res = {};
   for (const [name, bases, s0, b0] of [['empty, ball', [], 0, 0], ['empty, two strikes', [], 2, 0], ['runner on first', [1], 0, 0], ['runner on first stealing', [1], 0, 0], ['empty, ball four', [], 0, 3]]) {

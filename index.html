@@ -287,7 +287,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.67</small>
+    <small id="ver">Version 1.68</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -330,7 +330,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.67</small>
+    <small class="lver" id="lver">Version 1.68</small>
   </section>
 
   <section class="screen" id="colpick" hidden>
@@ -1929,6 +1929,7 @@ function giveBall(id) { S.cpuRunning = false; S.cpuRunTo = 0; S.holdT = 0; S.ani
 function coverFor(base) { var c = coverers(), who = null; Object.keys(c).forEach(function (id) { if (c[id] === base && id !== S.holder) who = id; }); return who; }
 function coverers() {
   var c = {}; Object.keys(COVER).forEach(function (id) { c[id] = COVER[id]; });
+  if (S.live && S.live.kind === 'wild') c.P = 4; /* wild pitch: the catcher goes after the ball, the pitcher covers home (user, Nov 8, version 1.68) */
   if (S.holder === '1B') {
     delete c['1B'];
     /* pitcher covers only when the first baseman has the ball away from the bag and isn't taking it there himself */
@@ -1944,9 +1945,9 @@ function defense(inp) {
     if ((id === S.ctl && defenseHuman()) || id === S.holder || id === S.cpuChase) return; /* the computer's thrower goes straight back to his base */
     var k = cov[id];
     /* first baseman and catcher go to their bags at once; the others once someone has the ball, it reaches the outfield, or a runner is coming */
-    var go = live || deep || id === '1B' || id === 'C' || S.runners.some(function (r) { return alive(r) && !r.lead && r.to === k; });
+    var go = live || deep || id === '1B' || id === 'C' || (id === 'P' && k === 4) || S.runners.some(function (r) { return alive(r) && !r.lead && r.to === k; });
     if (!go) return;
-    var b = id === 'C' && k === 4 && playAtHome() ? HOME_STAND : basePos(k); moveToward(id, b[0], b[1], FSPD * (id === 'C' ? 1 : S.live && S.live.kind === 'pick' ? PICK_K : 0.9)); /* on a pickoff throw the basemen keep their 115% speed (version 1.13) */
+    var b = k === 4 && (id === 'C' || id === 'P') && playAtHome() ? HOME_STAND : basePos(k); moveToward(id, b[0], b[1], FSPD * (id === 'C' ? 1 : S.live && S.live.kind === 'pick' ? PICK_K : 0.9)); /* on a pickoff throw the basemen keep their 115% speed (version 1.13) */
   });
   if (!defenseHuman()) { cpuDefense(); return; }
   var ctl = S.ctl;
@@ -2105,6 +2106,7 @@ function forceHome() { return S.runners.some(function (r) { return alive(r) && r
 function pickChaser(ex) {
   var bb = S.bb, best = null, bt = 1e9, slow = bb.v < 0.35;
   var noC = forceHome(), skip = function (id) { return id === ex || (noC && id === 'C'); };
+  if (S.live && S.live.kind === 'wild') return skip('C') ? null : 'C'; /* wild pitch: only the catcher chases it (you, if you steer him); the pitcher covers home (version 1.68) */
   /* anyone who can reach the ball goes for it; infielders only while it is still in the infield, beyond that it's the outfield's ball */
   FIELDERS.forEach(function (f) {
     if (skip(f.id)) return;
@@ -2817,7 +2819,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.67'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.68'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
