@@ -9,6 +9,17 @@ import json, sys
 from common import page
 
 CHECKS = {
+'walk-off (version 1.66): the winning run counts only once a force out can no longer make the third out, like real baseball': r"""() => { const res = {};
+  const setup = (outs, ball) => { T.start(false); const S = T.C.S; S.half = 5; S.score = { you: 2, cpu: 2 }; S.outs = outs; T.put([3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); T.I.snapRunners();
+    S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(ball[0], ball[1]); T.I.batterToFirst(false); const r3 = S.runners.find(r => r.at === 3); r3.to = 4; r3.p = 0.95; return [S, r3]; };
+  /* 0 outs: walk-off the moment he touches home */
+  let [S, r3] = setup(0, [-140, 150]); T.until(() => r3.scored, 60); res.zeroOuts = { wo: !!S.wo, score: S.score.you };
+  /* 2 outs, the batter forced out at first for the third out: no run, no walk-off, extra innings */
+  [S, r3] = setup(2, [0, 160]); T.until(() => r3.scored, 60); const woAtCross = !!S.wo; T.I.giveBall('1B'); S.F['1B'].x = 60.2; S.F['1B'].y = 63.6; S.ctl = '1B'; T.until(() => S.outs >= 3, 200); T.run(5);
+  res.forcedOut = { woAtCross, wo: !!S.wo, score: S.score.you, over: !!S.over };
+  /* 2 outs, the batter reaches first: walk-off then */
+  [S, r3] = setup(2, [-140, 150]); T.until(() => r3.scored, 60); const wait = !S.wo; T.until(() => S.wo || S.phase !== 'batted', 400); res.reached = { waitedAtCross: wait, wo: !!S.wo, score: S.score.you };
+  return { ok: res.zeroOuts.wo && res.zeroOuts.score === 3 && !res.forcedOut.woAtCross && !res.forcedOut.wo && res.forcedOut.score === 2 && res.reached.waitedAtCross && res.reached.wo && res.reached.score === 3, res }; }""",
 'leads after a pickoff call (version 1.61): you step off, the runners dive back; back on the rubber, they take their leads again; a steal order still stands': r"""() => { const res = {};
   T.start(false); const S = T.C.S; T.until(() => S.phase === 'ready', 600); T.put([1, 2]); T.I.takeLeads(); S.runners.forEach(r => { r.go = false; }); T.run(30); /* the computer's runners don't steal here (it rolls a small chance) */
   res.before = S.runners.map(r => r.lead); T.press(null); res.picked = S.pick; T.run(90); res.back = S.runners.map(r => r.at + '>' + r.to);
