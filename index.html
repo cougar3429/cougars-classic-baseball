@@ -289,7 +289,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.69</small>
+    <small id="ver">Version 1.70</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -332,7 +332,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.69</small>
+    <small class="lver" id="lver">Version 1.70</small>
   </section>
 
   <section class="screen" id="dbg" hidden>
@@ -393,10 +393,11 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
   </section>
 
   <section class="screen" id="quit" hidden>
-    <h1>Quit This Game?</h1>
+    <h1>Game Paused</h1>
     <p>The score will be lost. The game is paused while you decide.</p>
     <div class="row"><button class="big-btn" id="qyes" type="button">QUIT TO MENU</button><button class="big-btn" id="qno" type="button" style="background:#2f6fe0">KEEP PLAYING</button></div>
     <button class="big-btn alt" id="qmove" type="button">MOVE CONTROLS</button>
+    <small class="lver" id="qver">Version 1.70</small>
   </section>
 
   <section class="screen" id="final" hidden>
@@ -2806,7 +2807,7 @@ var LAG = {
 var DBG = { spd: true, gver: true };
 try { var dj = JSON.parse(localStorage.getItem('ccb-dbg') || 'null'); if (dj) { DBG.spd = dj.spd !== false; DBG.gver = dj.gver !== false; } } catch (e) { }
 LAG.on = true; try { LAG.on = localStorage.getItem('ccb-lag') !== 'off'; } catch (e) { } /* on by default; tapping the version number turns it off and on (user, Oct 25, version 1.10) */
-function lagLabels() { ['ver', 'lver', 'gver'].forEach(function (id) { $(id).textContent = 'Version ' + PROTO + (LAG.on ? ' · LAG ON' : ''); }); if (!LAG.on) $('lagbox').hidden = true; }
+function lagLabels() { ['ver', 'lver', 'gver', 'qver'].forEach(function (id) { $(id).textContent = 'Version ' + PROTO + (LAG.on ? ' · LAG ON' : ''); }); if (!LAG.on) $('lagbox').hidden = true; }
 function frame(now) {
   if (!last) last = now; var fdt = now - last; acc += Math.min(250, now - last); last = now; LAG.frame(now, fdt);
   if (NET.live && S && !S.over) {
@@ -2831,7 +2832,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.69'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.70'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
@@ -3457,13 +3458,13 @@ $('mute').addEventListener('click', function () { audio(); volPop($('volpop').hi
 document.addEventListener('pointerdown', function (e) { if (!$('volpop').hidden && !$('volpop').contains(e.target) && !$('mute').contains(e.target)) volPop(false); }, true);
 
 /* testing displays (user, Nov 8, version 1.69): hold the version number 3 s (title screen or lobby) to open a hidden menu that turns each one
-   on or off: the lag readout, the hit speed readout, the version number during play. Saved on this phone. (Before, a tap toggled the lag readout.) */
+   on or off (and from the Game Paused screen, version 1.70): the lag readout, the hit speed readout, the version number during play. Saved on this phone. (Before, a tap toggled the lag readout.) */
 function dbgSave() { try { localStorage.setItem('ccb-dbg', JSON.stringify(DBG)); localStorage.setItem('ccb-lag', LAG.on ? 'on' : 'off'); } catch (e) { } }
 function dbgDraw() { pressGroup('dlagon', 'dlagoff', LAG.on); pressGroup('dspdon', 'dspdoff', DBG.spd); pressGroup('dveron', 'dveroff', DBG.gver); lagLabels(); }
 [['dlagon', function () { LAG.on = true; }], ['dlagoff', function () { LAG.on = false; }], ['dspdon', function () { DBG.spd = true; }], ['dspdoff', function () { DBG.spd = false; }], ['dveron', function () { DBG.gver = true; }], ['dveroff', function () { DBG.gver = false; }]]
   .forEach(function (b) { $(b[0]).addEventListener('click', function () { b[1](); dbgSave(); dbgDraw(); sfx('click'); }); });
 $('dbgdone').addEventListener('click', function () { sfx('click'); $('dbg').hidden = true; });
-['ver', 'lver'].forEach(function (id) {
+['ver', 'lver', 'qver'].forEach(function (id) { /* qver: on the Game Paused screen too (user, Nov 8, version 1.70) */
   var el = $(id), t = null, stop = function () { clearTimeout(t); t = null; };
   el.addEventListener('pointerdown', function () { stop(); t = setTimeout(function () { t = null; audio(); sfx('click'); dbgDraw(); $('dbg').hidden = false; }, 3000); });
   ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { el.addEventListener(ev, stop); });

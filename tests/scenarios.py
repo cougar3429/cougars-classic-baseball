@@ -9,6 +9,12 @@ import json, sys
 from common import page
 
 CHECKS = {
+'Game Paused screen (version 1.70): the menu button screen is titled Game Paused, shows the version, and holding it 3 s opens the testing displays menu; DONE goes back to it': r"""async () => { const $ = id => document.getElementById(id), wait = ms => new Promise(r => setTimeout(r, ms)), res = {};
+  T.start(true); const S = T.C.S; S.paused = false; $('menu').hidden = false; $('menu').click();
+  res.title = document.querySelector('#quit h1').textContent; res.version = $('qver').textContent; res.paused = S.paused;
+  $('qver').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); await wait(3200); $('qver').dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+  res.menu = !$('dbg').hidden; $('dbgdone').click(); res.back = !$('quit').hidden && $('dbg').hidden && S.paused; $('qno').click(); $('menu').hidden = true;
+  return { ok: res.title === 'Game Paused' && /^Version 1\.\d+/.test(res.version) && res.paused && res.menu && res.back, res }; }""",
 'testing displays menu (version 1.69): hold the version number 3 s to open it; a short hold does not; lag, hit speed and version-in-play each turn on and off on their own': r"""async () => { const $ = id => document.getElementById(id), wait = ms => new Promise(r => setTimeout(r, ms)), res = {};
   const down = () => $('ver').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })), up = () => $('ver').dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
   $('title').hidden = false; down(); await wait(1500); up(); await wait(1700); res.short = !$('dbg').hidden;
