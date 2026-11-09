@@ -188,6 +188,8 @@ body.day { background: #4f9e44; }
 #lagbox[hidden] { display: none; }
 #ver, .lver { cursor: pointer; }
 #gver { pointer-events: none; } #gver[hidden] { display: none; } /* the version during play, same place and look as the title screen (user, Nov 1, version 1.26); display only */
+#ver, .lver { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: none; }
+#dbg { z-index: 5; background: #0b1a12; } #dbg .row { gap: 14px; } #dbg .row > label { width: 190px; text-align: right; }
 #ver, .lver, #gver { position: absolute; right: 14px; bottom: 10px; font: 700 13px var(--font-body); letter-spacing: 0.08em; color: #cfdccf; }
 #setup { gap: 9px; }
 #netwait .big-btn { font-size: 16px; padding: 8px 16px; min-height: 44px; }
@@ -287,7 +289,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.68</small>
+    <small id="ver">Version 1.69</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -330,7 +332,15 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.68</small>
+    <small class="lver" id="lver">Version 1.69</small>
+  </section>
+
+  <section class="screen" id="dbg" hidden>
+    <h1>Testing Displays</h1>
+    <div class="row"><label>Lag readout</label><div class="seg" role="group" aria-label="Lag readout"><button type="button" id="dlagon">ON</button><button type="button" id="dlagoff">OFF</button></div></div>
+    <div class="row"><label>Hit speed readout</label><div class="seg" role="group" aria-label="Hit speed readout"><button type="button" id="dspdon">ON</button><button type="button" id="dspdoff">OFF</button></div></div>
+    <div class="row"><label>Version during play</label><div class="seg" role="group" aria-label="Version during play"><button type="button" id="dveron">ON</button><button type="button" id="dveroff">OFF</button></div></div>
+    <button class="big-btn" id="dbgdone" type="button">DONE</button>
   </section>
 
   <section class="screen" id="colpick" hidden>
@@ -2498,7 +2508,7 @@ function updatePortraits() {
 var spdText = null;
 function updateSpd() {
   var t = '';
-  if (S && !S.over && S.spd && S.bb && (S.phase === 'batted' || S.phase === 'result')) {
+  if (DBG.spd && S && !S.over && S.spd && S.bb && (S.phase === 'batted' || S.phase === 'result')) {
     var sp = S.spd, bb = S.bb, now = bb.gone ? 'gone' : S.holder ? 'fielded' : S.thr ? 'thrown' : Math.round(bb.v / BALLMAX * 100) + '%';
     t = '<b>OFF BAT ' + Math.round(sp.ev / BALLMAX * 100) + '%</b><span>Ball now ' + now + '</span>';
     if (sp.wall) t += '<span>At wall ' + Math.round(sp.wall.v) + '% · HR ' + Math.round(sp.wall.ch) + '%</span><span class="' + (sp.wall.hr ? 'hr' : 'no') + '">Rolled ' + Math.round(sp.wall.roll) + (sp.wall.hr ? ': home run' : ': stays in') + '</span>';
@@ -2793,6 +2803,8 @@ var LAG = {
   },
   pong: function (t) { var r = performance.now() - t; if (r >= 0 && r < 60000) { this.rtt = r; if (r > this.rttWorst) this.rttWorst = r; } }
 };
+var DBG = { spd: true, gver: true };
+try { var dj = JSON.parse(localStorage.getItem('ccb-dbg') || 'null'); if (dj) { DBG.spd = dj.spd !== false; DBG.gver = dj.gver !== false; } } catch (e) { }
 LAG.on = true; try { LAG.on = localStorage.getItem('ccb-lag') !== 'off'; } catch (e) { } /* on by default; tapping the version number turns it off and on (user, Oct 25, version 1.10) */
 function lagLabels() { ['ver', 'lver', 'gver'].forEach(function (id) { $(id).textContent = 'Version ' + PROTO + (LAG.on ? ' · LAG ON' : ''); }); if (!LAG.on) $('lagbox').hidden = true; }
 function frame(now) {
@@ -2806,7 +2818,7 @@ function frame(now) {
     acc = 0; RB.fix(); if (!S.over) { $('final').hidden = true; $('menu').hidden = false; if (opts.murmur) murmur(true); }
     NET.flush(now);
   } else if (S && !S.over && !S.paused) { while (acc >= TICK) { tick(); acc -= TICK; } } else acc = 0;
-  var fin = !$('final').hidden; btnEl.classList.toggle('fin', fin); $('gver').hidden = !S || S.over;
+  var fin = !$('final').hidden; btnEl.classList.toggle('fin', fin); $('gver').hidden = !S || S.over || !DBG.gver;
   if (fin && S && S.over && human.btn) { human.btn = false; endTap(); } /* a tap on the final screen */
   awake(!!S && !S.over);
   render();
@@ -2819,7 +2831,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.68'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.69'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
@@ -3444,7 +3456,19 @@ $('mute').addEventListener('click', function () { audio(); volPop($('volpop').hi
 });
 document.addEventListener('pointerdown', function (e) { if (!$('volpop').hidden && !$('volpop').contains(e.target) && !$('mute').contains(e.target)) volPop(false); }, true);
 
-['ver', 'lver'].forEach(function (id) { $(id).addEventListener('click', function () { LAG.on = !LAG.on; try { localStorage.setItem('ccb-lag', LAG.on ? 'on' : 'off'); } catch (e) { } lagLabels(); sfx('click'); }); });
+/* testing displays (user, Nov 8, version 1.69): hold the version number 3 s (title screen or lobby) to open a hidden menu that turns each one
+   on or off: the lag readout, the hit speed readout, the version number during play. Saved on this phone. (Before, a tap toggled the lag readout.) */
+function dbgSave() { try { localStorage.setItem('ccb-dbg', JSON.stringify(DBG)); localStorage.setItem('ccb-lag', LAG.on ? 'on' : 'off'); } catch (e) { } }
+function dbgDraw() { pressGroup('dlagon', 'dlagoff', LAG.on); pressGroup('dspdon', 'dspdoff', DBG.spd); pressGroup('dveron', 'dveroff', DBG.gver); lagLabels(); }
+[['dlagon', function () { LAG.on = true; }], ['dlagoff', function () { LAG.on = false; }], ['dspdon', function () { DBG.spd = true; }], ['dspdoff', function () { DBG.spd = false; }], ['dveron', function () { DBG.gver = true; }], ['dveroff', function () { DBG.gver = false; }]]
+  .forEach(function (b) { $(b[0]).addEventListener('click', function () { b[1](); dbgSave(); dbgDraw(); sfx('click'); }); });
+$('dbgdone').addEventListener('click', function () { sfx('click'); $('dbg').hidden = true; });
+['ver', 'lver'].forEach(function (id) {
+  var el = $(id), t = null, stop = function () { clearTimeout(t); t = null; };
+  el.addEventListener('pointerdown', function () { stop(); t = setTimeout(function () { t = null; audio(); sfx('click'); dbgDraw(); $('dbg').hidden = false; }, 3000); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { el.addEventListener(ev, stop); });
+  el.addEventListener('contextmenu', function (e) { e.preventDefault(); }); /* a long press on a phone would otherwise open the text menu */
+});
 lagLabels();
 $('tips').checked = opts.tips;
 $('tips').addEventListener('change', function () { opts.tips = $('tips').checked; try { localStorage.setItem('ccb-tips', opts.tips ? 'on' : 'off'); } catch (e) { } sfx('click'); });

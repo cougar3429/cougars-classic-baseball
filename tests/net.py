@@ -55,8 +55,12 @@ def main():
         for f in (ann, bob): f.evaluate('(l) => { window.__mockLag = l; }', LAG)
         # lag readout: on by default; tapping the version number turns it off and on again (version 1.10)
         lab = lambda f: f.evaluate("() => document.getElementById('ver').textContent")
-        lagver = [lab(ann)]; A.locator('#ver').click(); lagver.append(lab(ann)); A.locator('#ver').click(); lagver.append(lab(ann))
-        if not (lagver[0].endswith('LAG ON') and not lagver[1].endswith('LAG ON') and lagver[2].endswith('LAG ON')): problems.append(f'lag readout label: {lagver}')
+        # since 1.69: a quick tap does nothing; holding the version number 3 s opens the testing displays menu, where the lag readout turns off and on
+        lagver = [lab(ann)]; A.locator('#ver').click(); lagver.append(lab(ann))
+        A.locator('#ver').dispatch_event('pointerdown'); pg.wait_for_timeout(3300); A.locator('#ver').dispatch_event('pointerup')
+        menu = ann.evaluate("() => !document.getElementById('dbg').hidden")
+        A.locator('#dlagoff').click(); lagver.append(lab(ann)); A.locator('#dlagon').click(); lagver.append(lab(ann)); A.locator('#dbgdone').click()
+        if not (menu and lagver[0].endswith('LAG ON') and lagver[1].endswith('LAG ON') and not lagver[2].endswith('LAG ON') and lagver[3].endswith('LAG ON')): problems.append(f'lag readout label: {lagver}, menu {menu}')
         for f in (ann, bob): f.evaluate("() => window.__ccb.setKit({ home: { p: 'white', s: 'red' }, away: { p: 'red', s: 'white' } })")  # uniforms already picked (version 1.67)
         for loc, name in ((A, 'Ann'), (B, 'Bob')):
             loc.locator('#p2').click(); loc.locator('#start').click(); loc.locator('#go').click()

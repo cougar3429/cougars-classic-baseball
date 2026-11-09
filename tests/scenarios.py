@@ -9,6 +9,16 @@ import json, sys
 from common import page
 
 CHECKS = {
+'testing displays menu (version 1.69): hold the version number 3 s to open it; a short hold does not; lag, hit speed and version-in-play each turn on and off on their own': r"""async () => { const $ = id => document.getElementById(id), wait = ms => new Promise(r => setTimeout(r, ms)), res = {};
+  const down = () => $('ver').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })), up = () => $('ver').dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+  $('title').hidden = false; down(); await wait(1500); up(); await wait(1700); res.short = !$('dbg').hidden;
+  down(); await wait(3200); up(); res.held = !$('dbg').hidden;
+  $('dspdoff').click(); $('dveroff').click();
+  T.start(true); const S = T.C.S; S.paused = false; S.phase = 'batted'; S.spd = { ev: 3, wall: null }; S.bb = T.I.mkBall(0, 100); S.bb.v = 2; await wait(200);
+  res.off = { spd: !$('spd').hidden, gver: !$('gver').hidden, lag: $('ver').textContent };
+  $('dspdon').click(); $('dveron').click(); await wait(200); res.on = { spd: !$('spd').hidden, gver: !$('gver').hidden };
+  $('dbgdone').click(); res.closed = $('dbg').hidden; S.phase = 'ready'; S.bb = null;
+  return { ok: !res.short && res.held && !res.off.spd && !res.off.gver && res.off.lag.endsWith('LAG ON') && res.on.spd && res.on.gver && res.closed, res }; }""",
 'wild pitch (version 1.68): only the catcher goes after the ball; the pitcher covers home': r"""() => { const res = {};
   for (const bf of [true, false]) { T.start(bf); const S = T.C.S; T.until(() => S.phase === 'ready', 600); T.put([2]); T.I.takeLeads();
     S.s = 0; S.phase = 'pitch'; S.ball = { fx: 30, fy: -18, sp: 1.2, lv: 0.6, crossed: true, crossFx: 30 }; S.sw = null; S.cat = { up: false, upT: 0 }; T.I.wildPitch();
