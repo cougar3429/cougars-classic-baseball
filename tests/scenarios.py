@@ -9,14 +9,14 @@ import json, sys
 from common import page
 
 CHECKS = {
-'pitcher covers first (version 1.71): on a slow grounder the first baseman goes after, the pitcher breaks for first at once and leaves the ball to him; yours does it by himself until you steer him': r"""() => { const res = {};
-  for (const bf of [true, false]) { T.start(bf); const S = T.C.S; S.runners = []; T.hit(-25, 0.9); T.run(40); const p40 = [S.F.P.x, S.F.P.y];
+"pitcher covers first (versions 1.71, 1.72): on a slow grounder to the right side the pitcher breaks for first; whoever can reach the ball first fields it and the other covers first; yours covers by himself until you steer him": r"""() => { const res = {}, bag = [60.2, 63.6];
+  for (const bf of [true, false]) for (const [ang, ev] of [[-25, 0.9], [-35, 0.8], [-30, 1.1]]) { T.start(bf); const S = T.C.S; S.runners = []; T.hit(ang, ev); T.run(25); const pEarly = S.F.P.x;
     let holder = null; for (let i = 0; i < 300 && !holder; i++) { T.C.tick(); holder = S.holder; }
-    res[bf ? 'computerFields' : 'youField'] = { pitcherMovedBy40: +Math.hypot(p40[0] - 0, p40[1] - 61.6).toFixed(1), towardFirst: p40[0] > 3, fielder: holder }; }
-  /* you steer the pitcher: he goes where you send him, not to first */
+    const otherId = holder === 'P' ? '1B' : 'P', o = S.F[otherId], d0 = Math.hypot(o.x - bag[0], o.y - bag[1]); T.run(30);
+    res[(bf ? 'cpu ' : 'you ') + ang] = { pitcherBroke: pEarly > 2, fielder: holder, otherToBag: [+d0.toFixed(1), +Math.hypot(o.x - bag[0], o.y - bag[1]).toFixed(1)] }; }
   T.start(false); let S = T.C.S; S.runners = []; T.hit(-25, 0.9); T.run(5); T.hold('l'); T.run(30); T.release(); T.run(20); res.steered = { x: +S.F.P.x.toFixed(1), steer: S.pSteer };
-  const ok = r => r.towardFirst && r.pitcherMovedBy40 > 5 && r.fielder === '1B';
-  return { ok: ok(res.computerFields) && ok(res.youField) && res.steered.x < 0 && res.steered.steer, res }; }""",
+  const ok = Object.keys(res).filter(k => k !== 'steered').every(k => res[k].pitcherBroke && (res[k].fielder === 'P' || res[k].fielder === '1B') && (res[k].otherToBag[1] < 2 || res[k].otherToBag[0] - res[k].otherToBag[1] > 5)); /* the other man is on the bag or on his way to it */
+  return { ok: ok && res.steered.x < 0 && res.steered.steer, res }; }""",
 'Game Paused screen (version 1.70): the menu button screen is titled Game Paused, shows the version, and holding it 3 s opens the testing displays menu; DONE goes back to it': r"""async () => { const $ = id => document.getElementById(id), wait = ms => new Promise(r => setTimeout(r, ms)), res = {};
   T.start(true); const S = T.C.S; S.paused = false; $('menu').hidden = false; $('menu').click();
   res.title = document.querySelector('#quit h1').textContent; res.version = $('qver').textContent; res.paused = S.paused;
