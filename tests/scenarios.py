@@ -9,6 +9,14 @@ import json, sys
 from common import page
 
 CHECKS = {
+'pitcher covers first (version 1.71): on a slow grounder the first baseman goes after, the pitcher breaks for first at once and leaves the ball to him; yours does it by himself until you steer him': r"""() => { const res = {};
+  for (const bf of [true, false]) { T.start(bf); const S = T.C.S; S.runners = []; T.hit(-25, 0.9); T.run(40); const p40 = [S.F.P.x, S.F.P.y];
+    let holder = null; for (let i = 0; i < 300 && !holder; i++) { T.C.tick(); holder = S.holder; }
+    res[bf ? 'computerFields' : 'youField'] = { pitcherMovedBy40: +Math.hypot(p40[0] - 0, p40[1] - 61.6).toFixed(1), towardFirst: p40[0] > 3, fielder: holder }; }
+  /* you steer the pitcher: he goes where you send him, not to first */
+  T.start(false); let S = T.C.S; S.runners = []; T.hit(-25, 0.9); T.run(5); T.hold('l'); T.run(30); T.release(); T.run(20); res.steered = { x: +S.F.P.x.toFixed(1), steer: S.pSteer };
+  const ok = r => r.towardFirst && r.pitcherMovedBy40 > 5 && r.fielder === '1B';
+  return { ok: ok(res.computerFields) && ok(res.youField) && res.steered.x < 0 && res.steered.steer, res }; }""",
 'Game Paused screen (version 1.70): the menu button screen is titled Game Paused, shows the version, and holding it 3 s opens the testing displays menu; DONE goes back to it': r"""async () => { const $ = id => document.getElementById(id), wait = ms => new Promise(r => setTimeout(r, ms)), res = {};
   T.start(true); const S = T.C.S; S.paused = false; $('menu').hidden = false; $('menu').click();
   res.title = document.querySelector('#quit h1').textContent; res.version = $('qver').textContent; res.paused = S.paused;
