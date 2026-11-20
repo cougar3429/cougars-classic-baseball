@@ -470,6 +470,15 @@ CHECKS = {
   S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 200); S.bb.wall = false; S.bb.v = 4; S.spd = { ev: 4, wall: null }; T.I.batterToFirst(false);
   const before = S.score.you; T.I.wallHit(200); const toast = T.toast(); return { ok: S.score.you === before + 4 && toast.startsWith('GRAND SLAM'), toast, runs: S.score.you - before }; }""",
 
+'grand slam when the runner from third already crossed (version 1.73): stealing home on the pitch, then the ball goes out: still a grand slam, 4 runs; a walk-off too in the last inning': r"""() => { const res = {};
+  const setup = (bf, last) => { T.start(bf); const S = T.C.S; if (last) { S.half = 5; S.score = { you: 1, cpu: 4 }; } T.put([1, 2, 3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); T.I.snapRunners();
+    S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 120); S.bb.wall = false; S.bb.v = 4; S.spd = { ev: 4, wall: null }; T.I.batterToFirst(false);
+    const r3 = S.runners.find(r => r.at === 3); r3.to = 4; r3.p = 0.97; T.until(() => r3.scored, 60); return S; };
+  let S = setup(true, false); const b0 = S.score.you, pend = S.playRuns; S.bb.x = 0; S.bb.y = 200; T.I.wallHit(200); res.mid = { pend, toast: T.toast(), now: S.score.you - b0 };
+  T.until(() => S.phase !== 'result', 400); T.run(5); res.mid.total = S.score.you - b0;
+  S = setup(false, true); const pend2 = S.playRuns; S.bb.x = 0; S.bb.y = 200; T.I.wallHit(200); res.last = { pend: pend2, toast: T.toast(), wo: !!S.wo, score: S.score.you };
+  return { ok: res.mid.pend === 1 && res.mid.toast.startsWith('GRAND SLAM') && res.mid.total === 4 && res.last.pend === 1 && res.last.toast.startsWith('GRAND SLAM') && /Walk-off/.test(res.last.toast) && res.last.wo && res.last.score === 5, res }; }""",
+
 'third out on a force wipes the run; on a tag it counts': r"""() => {
   T.start(true); let S = T.C.S; T.put([3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); S.outs = 2; T.I.snapRunners(); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 60); T.I.batterToFirst(false);
   let r3 = S.runners.find(r => r.at === 3); r3.to = 4; r3.p = 0.999; S.playRuns = 0; T.I.moveRunners(); T.I.runnerOut(S.batR, 'Forced out at first', true); const afterForce = S.score.you;
