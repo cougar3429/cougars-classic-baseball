@@ -504,6 +504,16 @@ CHECKS = {
     T.run(20); res.behind = { rev: r.rev, to: r.to, at: r.at }; }
   return { ok: res.ahead.thrTo === 2 && res.ahead.rev === 1 && res.ahead.at === 1 && res.ahead.to == null && !res.ahead.out && res.behind.rev === 0 && res.behind.to === 2, res }; }""",
 
+"grand slam recognition (version 1.76): the bigger fanfare and the longer crowd (cheer at home, boos for the visitors), the scoreboard flashes GRAND SLAM, fireworks; a plain homer keeps the normal fanfare": r"""() => { const res = {}, c = n => (window.__ccb.sfxCount || {})[n] || 0;
+  const hr = (bases, home) => { T.start(!home); const S = T.C.S; if (home) S.half = 1; T.put(bases); S.runners.forEach(r => { r.lead = false; r.to = null; });
+    S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 200); S.bb.wall = false; S.bb.v = 4; S.spd = { ev: 4, wall: null }; T.I.batterToFirst(false);
+    const b = { f: c('fanfare'), sf: c('slamfare'), sc: c('slamcheer'), sb: c('slamboo') }; T.I.wallHit(200); T.run(30); T.C.view();
+    return { fanfare: c('fanfare') - b.f, slamfare: c('slamfare') - b.sf, slamcheer: c('slamcheer') - b.sc, slamboo: c('slamboo') - b.sb, slam: !!(S.hr && S.hr.slam), sb: document.getElementById('sb').classList.contains('slam') }; };
+  res.homeSlam = hr([1, 2, 3], true); res.visSlam = hr([1, 2, 3], false); res.solo = hr([], false);
+  const ok = res.homeSlam.slamfare === 1 && res.homeSlam.slamcheer === 1 && res.homeSlam.fanfare === 0 && res.homeSlam.slam && res.homeSlam.sb
+    && res.visSlam.slamfare === 1 && res.visSlam.slamboo === 1 && res.visSlam.sb && res.solo.fanfare === 1 && res.solo.slamfare === 0 && !res.solo.slam && !res.solo.sb;
+  return { ok, res }; }""",
+
 'third out on a force wipes the run; on a tag it counts': r"""() => {
   T.start(true); let S = T.C.S; T.put([3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); S.outs = 2; T.I.snapRunners(); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 60); T.I.batterToFirst(false);
   let r3 = S.runners.find(r => r.at === 3); r3.to = 4; r3.p = 0.999; S.playRuns = 0; T.I.moveRunners(); T.I.runnerOut(S.batR, 'Forced out at first', true); const afterForce = S.score.you;
