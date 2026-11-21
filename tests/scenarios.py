@@ -493,6 +493,17 @@ CHECKS = {
   S.cpuP = { slide: 0, delay: 40, type: 'fast', sign: 1, target: 0, pick: 0 }; S.pt = 0; T.run(10); T.press('u'); S.lastToast = null;
   T.until(() => S.phase === 'batted', 400); T.run(3); const t = S.lastToast; return { ok: S.live && S.live.kind === 'steal' && (!t || !/^(STRIKE|BALL)/.test(t.text)), toast: t, live: S.live && S.live.kind }; }""",
 
+"computer runner on a steal or pickoff (version 1.75): when the ball will clearly beat him to the base ahead and going back is better, he turns back; when the ball is at the base he left, he keeps going": r"""() => { const res = {};
+  /* he breaks on your pickoff and you throw to second: he gets back to first safely */
+  { T.start(false); const S = T.C.S; T.put([1]); T.run(80); const r = S.runners.find(x => !x.bat); r.go = true;
+    T.press(null); T.run(2); T.hold('u'); let n = 0; while (!S.thr && n < 60) { T.C.tick(); n++; } T.release(); const thrTo = S.thr && S.thr.base;
+    T.until(() => S.phase !== 'batted', 400); res.ahead = { thrTo, rev: r.rev, at: r.at, to: r.to, out: r.out }; }
+  /* he's past halfway and the first baseman has the ball on first: going back is worse, he keeps going */
+  { T.start(false); const S = T.C.S; T.put([1]); T.run(80); const r = S.runners.find(x => !x.bat); r.lead = false; r.to = 2; r.p = 0.6;
+    S.phase = 'batted'; S.live = { kind: 'pick', still: 0 }; S.bb = T.I.mkBall(60.2, 63.6); T.I.giveBall('1B'); S.F['1B'].x = 60.2; S.F['1B'].y = 63.6; S.ctl = '1B';
+    T.run(20); res.behind = { rev: r.rev, to: r.to, at: r.at }; }
+  return { ok: res.ahead.thrTo === 2 && res.ahead.rev === 1 && res.ahead.at === 1 && res.ahead.to == null && !res.ahead.out && res.behind.rev === 0 && res.behind.to === 2, res }; }""",
+
 'third out on a force wipes the run; on a tag it counts': r"""() => {
   T.start(true); let S = T.C.S; T.put([3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); S.outs = 2; T.I.snapRunners(); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 60); T.I.batterToFirst(false);
   let r3 = S.runners.find(r => r.at === 3); r3.to = 4; r3.p = 0.999; S.playRuns = 0; T.I.moveRunners(); T.I.runnerOut(S.batR, 'Forced out at first', true); const afterForce = S.score.you;

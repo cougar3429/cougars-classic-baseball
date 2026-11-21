@@ -289,7 +289,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.74</small>
+    <small id="ver">Version 1.75</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -332,7 +332,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.74</small>
+    <small class="lver" id="lver">Version 1.75</small>
   </section>
 
   <section class="screen" id="dbg" hidden>
@@ -397,7 +397,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     <p>The score will be lost. The game is paused while you decide.</p>
     <div class="row"><button class="big-btn" id="qyes" type="button">QUIT TO MENU</button><button class="big-btn" id="qno" type="button" style="background:#2f6fe0">KEEP PLAYING</button></div>
     <button class="big-btn alt" id="qmove" type="button">MOVE CONTROLS</button>
-    <small class="lver" id="qver">Version 1.74</small>
+    <small class="lver" id="qver">Version 1.75</small>
   </section>
 
   <section class="screen" id="final" hidden>
@@ -1445,6 +1445,7 @@ function ballETA(k) {
   return bt + (isOF(bid) ? GATHER_OF + WIND_OF : WIND_IF) + dist2(bp.x, bp.y, b[0], b[1]) / THROW;
 }
 function cpuRunners() {
+  if (S.live && (S.live.kind === 'steal' || S.live.kind === 'pick')) { stealBack(); return; }
   if (!S.live || (S.live.kind !== 'hit' && S.live.kind !== 'wild') || S.holder === 'P' || S.playT < 20) return;
   S.runners.slice().sort(function (a, b) { return b.at - a.at; }).forEach(function (r) {
     if (!alive(r) || r.award || r.trot || r.lead) return;
@@ -1466,6 +1467,17 @@ function cpuRunners() {
   });
 }
 
+/* a computer runner stealing (or caught breaking on a pickoff) doesn't run blindly into a tag: when the ball will clearly beat him to the
+   base ahead and going back gives him a better chance, he turns back; if the ball is already at the base he left, he keeps going (user, Nov 20, version 1.75) */
+function stealBack() {
+  if (S.t % 4 !== 0) return;
+  S.runners.forEach(function (r) {
+    if (!alive(r) || r.award || r.trot || r.lead || r.forced || r.to == null || r.to <= r.at || r.to > 3 || r.rev >= 1 || r.slide > 0 || r.at < 1) return;
+    if (standingOn(r.at, r)) return;
+    var L = legLen(r), aheadBy = ballETA(r.to) - (1 - r.p) * L / RSPD, backBy = ballETA(r.at) - r.p * L / RSPD;
+    if (aheadBy < -20 && backBy > aheadBy) reverse(r);
+  });
+}
 /* ============ simulation ============ */
 var NO_IN = { dir: null, btn: false, vx: 0, vy: 0 };
 /* portrait reactions, by team: the happy team and the mad one. A run: the scoring team happy, about 5 s.
@@ -2844,7 +2856,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.74'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.75'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
