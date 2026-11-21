@@ -479,6 +479,20 @@ CHECKS = {
   S = setup(false, true); const pend2 = S.playRuns; S.bb.x = 0; S.bb.y = 200; T.I.wallHit(200); res.last = { pend: pend2, toast: T.toast(), wo: !!S.wo, score: S.score.you };
   return { ok: res.mid.pend === 1 && res.mid.toast.startsWith('GRAND SLAM') && res.mid.total === 4 && res.last.pend === 1 && res.last.toast.startsWith('GRAND SLAM') && /Walk-off/.test(res.last.toast) && res.last.wo && res.last.score === 5, res }; }""",
 
+"computer pickoff (version 1.74): he throws as he steps off; a runner who wasn't told to steal is never out diving back; a runner told to steal: the throw goes to the base he left and that baseman throws on to the base he's headed for": r"""() => { const res = {};
+  const go = (bases, steal) => { T.start(true); const S = T.C.S; T.until(() => S.phase === 'ready', 600); T.put(bases); T.I.takeLeads(); S.runners.forEach(r => { r.go = false; });
+    S.cpuP = { slide: 0, delay: 99999, type: 'fast', sign: 1, target: 0, pick: bases[bases.length - 1] }; S.pt = 0; T.run(150); S.cpuP.delay = S.pt + 5; if (steal) S.runners.forEach(r => { if (!r.bat) r.go = true; });
+    T.until(() => S.pick || S.phase === 'batted', 100); const t0 = S.t, thr = []; let firstT = null, last = null;
+    for (let i = 0; i < 500 && S.phase === 'batted' || i < 20; i++) { T.C.tick(); if (S.thr && S.thr !== last) { last = S.thr; thr.push(S.thrFrom + '>' + S.thr.base); if (firstT == null) firstT = S.t - t0; } }
+    return { thr, firstT, outs: S.outs }; };
+  res.noSteal = [[1], [2], [1, 2]].map(b => go(b, false)); res.steal = [[1], [2]].map(b => go(b, true));
+  const ok = res.noSteal.every(x => x.outs === 0 && x.firstT != null && x.firstT <= 15) && res.steal[0].thr[0] === 'P>1' && res.steal[0].thr[1] === '1B>2' && res.steal[1].thr[0] === 'P>2' && res.steal[1].thr[1] === '2B>3';
+  return { ok, res }; }""",
+
+'no ball or strike text during a steal (version 1.74): it covered the play at second; the umpire still calls it': r"""() => { T.start(true); const S = T.C.S; T.until(() => S.phase === 'ready', 600); T.put([1]); T.I.takeLeads();
+  S.cpuP = { slide: 0, delay: 40, type: 'fast', sign: 1, target: 0, pick: 0 }; S.pt = 0; T.run(10); T.press('u'); S.lastToast = null;
+  T.until(() => S.phase === 'batted', 400); T.run(3); const t = S.lastToast; return { ok: S.live && S.live.kind === 'steal' && (!t || !/^(STRIKE|BALL)/.test(t.text)), toast: t, live: S.live && S.live.kind }; }""",
+
 'third out on a force wipes the run; on a tag it counts': r"""() => {
   T.start(true); let S = T.C.S; T.put([3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); S.outs = 2; T.I.snapRunners(); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 60); T.I.batterToFirst(false);
   let r3 = S.runners.find(r => r.at === 3); r3.to = 4; r3.p = 0.999; S.playRuns = 0; T.I.moveRunners(); T.I.runnerOut(S.batR, 'Forced out at first', true); const afterForce = S.score.you;

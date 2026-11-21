@@ -289,7 +289,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.73</small>
+    <small id="ver">Version 1.74</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -332,7 +332,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.73</small>
+    <small class="lver" id="lver">Version 1.74</small>
   </section>
 
   <section class="screen" id="dbg" hidden>
@@ -397,7 +397,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     <p>The score will be lost. The game is paused while you decide.</p>
     <div class="row"><button class="big-btn" id="qyes" type="button">QUIT TO MENU</button><button class="big-btn" id="qno" type="button" style="background:#2f6fe0">KEEP PLAYING</button></div>
     <button class="big-btn alt" id="qmove" type="button">MOVE CONTROLS</button>
-    <small class="lver" id="qver">Version 1.73</small>
+    <small class="lver" id="qver">Version 1.74</small>
   </section>
 
   <section class="screen" id="final" hidden>
@@ -1171,10 +1171,12 @@ function startSteals() {
 function callPick() {
   if (S.pick) return;
   S.pick = true; S.pickQ = 0; S.pickAt = S.t;
+  var cpuPick = !defenseHuman();
   S.runners.forEach(function (r) {
     if (!alive(r)) return;
     r.pickFrom = r.at;
-    if (r.lead) { var g = r.go; r.lead = false; r.go = false; if (!g) reverse(r); }
+    /* the computer's pickoff never gets a runner who wasn't told to steal: he is safe diving back (user, Nov 20, version 1.74) */
+    if (r.lead) { var g = r.go; r.lead = false; r.go = false; if (!g) { reverse(r); if (cpuPick) r.diveSafe = true; } }
     else if (r.go && r.to == null && r.at <= 3 && !standingOn(r.at + 1, r)) { r.go = false; r.to = r.at + 1; r.p = 0; }
   });
   S.pickRun = anyStealing();
@@ -1578,10 +1580,11 @@ function readyStep(bH, pH, pIn, bIn) {
       if (S.pick && pickSettled()) { cp.pick = 0; return; }
       if (S.pick && !S.pickQ) { /* a runner breaks: throw to the base he is stealing */
         var st = null; S.runners.forEach(function (r) { if (alive(r) && !r.lead && r.to != null && r.to > r.at && (!st || r.to > st.to)) st = r; });
-        if (st) { S.pickQ = st.to; S.pickQT = 0; }
-        else if (S.t - S.pickAt >= 30) { S.pickQ = cp.pick; S.pickQT = 0; } /* 0.5 s after stepping off */
+        /* a runner breaks: throw to the base he left, so the baseman can throw on to the base he's headed for (user, Nov 20, version 1.74; was the base ahead of him) */
+        if (st) { S.pickQ = st.pickFrom != null ? st.pickFrom : st.at; S.pickQT = 0; }
+        else { S.pickQ = cp.pick; S.pickQT = 0; } /* no one breaks: he throws as he steps off (version 1.74; was 0.5 s after) */
       }
-      if (S.pickQ && pickReady()) cp.pick = 0;
+      if (S.pickQ) { var pq = S.pickQ; doPickoff(pq); cp.pick = 0; } /* the computer throws at once, without waiting for the baseman to reach the bag (he holds close enough to get there first); before, it waited up to 1.5 s (user, Nov 20, version 1.74) */
       return;
     }
     if (pIn.btn && pIn.dir) { startWindup(pIn.dir); return; }
@@ -1811,7 +1814,8 @@ function applyCallLive(c, title) {
     toast(title || 'STRIKEOUT', title ? 'Strikeout' : null, 80); return;
   }
   if (c.k === 'BB') { S.abOver = true; S.batterGone = true; batterToFirst(true); toast(title || 'WALK', title ? 'Ball four' : null, 80); sfx('ball', null, 0.12); return; }
-  toast(title || c.text, title ? c.text : c.sub, 70); sfx(c.k === 'S' ? 'strike' : 'ball', null, 0.12);
+  if (title) toast(title, c.text, 70); /* a steal: no ball/strike text, it covered the play at second; just the umpire (user, Nov 20, version 1.74) */
+  sfx(c.k === 'S' ? 'strike' : 'ball', null, 0.12);
 }
 /* the pitch gets past the catcher: it rolls to the backstop, the play is live, and the catcher takes over once it hits the wall */
 function wildPitch() {
@@ -2187,6 +2191,7 @@ function battedStep(dIn) {
 function onMound() { var f = S.F.P; return dist2(f.x, f.y, S.pOff || 0, 61.6) < 6; }
 /* force outs by touching the base with the ball, tags by touching a runner who is off a base */
 function checkOuts() {
+  S.runners.forEach(function (r) { if (r.diveSafe && r.to == null) r.diveSafe = false; }); /* back on his base: the pickoff dive is over (version 1.74) */
   if (!S.holder) return;
   var h = S.F[S.holder], by = ' by the ' + FNAME[S.holder];
   for (var i = 0; i < S.runners.length; i++) {
@@ -2195,7 +2200,7 @@ function checkOuts() {
       var fp = basePos(r.fb);
       if (dist2(h.x, h.y, fp[0], fp[1]) < FORCE_R) { runnerOut(r, 'Forced out at ' + BNAME[r.fb] + by, true); if (S.phase !== 'batted') return; continue; }
     }
-    if (r.to == null) continue;
+    if (r.to == null || r.diveSafe) continue;
     var rp = rPos(r), tx = (h.x - rp[0]) * KX, ty = (h.y - rp[1]) * KY;
     if (Math.sqrt(tx * tx + ty * ty) < TAG_PX) { runnerOut(r, 'Tagged out' + by, false); if (S.phase !== 'batted') return; }
   }
@@ -2839,7 +2844,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.73'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.74'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,
