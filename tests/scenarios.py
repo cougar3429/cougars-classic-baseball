@@ -268,8 +268,8 @@ CHECKS = {
   return { ok: Object.keys(res).every(runs), res }; }""",
 
 'home run chance (versions 1.25, 1.54): power swings: +25 at 55% speed or more at the fence, +10 near the lines; contact swings get no bonus': r"""() => { const res = {};
-  for (const [name, frac, x, pw] of [['50% center', 0.50, 0, 1], ['54% center', 0.54, 0, 1], ['55% center', 0.55, 0, 1], ['70% center', 0.70, 0, 1], ['50% near line', 0.50, 150, 1], ['contact 70% center', 0.70, 0, 0], ['contact 50% near line', 0.50, 150, 0]]) {
-    T.start(true); const S = T.C.S; S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; const y = x ? 115 : 200, d = Math.hypot(x, y);
+  for (const [name, frac, x, pw] of [['50% center', 0.50, 0, 1], ['54% center', 0.54, 0, 1], ['55% center', 0.55, 0, 1], ['70% center', 0.70, 0, 1], ['50% near line', 0.50, 120, 1], ['contact 70% center', 0.70, 0, 0], ['contact 50% near line', 0.50, 120, 0]]) {
+    T.start(true); const S = T.C.S; S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; const y = x ? 130 : 200, d = Math.hypot(x, y); /* near the line but fair (was 150, 115: in foul ground, never a homer since version 1.77) */
     S.bb = T.I.mkBall(x, y); S.bb.pw = !!pw; S.bb.wall = false; S.bb.v = frac * 3.6; S.spd = { ev: 3, wall: null }; T.I.batterToFirst(false); T.I.wallHit(d);
     res[name] = Math.round(S.spd.wall.ch);
   }
@@ -512,6 +512,14 @@ CHECKS = {
   res.homeSlam = hr([1, 2, 3], true); res.visSlam = hr([1, 2, 3], false); res.solo = hr([], false);
   const ok = res.homeSlam.slamfare === 1 && res.homeSlam.slamcheer === 1 && res.homeSlam.fanfare === 0 && res.homeSlam.slam && res.homeSlam.sb
     && res.visSlam.slamfare === 1 && res.visSlam.slamboo === 1 && res.visSlam.sb && res.solo.fanfare === 1 && res.solo.slamfare === 0 && !res.solo.slam && !res.solo.sb;
+  return { ok, res }; }""",
+
+"no home run off the wall in foul ground (version 1.77): fair past third or first on the line, it rolls foul to the wall and comes off it in play; one on the line at the wall can still go out": r"""() => { const res = {};
+  const go = ang => { T.start(true); const S = T.C.S; T.put([]); T.hit(ang, 3.6); S.bb.pw = true; S.spd = { ev: 3.6, wall: null }; let n = 0;
+    while (S.phase === 'batted' && !S.bb.wall && !S.bb.gone && n < 400) { T.C.tick(); n++; }
+    return { foul: S.bb.foul, wall: S.bb.wall, hr: !!S.hr, live: !!S.live, fg: +(Math.abs(S.bb.x) - S.bb.y).toFixed(1), ch: S.spd && S.spd.wall && S.spd.wall.ch }; };
+  res.left = go(47); res.right = go(-47); res.line = go(46);
+  const ok = [res.left, res.right].every(r => !r.foul && r.wall && !r.hr && r.live && r.ch === 0 && r.fg > 5.5) && res.line.hr;
   return { ok, res }; }""",
 
 'third out on a force wipes the run; on a tag it counts': r"""() => {
