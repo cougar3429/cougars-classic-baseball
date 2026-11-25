@@ -16,3 +16,6 @@ window.T = {
   toast() { return document.getElementById('tt').textContent + ' / ' + (document.getElementById('ts').hidden ? '' : document.getElementById('ts').textContent); },
   watch(n) { const out = []; let last = ''; for (let i = 0; i < n; i++) { this.C.tick(); const t = this.toast(), on = document.getElementById('toast').classList.contains('on'); if (on && t !== last) { last = t; out.push(this.C.S.t + ' ' + t + ' [' + this.rs() + ']'); } if (this.C.S.phase === 'ready') break; } return out; }
 };
+/* the next home run roll comes out low, so a test that needs the ball to go out still gets it now that no chance is 100% (version 1.80) */
+T.lowRoll = function () { const S = T.C.S; const peek = sd => { let a = (sd + 0x6D2B79F5) | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  while (peek(S.seed) >= 0.3) S.seed = (S.seed + 0x6D2B79F5) | 0; };

@@ -267,13 +267,15 @@ CHECKS = {
   const runs = k => res[k] && !/back|stays/.test(res[k]) && res[k] !== 'no fair contact';
   return { ok: Object.keys(res).every(runs), res }; }""",
 
-'home run chance (versions 1.25, 1.54): power swings: +25 at 55% speed or more at the fence, +10 near the lines; contact swings get no bonus': r"""() => { const res = {};
+'home run chance (versions 1.25, 1.54, 1.80): all chances x 0.925 (40% becomes 37%); power swings: +25 at 55% speed or more at the fence, +10 near the lines; contact swings get no bonus': r"""() => { const res = {};
   for (const [name, frac, x, pw] of [['50% center', 0.50, 0, 1], ['54% center', 0.54, 0, 1], ['55% center', 0.55, 0, 1], ['70% center', 0.70, 0, 1], ['50% near line', 0.50, 120, 1], ['contact 70% center', 0.70, 0, 0], ['contact 50% near line', 0.50, 120, 0]]) {
     T.start(true); const S = T.C.S; S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; const y = x ? 130 : 200, d = Math.hypot(x, y); /* near the line but fair (was 150, 115: in foul ground, never a homer since version 1.77) */
     S.bb = T.I.mkBall(x, y); S.bb.pw = !!pw; S.bb.wall = false; S.bb.v = frac * 3.6; S.spd = { ev: 3, wall: null }; T.I.batterToFirst(false); T.I.wallHit(d);
-    res[name] = Math.round(S.spd.wall.ch);
+    res[name] = +S.spd.wall.ch.toFixed(2);
   }
-  return { ok: res['50% center'] === 50 && res['54% center'] === 54 && res['55% center'] === 80 && res['70% center'] === 95 && res['50% near line'] === 60 && res['contact 70% center'] === 70 && res['contact 50% near line'] === 50, res }; }""",
+  /* before the 7.5% cut (version 1.80): 50, 54, 80, 95, 60, 70, 50 */
+  const want = { '50% center': 50, '54% center': 54, '55% center': 80, '70% center': 95, '50% near line': 60, 'contact 70% center': 70, 'contact 50% near line': 50 };
+  return { ok: Object.keys(want).every(k => Math.abs(res[k] - want[k] * 0.925) <= 0.6), res }; }""",
 
 "outfield throw speeds (versions 1.56, 1.64): set feet per second by fielder and base; pitcher 72, home 90; the same baseline for all three": r"""() => {
   const time = (id, base) => { T.start(true); const S = T.C.S; T.hit(0, 1); const p = S.F[id]; S.bb.x = p.x; S.bb.y = p.y; T.I.giveBall(id); S.gatherT = 0;
@@ -417,7 +419,7 @@ CHECKS = {
   T.C.tick(); res.waits.whenSafe = tadas() - t0; res.waits.stillLive = S.phase === 'batted'; T.until(() => S.phase !== 'batted', 900); T.run(5); res.waits.total = tadas() - t0;
   /* a home run: the fanfare, no ta-da */
   T.start(true); S = T.C.S; T.put([1, 2, 3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 200); S.bb.wall = false; S.bb.v = 4; T.I.batterToFirst(false);
-  t0 = tadas(); T.I.wallHit(200); T.run(400); res.hr = tadas() - t0;
+  t0 = tadas(); T.lowRoll(); T.I.wallHit(200); T.run(400); res.hr = tadas() - t0;
   return { ok: res.zeroOuts.atCross === 1 && res.zeroOuts.total === 1 && res.zeroOuts.score === 1 && res.wiped.atCross === 0 && res.wiped.total === 0 && res.wiped.score === 0
     && res.waits.atCross === 0 && res.waits.whenSafe === 1 && res.waits.stillLive && res.waits.total === 1 && res.hr === 0, res }; }""",
 
@@ -468,15 +470,15 @@ CHECKS = {
 
 'grand slam: 4 runs and the GRAND SLAM call': r"""() => { T.start(true); const S = T.C.S; T.put([1, 2, 3]); S.runners.forEach(r => { r.lead = false; r.to = null; });
   S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 200); S.bb.wall = false; S.bb.v = 4; S.spd = { ev: 4, wall: null }; T.I.batterToFirst(false);
-  const before = S.score.you; T.I.wallHit(200); const toast = T.toast(); return { ok: S.score.you === before + 4 && toast.startsWith('GRAND SLAM'), toast, runs: S.score.you - before }; }""",
+  const before = S.score.you; T.lowRoll(); T.I.wallHit(200); const toast = T.toast(); return { ok: S.score.you === before + 4 && toast.startsWith('GRAND SLAM'), toast, runs: S.score.you - before }; }""",
 
 'grand slam when the runner from third already crossed (version 1.73): stealing home on the pitch, then the ball goes out: still a grand slam, 4 runs; a walk-off too in the last inning': r"""() => { const res = {};
   const setup = (bf, last) => { T.start(bf); const S = T.C.S; if (last) { S.half = 5; S.score = { you: 1, cpu: 4 }; } T.put([1, 2, 3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); T.I.snapRunners();
     S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 120); S.bb.wall = false; S.bb.v = 4; S.spd = { ev: 4, wall: null }; T.I.batterToFirst(false);
     const r3 = S.runners.find(r => r.at === 3); r3.to = 4; r3.p = 0.97; T.until(() => r3.scored, 60); return S; };
-  let S = setup(true, false); const b0 = S.score.you, pend = S.playRuns; S.bb.x = 0; S.bb.y = 200; T.I.wallHit(200); res.mid = { pend, toast: T.toast(), now: S.score.you - b0 };
+  let S = setup(true, false); const b0 = S.score.you, pend = S.playRuns; S.bb.x = 0; S.bb.y = 200; T.lowRoll(); T.I.wallHit(200); res.mid = { pend, toast: T.toast(), now: S.score.you - b0 };
   T.until(() => S.phase !== 'result', 400); T.run(5); res.mid.total = S.score.you - b0;
-  S = setup(false, true); const pend2 = S.playRuns; S.bb.x = 0; S.bb.y = 200; T.I.wallHit(200); res.last = { pend: pend2, toast: T.toast(), wo: !!S.wo, score: S.score.you };
+  S = setup(false, true); const pend2 = S.playRuns; S.bb.x = 0; S.bb.y = 200; T.lowRoll(); T.I.wallHit(200); res.last = { pend: pend2, toast: T.toast(), wo: !!S.wo, score: S.score.you };
   return { ok: res.mid.pend === 1 && res.mid.toast.startsWith('GRAND SLAM') && res.mid.total === 4 && res.last.pend === 1 && res.last.toast.startsWith('GRAND SLAM') && /Walk-off/.test(res.last.toast) && res.last.wo && res.last.score === 5, res }; }""",
 
 "computer pickoff (version 1.74): he throws as he steps off; a runner who wasn't told to steal is never out diving back; a runner told to steal: the throw goes to the base he left and that baseman throws on to the base he's headed for": r"""() => { const res = {};
@@ -507,7 +509,7 @@ CHECKS = {
 "grand slam recognition (version 1.76): the bigger fanfare and the longer crowd (cheer at home, boos for the visitors), the scoreboard flashes GRAND SLAM, fireworks; a plain homer keeps the normal fanfare": r"""() => { const res = {}, c = n => (window.__ccb.sfxCount || {})[n] || 0;
   const hr = (bases, home) => { T.start(!home); const S = T.C.S; if (home) S.half = 1; T.put(bases); S.runners.forEach(r => { r.lead = false; r.to = null; });
     S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 200); S.bb.wall = false; S.bb.v = 4; S.spd = { ev: 4, wall: null }; T.I.batterToFirst(false);
-    const b = { f: c('fanfare'), sf: c('slamfare'), sc: c('slamcheer'), sb: c('slamboo') }; T.I.wallHit(200); T.run(30); T.C.view();
+    const b = { f: c('fanfare'), sf: c('slamfare'), sc: c('slamcheer'), sb: c('slamboo') }; T.lowRoll(); T.I.wallHit(200); T.run(30); T.C.view();
     return { fanfare: c('fanfare') - b.f, slamfare: c('slamfare') - b.sf, slamcheer: c('slamcheer') - b.sc, slamboo: c('slamboo') - b.sb, slam: !!(S.hr && S.hr.slam), sb: document.getElementById('sb').classList.contains('slam') }; };
   res.homeSlam = hr([1, 2, 3], true); res.visSlam = hr([1, 2, 3], false); res.solo = hr([], false);
   const ok = res.homeSlam.slamfare === 1 && res.homeSlam.slamcheer === 1 && res.homeSlam.fanfare === 0 && res.homeSlam.slam && res.homeSlam.sb
