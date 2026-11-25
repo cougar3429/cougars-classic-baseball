@@ -294,7 +294,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     </div>
     <label class="tip"><input type="checkbox" id="tips"> Show tips during the game</label>
     <button class="big-btn" id="start" type="button">START</button>
-    <small id="ver">Version 1.78</small>
+    <small id="ver">Version 1.79</small>
   </section>
 
   <section class="screen" id="setup" hidden>
@@ -337,7 +337,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
       </div>
     </div>
     <button class="lback" id="lback" type="button">BACK</button>
-    <small class="lver" id="lver">Version 1.78</small>
+    <small class="lver" id="lver">Version 1.79</small>
   </section>
 
   <section class="screen" id="dbg" hidden>
@@ -402,7 +402,7 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     <p>The score will be lost. The game is paused while you decide.</p>
     <div class="row"><button class="big-btn" id="qyes" type="button">QUIT TO MENU</button><button class="big-btn" id="qno" type="button" style="background:#2f6fe0">KEEP PLAYING</button></div>
     <button class="big-btn alt" id="qmove" type="button">MOVE CONTROLS</button>
-    <small class="lver" id="qver">Version 1.78</small>
+    <small class="lver" id="qver">Version 1.79</small>
   </section>
 
   <section class="screen" id="final" hidden>
@@ -462,7 +462,7 @@ var FIELDERS = [
   { id: '2B', x: 20, y: 118, r: 4.2, inf: true },
   { id: '3B', x: -50, y: 86, r: 4.2, inf: true },
   { id: 'LF', x: -69.7, y: 154.1, r: 6, inf: false }, /* 25% closer to the fence along his line from home plate: 35.6 from it, now 26.7 (user, Nov 6, version 1.55; was -66, 146) */
-  { id: 'CF', x: 0, y: 173, r: 6, inf: false }, /* 25% closer to the fence: it is at 203, he was 40 away, now 30 (user, Nov 6, version 1.51; was y 163) */
+  { id: 'CF', x: 0, y: 181, r: 6, inf: false }, /* 8 ft closer to the wall, 22 ft from it (user, Nov 25, version 1.79; was 173). Before that: 25% closer to the fence: it is at 203, he was 40 away, now 30 (user, Nov 6, version 1.51; was y 163) */
   { id: 'RF', x: 83.3, y: 144.4, r: 6, inf: false } /* the same: 34.4 from the fence, now 25.8 (user, Nov 6, version 1.55; was 79, 137) */
 ];
 /* first and third base bags sit entirely in fair territory: the outside edge lies on the foul line and the back corner is at the 90-foot point (63.6, 63.6).
@@ -1905,7 +1905,7 @@ function pivoting(id) { return S.pivot && id === S.holder; }
 function windFor(id) { return isOF(id) ? WIND_OF : stealThrow(id) ? C_WIND : pivoting(id) ? PIVOT_WIND : WIND_IF; }
 /* outfield throws (user, Nov 6, version 1.56): set speeds in feet per second by fielder and target, all from the same baseline (the right fielder's
    overall 10% cut is gone); throws to the pitcher 72, home 90. A game tick is 1/60 s, so a speed in ft/s is divided by 60 */
-var OF_FPS = { LF: { 1: 70, 2: 62, 3: 50 }, CF: { 1: 67, 2: 50, 3: 67 }, RF: { 1: 50, 2: 62, 3: 70 } }, /* left and right fielders to second 62 (user, Nov 7, version 1.64; were 67) */ OF_TO_P_FPS = 72, OF_HOME_FPS = 90;
+var OF_FPS = { LF: { 1: 70, 2: 62, 3: 50 }, CF: { 1: 67, 2: 47, 3: 67 } /* center fielder to second 47 (user, Nov 25, version 1.79; was 50) */, RF: { 1: 50, 2: 62, 3: 70 } }, /* left and right fielders to second 62 (user, Nov 7, version 1.64; were 67) */ OF_TO_P_FPS = 72, OF_HOME_FPS = 90;
 function armFor(id, base) {
   if (isOF(id)) return (base === 4 ? OF_HOME_FPS : OF_FPS[id][base] || OF_TO_P_FPS) / 60;
   if (base === 4 && id !== 'C') return IF_HOME_FPS / 60; /* infielders and the pitcher throw home at 80 ft/s (user, Nov 25, version 1.78; was 72) */
@@ -2901,7 +2901,7 @@ function frame(now) {
    as { a, b, r }: ticks a..b, r = [[tick, input], ...] where the input changes (the first entry is at a). */
 var SB_URL = 'https://vllofxlevtzdnzlfpdgr.supabase.co', SB_KEY = 'sb_publishable_ruxvfVbnWPwaM2QzUkuEYg_YBlgSCom';
 var SB_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
-var PROTO = '1.78'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
+var PROTO = '1.79'; /* only games on the same build are listed; must match the version label (1.00 was version 100) */
 var NET = {
   id: Math.random().toString(36).slice(2, 10), name: '', sb: null, lobby: null, ch: null, live: false, hosting: false, asked: null, reqs: {}, oppName: '', oppId: null, pend: null, lastP: null, changed: false,
   log: {}, oppAck: 0, lastSent: 0, lastResend: 0, stepOk: true, stallAt: 0, wait: null, WAIT_MS: 30000, waitUntil: 0, shownSec: -1,

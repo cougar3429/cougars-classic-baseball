@@ -79,10 +79,10 @@ CHECKS = {
   C.setKit({ home: { p: 'white', s: 'red' }, away: { p: 'red', s: 'white' } });
   return { ok: res.first.shown && res.first.timer === '30' && res.first.confirmOff && res.first.label === 'CONFIRM' && res.afterHome && res.ready && res.saved.home.p === 'purple' && res.saved.home.s === 'purple' && res.saved.away.p === 'pink' && res.saved.away.s === 'black' && res.toSetup
     && res.timeout.kit && res.timeout.closed && res.timeout.setup && !res.inGame.bad && res.inGame.cpuColors >= 4 && res.inGame.sb === 'rgb(46, 158, 79)' && res.inGame.coach, res }; }""",
-'outfielder spots (versions 1.51, 1.55): each 25% closer to the fence than before, along his line from home plate': r"""() => { T.start(false); const S = T.C.S; T.until(() => S.phase === 'ready', 600);
+'outfielder spots (versions 1.51, 1.55, 1.79): left and right fielders 25% closer to the fence than before, along their lines from home plate; center fielder 22 ft from it (1.79)': r"""() => { T.start(false); const S = T.C.S; T.until(() => S.phase === 'ready', 600);
   const gap = id => { const f = S.F[id], d = Math.hypot(f.x, f.y), u = f.x / d; return +(203 - 42 * u * u - d).toFixed(1); };
   const res = { LF: gap('LF'), CF: gap('CF'), RF: gap('RF') };
-  return { ok: Math.abs(res.CF - 30) < 0.2 && Math.abs(res.LF - 26.7) < 0.2 && Math.abs(res.RF - 25.8) < 0.2, toFence: res, was: { LF: 35.6, CF: 40, RF: 34.4 } }; }""",
+  return { ok: Math.abs(res.CF - 22) < 0.2 && Math.abs(res.LF - 26.7) < 0.2 && Math.abs(res.RF - 25.8) < 0.2, toFence: res, was: { LF: 35.6, CF: 40, RF: 34.4 } }; }""",
 'bat break (version 1.48): every strikeout the batter stays in the box and breaks his bat (over the knee or slammed down), with one snap sound; gone for the next batter': r"""() => { const C = window.__ccb, res = { kinds: {}, snaps: 0, ks: 0, drawn: 0 };
   for (let g = 0; g < 12; g++) { T.start(true); const S = C.S; S.seed = 300 + g; T.until(() => S.phase === 'ready', 600); S.s = 2; S.b = 0; S.runners = [];
     const s0 = C.sfxCount.snap || 0; T.until(() => S.brk || S.outs > 0 || S.b > 0, 1200); /* you never swing: a called strike three, or a ball */
@@ -280,7 +280,7 @@ CHECKS = {
     S.thr = null; ['1B', '2B', '3B'].forEach(f => { S.F[f].x = 200; S.F[f].y = 200; });
     S.queued = null; S.animStart = null; S.quick = true; T.I.giveBall(id); S.gatherT = 0; S.windT = 1; S.queued = base; let n = 0;
     for (; n < 400; n++) { T.C.tick(); if (S.thr && S.thr.sp) return Math.round(S.thr.sp * 60); } return null; };
-  const want = { LF: { 1: 70, 2: 62, 3: 50, 4: 90, P: 72 }, CF: { 1: 67, 2: 50, 3: 67, 4: 90, P: 72 }, RF: { 1: 50, 2: 62, 3: 70, 4: 90, P: 72 } }, got = {}, bad = [];
+  const want = { LF: { 1: 70, 2: 62, 3: 50, 4: 90, P: 72 }, CF: { 1: 67, 2: 47, 3: 67, 4: 90, P: 72 }, RF: { 1: 50, 2: 62, 3: 70, 4: 90, P: 72 } }, got = {}, bad = [];
   for (const id of ['LF', 'CF', 'RF']) { got[id] = {}; for (const b of [1, 2, 3, 4, 'P']) { got[id][b] = time(id, b); if (got[id][b] !== want[id][b]) bad.push(id + '>' + b + ' ' + got[id][b]); } }
   return { ok: bad.length === 0, bad, fps: got }; }""",
 
@@ -532,6 +532,8 @@ CHECKS = {
   const fire = () => document.dispatchEvent(new Event('visibilitychange'));
   hid = false; fire(); res.before = T.I.murmurPlaying(); hid = true; fire(); res.hidden = T.I.murmurPlaying(); hid = false; fire(); res.back = T.I.murmurPlaying();
   delete document.hidden; return { ok: res.before && !res.hidden && res.back, res }; }""",
+
+"center fielder starts 22 ft from the wall, 181 ft from home (version 1.79)": r"""() => { T.start(true); const S = T.C.S; T.run(2); const cf = S.F.CF; return { ok: cf.x === 0 && cf.y === 181, at: [cf.x, cf.y] }; }""",
 
 'third out on a force wipes the run; on a tag it counts': r"""() => {
   T.start(true); let S = T.C.S; T.put([3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); S.outs = 2; T.I.snapRunners(); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 60); T.I.batterToFirst(false);
