@@ -522,6 +522,17 @@ CHECKS = {
   const ok = [res.left, res.right].every(r => !r.foul && r.wall && !r.hr && r.live && r.ch === 0 && r.fg > 5.5) && res.line.hr;
   return { ok, res }; }""",
 
+"infielder and pitcher throws home 80 ft/s, double play pivot 80 ft/s (version 1.78); other infield throws stay 72, outfielders and catcher unchanged": r"""() => { T.start(true); const S = T.C.S; const f = (id, b) => Math.round(T.I.armFor(id, b) * 60 * 10) / 10;
+  const home = ['P', '1B', '2B', 'SS', '3B'].map(id => f(id, 4)), first = ['P', '2B', 'SS', '3B'].map(id => f(id, 1));
+  S.pivot = true; S.holder = 'SS'; const pv = f('SS', 1); S.pivot = false; S.holder = null; const res = { home, first, cf: f('CF', 4), c2: f('C', 2), pivot: pv };
+  return { ok: home.every(v => v === 80) && first.every(v => v === 72) && res.cf === 90 && res.c2 === 68.4 && res.pivot === 80, res }; }""",
+
+"murmur stops when the game is in the background and comes back on return (version 1.78)": r"""() => { T.start(true); const S = T.C.S; T.run(5); const res = {};
+  let hid = false; Object.defineProperty(document, 'hidden', { configurable: true, get: () => hid });
+  const fire = () => document.dispatchEvent(new Event('visibilitychange'));
+  hid = false; fire(); res.before = T.I.murmurPlaying(); hid = true; fire(); res.hidden = T.I.murmurPlaying(); hid = false; fire(); res.back = T.I.murmurPlaying();
+  delete document.hidden; return { ok: res.before && !res.hidden && res.back, res }; }""",
+
 'third out on a force wipes the run; on a tag it counts': r"""() => {
   T.start(true); let S = T.C.S; T.put([3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); S.outs = 2; T.I.snapRunners(); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 60); T.I.batterToFirst(false);
   let r3 = S.runners.find(r => r.at === 3); r3.to = 4; r3.p = 0.999; S.playRuns = 0; T.I.moveRunners(); T.I.runnerOut(S.batR, 'Forced out at first', true); const afterForce = S.score.you;
