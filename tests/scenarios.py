@@ -521,7 +521,7 @@ CHECKS = {
     while (S.phase === 'batted' && !S.bb.wall && !S.bb.gone && n < 400) { T.C.tick(); n++; }
     return { foul: S.bb.foul, wall: S.bb.wall, hr: !!S.hr, live: !!S.live, fg: +(Math.abs(S.bb.x) - S.bb.y).toFixed(1), ch: S.spd && S.spd.wall && S.spd.wall.ch }; };
   res.left = go(47); res.right = go(-47); res.line = go(46);
-  const ok = [res.left, res.right].every(r => !r.foul && r.wall && !r.hr && r.live && r.ch === 0 && r.fg > 5.5) && res.line.hr;
+  const ok = [res.left, res.right].every(r => !r.foul && r.wall && !r.hr && r.live && r.ch === 0 && r.fg > 5.5) && res.line.ch > 90; /* on the chalk: still a home run chance (92.5% since version 1.80, so not certain) */
   return { ok, res }; }""",
 
 "infielder and pitcher throws home 80 ft/s, double play pivot 80 ft/s (version 1.78); other infield throws stay 72, outfielders and catcher unchanged": r"""() => { T.start(true); const S = T.C.S; const f = (id, b) => Math.round(T.I.armFor(id, b) * 60 * 10) / 10;
@@ -536,6 +536,31 @@ CHECKS = {
   delete document.hidden; return { ok: res.before && !res.hidden && res.back, res }; }""",
 
 "center fielder starts 22 ft from the wall, 181 ft from home (version 1.79)": r"""() => { T.start(true); const S = T.C.S; T.run(2); const cf = S.F.CF; return { ok: cf.x === 0 && cf.y === 181, at: [cf.x, cf.y] }; }""",
+
+"switch hitting (version 1.81): the red button on the Game Paused screen flips your batter at the plate between pitches, shows his side, greyed when fielding or mid-pitch; new batter back to right; lefty hits mirror; about 2 of 9 computer batters bat left": r"""() => { const res = {};
+  T.start(true); let S = T.C.S; T.until(() => S.phase === 'ready', 600); document.getElementById('menu').hidden = false; document.getElementById('menu').click();
+  const q = document.getElementById('qsh'), lab = () => document.getElementById('qshl').textContent;
+  res.start = [S.lefty, q.disabled, lab()]; q.click(); res.flip = [S.lefty, lab()]; q.click(); res.back = [S.lefty, lab()]; q.click();
+  document.getElementById('qno').click();
+  /* the at-bat ends: a new batter */
+  const t0 = S.t; S.phase = 'result'; S.after = 'ab'; S.rt = 1; T.until(() => S.phase === 'ready' && S.t > t0 + 2, 600); res.nextBatter = S.lefty;
+  /* mid-pitch it is greyed and does nothing */
+  S.phase = 'pitch'; S.ball = { fx: 0, fy: 20, sp: 1, lv: 0 }; document.getElementById('menu').click(); res.midPitch = [q.disabled, S.lefty]; q.click(); res.midPitch.push(S.lefty); document.getElementById('qno').click();
+  /* fielding: greyed */
+  T.start(false); S = T.C.S; T.until(() => S.phase === 'ready', 600); document.getElementById('menu').click(); res.fielding = [q.disabled, lab()]; document.getElementById('qno').click();
+  /* the same swing from each side goes the mirror way */
+  const swing = lefty => { T.start(true); const S = T.C.S; T.until(() => S.phase === 'ready', 600); S.lefty = lefty; S.seed = 77;
+    S.phase = 'pitch'; S.ball = { fx: -1, fy: 3.0 + 4, sp: 1.2, lv: 0, crossed: false }; S.sw = { t: 4, type: 'normal', hit: false, miss: false, ct: 4, len: 16 }; T.I.tryContact();
+    return +(Math.atan2(-S.bb.ux, S.bb.uy) * 180 / Math.PI).toFixed(2); };
+  res.angR = swing(false); res.angL = swing(true);
+  /* the 2-player input carries the switch */
+  res.pack = T.I.unpackIn(T.I.packIn({ dir: null, btn: false, vx: 0, vy: 0, sh: true })).sh === true && T.I.unpackIn(T.I.packIn({ dir: null, btn: false })).sh === false;
+  /* computer batters */
+  let n = 0, l = 0; T.start(false); S = T.C.S; for (let i = 0; i < 900; i++) { S.lefty = null; S.phase = 'ready'; T.C.tick(); if (S.lefty != null) { n++; if (S.lefty) l++; } } res.cpuLeft = +(l / n).toFixed(3);
+  const ok = res.start[0] === false && res.start[1] === false && res.start[2] === 'BATS RIGHT' && res.flip[0] === true && res.flip[1] === 'BATS LEFT' && res.back[0] === false
+    && res.nextBatter === false && res.midPitch[0] === true && res.midPitch[1] === res.midPitch[2] && res.fielding[0] === true
+    && res.angR !== 0 && Math.abs(res.angR + res.angL) < 0.01 && res.pack && Math.abs(res.cpuLeft - 2 / 9) < 0.05;
+  return { ok, res }; }""",
 
 'third out on a force wipes the run; on a tag it counts': r"""() => {
   T.start(true); let S = T.C.S; T.put([3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); S.outs = 2; T.I.snapRunners(); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 60); T.I.batterToFirst(false);

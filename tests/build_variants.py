@@ -15,7 +15,7 @@ GAME = HERE.parent / 'index.html'
 OUT = HERE / 'build'
 
 # internal functions the scenario scripts call through window.__ccbi
-HOOKS = ['armFor', 'murmurPlaying', 'runnerOut', 'foulReturn', 'startTrot', 'commitRuns', 'endLive', 'batterToFirst', 'moveRunners',
+HOOKS = ['armFor', 'tryContact', 'packIn', 'unpackIn', 'switchOk', 'murmurPlaying', 'runnerOut', 'foulReturn', 'startTrot', 'commitRuns', 'endLive', 'batterToFirst', 'moveRunners',
          'settleRunners', 'snapRunners', 'resetPlay', 'mkBall', 'homeWins', 'wallHit', 'giveBall', 'takeLeads',
          'gameOver', 'afterResult', 'callPick', 'pickSettled', 'endGame', 'wildPitch', 'flipStart', 'flipOpp', 'flipStop', 'bobbleP', 'brkOn', 'moveToward']
 
