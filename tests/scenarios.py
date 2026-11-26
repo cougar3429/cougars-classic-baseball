@@ -564,6 +564,12 @@ CHECKS = {
 
 "computer aim up to 5 ft early or late (version 1.82; was 4.6)": r"""() => { return { ok: /var aimUnits = \(rnd\(\) \* 2 - 1\) \* 5;/.test(T.src || document.documentElement.innerHTML) }; }""",
 
+"scoreboard third out light (version 1.84): it lights at the third out, and all three go dark for the next half-inning": r"""() => { T.start(true); const S = T.C.S; T.until(() => S.phase === 'ready', 600); const on = () => document.querySelectorAll('#sb i.o.on').length;
+  S.outs = 2; S.s = 2; const res = { lights: document.querySelectorAll('#sb i.o').length };
+  S.outs = 3; /* the third out ends the half at once */ S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; T.I.endLive('out', 'Struck out');
+  res.atThird = on(); T.until(() => S.half === 1 && S.phase === 'ready', 900); res.nextHalf = on();
+  return { ok: res.lights === 3 && res.atThird === 3 && res.nextHalf === 0, res }; }""",
+
 'third out on a force wipes the run; on a tag it counts': r"""() => {
   T.start(true); let S = T.C.S; T.put([3]); S.runners.forEach(r => { r.lead = false; r.to = null; }); S.outs = 2; T.I.snapRunners(); S.phase = 'batted'; S.live = { kind: 'hit', still: 0 }; S.bb = T.I.mkBall(0, 60); T.I.batterToFirst(false);
   let r3 = S.runners.find(r => r.at === 3); r3.to = 4; r3.p = 0.999; S.playRuns = 0; T.I.moveRunners(); T.I.runnerOut(S.batR, 'Forced out at first', true); const afterForce = S.score.you;
