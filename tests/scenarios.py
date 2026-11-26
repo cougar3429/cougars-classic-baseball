@@ -383,7 +383,7 @@ CHECKS = {
   return { ok: !bad.length && cpuHomeOuts === 6, cases: n, cpuHomeOuts, bad }; }""",
 
 "contact and power speeds (versions 1.53, 1.58): each swing lands inside its set range for the pitch speed; 18% of power swings are mishits": r"""() => { const res = { n: 0, bad: [], mis: 0, pow: 0 };
-  const R = { contact: [[0.55, 0.67], [0.68, 0.79]], power: [[0.60, 0.73], [0.74, 0.98]], mishit: [[0.25 / 0.9, 0.32 / 0.9], [0.30 / 0.9, 0.38 / 0.9]] }; /* version 1.58 */
+  const R = { contact: [[0.55, 0.67], [0.62, 0.72]], power: [[0.60, 0.73], [0.74, 0.98]], mishit: [[0.25 / 0.9, 0.32 / 0.9], [0.30 / 0.9, 0.38 / 0.9]] }; /* version 1.58; contact off the fastest pitch 62-72 since 1.83 */
   for (let i = 0; i < 240; i++) { T.start(true); const S = T.C.S; S.seed = 7000 + i; S.cpuP = null; const power = i % 2 === 1;
     T.until(() => S.phase === 'pitch' && S.ball.fy <= 20 - (i % 20), 900); if (S.phase !== 'pitch') continue; let sp = S.ball.sp; T.press(power ? 'u' : null);
     for (let k = 0; k < 40 && !S.bb; k++) { if (S.ball) sp = S.ball.sp; T.C.tick(); } if (!S.bb || !S.sw || S.sw.type === 'bunt' || !(S.bb.ev > 0)) continue; res.n++; /* pitch speed at contact (the pitcher can still speed it up) */
